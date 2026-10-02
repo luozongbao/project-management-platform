@@ -132,4 +132,59 @@ function formatDateForInput($utc_datetime) {
 function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
+
+// ---------------------------------------------------------------------------
+// Client share / project code helpers (added 2026-10-03)
+// ---------------------------------------------------------------------------
+
+// Allowed currencies for project budgets.
+function allowedCurrencies() {
+    return ['THB', 'USD', 'CNY', 'JPY', 'SGD', 'EUR'];
+}
+
+// Validate a currency code against the whitelist.
+function isAllowedCurrency($code) {
+    return in_array(strtoupper((string)$code), allowedCurrencies(), true);
+}
+
+// Generate a random 5-5-5 alpha-numeric share code like "AX498-99ZB2-92C3J".
+// Uses only uppercase letters + digits, excluding easily-confused chars (0/O, 1/I/L).
+function generateShareCode() {
+    // Avoid 0/O, 1/I/L for readability.
+    $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    $maxIdx = strlen($alphabet) - 1;
+    $groups = [];
+    for ($g = 0; $g < 3; $g++) {
+        $buf = '';
+        for ($i = 0; $i < 5; $i++) {
+            $buf .= $alphabet[random_int(0, $maxIdx)];
+        }
+        $groups[] = $buf;
+    }
+    return implode('-', $groups);
+}
+
+// Build the absolute URL the client will use to view their project dashboard.
+// Configurable via APP_URL so it works behind a reverse proxy / different host.
+function buildClientShareUrl($share_code) {
+    return rtrim(APP_URL, '/') . '/client/?code=' . rawurlencode($share_code);
+}
+
+// Format a money amount with the project currency. No FX conversion — the
+// stored amount is taken at face value in the project's chosen currency.
+function formatMoney($amount, $currency) {
+    if ($amount === null || $amount === '' || $currency === null || $currency === '') {
+        return '';
+    }
+    $symbol = [
+        'THB' => '฿',
+        'USD' => '$',
+        'CNY' => '¥',
+        'JPY' => '¥',
+        'SGD' => 'S$',
+        'EUR' => '€',
+    ][strtoupper($currency)] ?? '';
+    $decimals = (strtoupper($currency) === 'JPY') ? 0 : 2;
+    return $symbol . number_format((float)$amount, $decimals) . ' ' . strtoupper($currency);
+}
 ?>
