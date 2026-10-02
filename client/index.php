@@ -9,11 +9,21 @@
  *
  * The code itself is the credential — no login. Anyone with the code can
  * view a read-only progress dashboard.
+ *
+ * Localization: ENG (default) / 中文. Choose via ?lang=, browser header,
+ * or the toggle on this form. Choice persists in a 1-year cookie.
  */
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/lang.php';
+
+// Persist ?lang= into the cookie so subsequent navigations remember it.
+if (isset($_GET['lang']) && in_array($_GET['lang'], client_supported_langs(), true)) {
+    client_set_lang_cookie($_GET['lang']);
+}
+$lang = client_current_lang();
 
 $db = Database::getInstance();
 
@@ -33,7 +43,7 @@ if ($code !== '') {
             [$code]
         );
         if ($exists) {
-            header('Location: dashboard.php?code=' . rawurlencode($code));
+            header('Location: dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
             exit();
         }
     }
@@ -46,29 +56,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $code = strtoupper(trim($_POST['code'] ?? ''));
 
     if ($code === '') {
-        $error = 'Please enter your project code.';
+        $error = t('err.empty_code');
     } elseif (!isValidShareCodeFormat($code)) {
-        $error = 'That doesn\'t look like a valid project code. Codes look like AX498-99ZB2-92C3J.';
+        $error = t('err.bad_format');
     } else {
         $exists = $db->fetchOne(
             "SELECT 1 AS x FROM projects WHERE share_code = ?",
             [$code]
         );
         if (!$exists) {
-            $error = 'No project found for that code. Please double-check it.';
+            $error = t('err.no_project');
         } else {
-            header('Location: dashboard.php?code=' . rawurlencode($code));
+            header('Location: dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
             exit();
         }
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= e($lang) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Client Portal — <?= e(APP_NAME) ?></title>
+    <title><?= e(t('landing.title')) ?> — <?= e(APP_NAME) ?></title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="assets/client.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -80,15 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="client-brand">
             <i class="fas fa-project-diagram"></i>
             <h1><?= e(APP_NAME) ?></h1>
-            <p class="client-tagline">Client Project Portal</p>
+            <p class="client-tagline"><?= e(t('landing.tagline')) ?></p>
         </div>
 
-        <h2><i class="fas fa-key"></i> Enter Your Project Code</h2>
+        <h2><i class="fas fa-key"></i> <?= e(t('landing.heading')) ?></h2>
 
-        <p class="client-intro">
-            Paste the project code from your invitation email, or open the direct link
-            your project manager sent you.
-        </p>
+        <p class="client-intro"><?= e(t('landing.intro')) ?></p>
 
         <?php if ($error): ?>
             <div class="alert alert-danger"><?= e($error) ?></div>
@@ -96,28 +103,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" action="" class="client-form" autocomplete="off">
             <div class="form-group">
-                <label for="code">Project Code</label>
+                <label for="code"><?= e(t('landing.code_label')) ?></label>
                 <input
                     type="text"
                     id="code"
                     name="code"
-                    placeholder="AAAAA-AAAAA-AAAAA"
+                    placeholder="<?= e(t('landing.code_placeholder')) ?>"
                     value="<?= e($code) ?>"
                     required
                     autofocus
                     pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"
                     title="Format: 5-5-5 alphanumeric, e.g. AX498-99ZB2-92C3J"
                     style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.15rem;">
-                <small>Format: 5 characters, dash, 5, dash, 5.</small>
+                <small><?= e(t('landing.code_help')) ?></small>
             </div>
             <button type="submit" class="btn btn-primary btn-block">
-                <i class="fas fa-arrow-right"></i> View My Project
+                <i class="fas fa-arrow-right"></i> <?= e(t('landing.submit')) ?>
             </button>
         </form>
 
-        <p class="client-foot">
-            Lost your code? Please contact your project manager.
-        </p>
+        <p class="client-foot"><?= e(t('landing.foot')) ?></p>
+
+        <div class="lang-switch" aria-label="<?= e(t('landing.lang_label')) ?>">
+            <span class="lang-switch-label"><i class="fas fa-globe"></i> <?= e(t('landing.lang_label')) ?>:</span>
+            <?php foreach (client_other_langs() as $code2 => $label): ?>
+                <a href="<?= e(client_lang_url($code2)) ?>" class="lang-switch-link"><?= e($label) ?></a>
+            <?php endforeach; ?>
+        </div>
     </div>
 </main>
 
