@@ -384,7 +384,7 @@ $show_nav = true;
     background: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
     display: flex;
-    justify-content: between;
+    justify-content: space-between;
     align-items: center;
 }
 
@@ -519,7 +519,7 @@ $show_nav = true;
 
 .section-footer {
     padding: 15px 25px;
-    text-align: center;
+    text-align: right;
     background: #f8f9fa;
     border-top: 1px solid #dee2e6;
 }
@@ -596,6 +596,16 @@ $show_nav = true;
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .section-header .btn {
+        align-self: flex-end;
     }
     
     .project-progress, .deadline-progress, .task-status {

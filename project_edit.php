@@ -14,38 +14,89 @@ $errors = [];
 if ($_POST) {
     $name = sanitize($_POST['name'] ?? '');
     $description = sanitize($_POST['description'] ?? '');
+    $scope = sanitize($_POST['scope'] ?? '');
+    $budget_amount_raw = trim($_POST['budget_amount'] ?? '');
+    $currency = strtoupper(trim($_POST['currency'] ?? ''));
     $expected_completion_date = $_POST['expected_completion_date'] ?? null;
     $completion_date = $_POST['completion_date'] ?? null;
     $status = $_POST['status'] ?? 'not_started';
-    
-    // Convert dates to UTC
-    if ($expected_completion_date) {
+
+    // Convert dates to UTC and handle empty values
+    if ($expected_completion_date && trim($expected_completion_date) !== '') {
         $expected_completion_date = toUTC($expected_completion_date . ' 00:00:00');
+    } else {
+        $expected_completion_date = null;
     }
-    if ($completion_date) {
+    if ($completion_date && trim($completion_date) !== '') {
         $completion_date = toUTC($completion_date . ' 00:00:00');
+    } else {
+        $completion_date = null;
     }
-    
+
+    // Budget amount parsing — store NULL when blank.
+    $budget_amount = null;
+    if ($budget_amount_raw !== '') {
+        // Accept "1,234.56" as well as plain "1234.56".
+        $normalized = str_replace([',', ' '], ['', ''], $budget_amount_raw);
+        if (is_numeric($normalized) && (float)$normalized >= 0) {
+            $budget_amount = round((float)$normalized, 2);
+        } else {
+            $errors[] = "Budget must be a positive number.";
+        }
+    }
+    // Currency: blank OR one of the allowed codes.
+    if ($currency === '') {
+        $currency = null;
+    } elseif (!isAllowedCurrency($currency)) {
+        $errors[] = "Currency must be one of: " . implode(', ', allowedCurrencies()) . '.';
+    }
+    // If amount provided but currency missing (or vice-versa), warn.
+    if ($budget_amount !== null && $currency === null) {
+        $errors[] = "Please choose a currency for the budget, or leave the amount blank.";
+    }
+    if ($budget_amount === null && $currency !== null) {
+        $errors[] = "Please enter a budget amount, or choose no currency.";
+    }
+
     // Validation
     if (empty($name)) $errors[] = "Project name is required";
-    
+
     if (empty($errors)) {
         try {
             if ($project_id) {
-                // Update existing project
-                $db->query(
-                    "UPDATE projects SET name = ?, description = ?, expected_completion_date = ?, 
-                     completion_date = ?, status = ?, updated_at = NOW() WHERE id = ? AND responsible_person_id = ?",
-                    [$name, $description, $expected_completion_date, $completion_date, $status, $project_id, $user_id]
+                // Update existing project (share_code is intentionally NOT regenerated)
+                $db->execute(
+                    "UPDATE projects SET name = ?, description = ?, scope = ?, budget_amount = ?,
+                     currency = ?, expected_completion_date = ?, completion_date = ?, status = ?,
+                     updated_at = NOW() WHERE id = ? AND responsible_person_id = ?",
+                    [$name, $description, $scope, $budget_amount, $currency,
+                     $expected_completion_date, $completion_date, $status, $project_id, $user_id]
                 );
                 redirect('project_detail.php?id=' . $project_id, 'Project updated successfully!', 'success');
             } else {
-                // Create new project
-                $db->query(
-                    "INSERT INTO projects (name, description, responsible_person_id, expected_completion_date, 
-                     completion_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
-                    [$name, $description, $user_id, $expected_completion_date, $completion_date, $status]
-                );
+                // Create new project — auto-generate share_code (with one retry on
+                // the astronomically-unlikely collision).
+                $share_code = generateShareCode();
+                try {
+                    $db->execute(
+                        "INSERT INTO projects (name, description, scope, budget_amount, currency,
+                         share_code, responsible_person_id, expected_completion_date,
+                         completion_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                        [$name, $description, $scope, $budget_amount, $currency,
+                         $share_code, $user_id, $expected_completion_date,
+                         $completion_date, $status]
+                    );
+                } catch (Exception $e) {
+                    $share_code = generateShareCode();
+                    $db->execute(
+                        "INSERT INTO projects (name, description, scope, budget_amount, currency,
+                         share_code, responsible_person_id, expected_completion_date,
+                         completion_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                        [$name, $description, $scope, $budget_amount, $currency,
+                         $share_code, $user_id, $expected_completion_date,
+                         $completion_date, $status]
+                    );
+                }
                 $new_project_id = $db->lastInsertId();
                 redirect('project_detail.php?id=' . $new_project_id, 'Project created successfully!', 'success');
             }
@@ -141,8 +192,46 @@ $show_nav = true;
                             <i class="fas fa-align-left"></i>
                             Project Description
                         </label>
-                        <textarea id="description" name="description" rows="4" 
-                                  placeholder="Describe the project goals, scope, and requirements..."><?= e($project['description'] ?? $_POST['description'] ?? '') ?></textarea>
+                        <textarea id="description" name="description" rows="4"
+                                      placeholder="Describe the project goals, scope, and requirements..."><?= e($project['description'] ?? $_POST['description'] ?? '') ?></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scope">
+                            <i class="fas fa-list-check"></i>
+                            Project Scope (Requirements)
+                        </label>
+                        <textarea id="scope" name="scope" rows="5"
+                                  placeholder="One requirement per line. e.g.&#10;Design landing page&#10;Build checkout flow&#10;Deploy to production"><?= e($project['scope'] ?? $_POST['scope'] ?? '') ?></textarea>
+                        <small>Each line is shown as a separate item on the client dashboard.</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="budget_amount">
+                                <i class="fas fa-coins"></i>
+                                Project Budget
+                            </label>
+                            <input type="number" step="0.01" min="0" id="budget_amount" name="budget_amount"
+                                   value="<?= e($project['budget_amount'] ?? $_POST['budget_amount'] ?? '') ?>"
+                                   placeholder="0.00">
+                            <small>Leave blank for no budget.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="currency">
+                                <i class="fas fa-money-bill"></i>
+                                Currency
+                            </label>
+                            <select id="currency" name="currency">
+                                <?php $sel = $project['currency'] ?? $_POST['currency'] ?? ''; ?>
+                                <option value="" <?= $sel === '' ? 'selected' : '' ?>>— No budget —</option>
+                                <?php foreach (allowedCurrencies() as $code): ?>
+                                    <option value="<?= $code ?>" <?= strtoupper((string)$sel) === $code ? 'selected' : '' ?>>
+                                        <?= $code ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-row">

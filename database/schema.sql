@@ -27,13 +27,19 @@ CREATE TABLE projects (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    scope TEXT,                                       -- Project scope / list of requirements (one per line)
+    budget_amount DECIMAL(15,2) NULL,                 -- Project budget in user-defined currency
+    currency CHAR(3) NULL,                            -- THB, USD, CNY, JPY, SGD, EUR
+    share_code CHAR(17) NULL,                         -- Public client share code, format AAAA0-AAAA0-AAAA0 (e.g. AX498-99ZB2-92C3J)
     responsible_person_id INT NOT NULL,
     expected_completion_date DATE,
     completion_date DATE,
     status ENUM('not_started', 'in_progress', 'completed', 'on_hold') DEFAULT 'not_started',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (responsible_person_id) REFERENCES users(id)
+    FOREIGN KEY (responsible_person_id) REFERENCES users(id),
+    UNIQUE KEY uq_projects_share_code (share_code),
+    CONSTRAINT chk_projects_currency CHECK (currency IS NULL OR currency IN ('THB','USD','CNY','JPY','SGD','EUR'))
 );
 
 -- Global contacts table (for all contacts across projects)
@@ -43,6 +49,7 @@ CREATE TABLE contacts (
     description TEXT,
     mobile VARCHAR(20),
     email VARCHAR(255),
+    phone VARCHAR(20),
     wechat VARCHAR(100),
     line_id VARCHAR(100),
     facebook VARCHAR(255),
@@ -90,6 +97,7 @@ CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
 CREATE INDEX idx_projects_responsible ON projects(responsible_person_id);
 CREATE INDEX idx_projects_status ON projects(status);
+CREATE INDEX idx_projects_share_code ON projects(share_code);
 CREATE INDEX idx_project_contacts_project ON project_contacts(project_id);
 CREATE INDEX idx_project_contacts_contact ON project_contacts(contact_id);
 CREATE INDEX idx_tasks_project ON tasks(project_id);

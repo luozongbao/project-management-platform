@@ -1,0 +1,304 @@
+/* client/assets/client.css
+ * Styles for the public client portal. Sits alongside the main app's
+ * assets/css/style.css (which provides base resets + .card + .btn + .alert).
+ */
+
+/* Make the main app's .footer + .navbar invisible — public pages don't have them
+   rendered into the DOM, but in case shared classes ever collide, we keep things tidy. */
+
+.client-body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #2b2f33;
+}
+
+.client-shell {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 30px 16px 60px;
+}
+
+.client-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.15);
+    padding: 40px 32px;
+    max-width: 460px;
+    margin: 60px auto;
+}
+
+.client-brand {
+    text-align: center;
+    margin-bottom: 24px;
+}
+.client-brand i {
+    font-size: 38px;
+    color: #007bff;
+    display: block;
+    margin-bottom: 8px;
+}
+.client-brand h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: #222;
+}
+.client-tagline {
+    color: #777;
+    margin: 4px 0 0;
+    font-size: 0.95rem;
+}
+
+.client-card h2 {
+    margin: 0 0 14px;
+    font-size: 1.1rem;
+    color: #333;
+}
+.client-card h2 i {
+    color: #007bff;
+    margin-right: 8px;
+}
+
+.client-intro {
+    color: #555;
+    margin-bottom: 22px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.client-form .form-group { margin-bottom: 18px; }
+.client-form label { font-weight: 600; margin-bottom: 6px; display:block; color:#333; }
+.client-form small { color: #777; }
+.client-foot {
+    text-align: center;
+    color: #777;
+    font-size: 0.85rem;
+    margin-top: 24px;
+}
+
+/* Header (dashboard page) */
+.client-header {
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+}
+.client-header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.client-header .client-brand { display: flex; align-items: center; gap: 10px; margin: 0; }
+.client-header .client-brand i { font-size: 22px; color: #007bff; margin: 0; }
+.client-header .client-brand span { color:#222; font-weight:600; font-size:1.05rem; }
+.client-header code {
+    background: #f1f3f5;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: monospace;
+    color: #007bff;
+    letter-spacing: 0.04em;
+}
+
+/* Section cards */
+.client-section { margin-bottom: 20px; padding: 24px; }
+.section-title { margin: 0 0 16px; color: #333; font-size: 1.15rem; }
+.section-title i { color: #007bff; margin-right: 8px; }
+
+/* Project header (within dashboard card) */
+.project-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.project-header h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    color: #222;
+}
+.project-header h1 i { color: #007bff; margin-right: 10px; }
+.project-description { color: #555; line-height: 1.55; margin: 0 0 18px; }
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: #e9ecef;
+    color: #495057;
+    white-space: nowrap;
+}
+.status-badge.big { padding: 6px 14px; font-size: 0.9rem; }
+.status-badge.status-not_started { background:#e2e3e5; color:#41464b; }
+.status-badge.status-in_progress  { background:#cfe2ff; color:#084298; }
+.status-badge.status-completed    { background:#d1e7dd; color:#0f5132; }
+.status-badge.status-on_hold      { background:#fff3cd; color:#664d03; }
+
+/* Info grids */
+.project-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+    margin-top: 18px;
+}
+.info-heading {
+    margin: 0 0 12px 0;
+    font-size: 1rem;
+    color: #333;
+    border-bottom: 2px solid #f1f3f5;
+    padding-bottom: 8px;
+}
+.info-heading i { color: #007bff; margin-right: 8px; }
+
+.kv-list { list-style: none; margin: 0; padding: 0; }
+.kv-list li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #f1f3f5;
+    font-size: 0.95rem;
+}
+.kv-list li:last-child { border-bottom: none; }
+.kv-list .k { color: #777; }
+.kv-list .v { color: #222; font-weight: 500; text-align: right; }
+
+.budget-amount {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #28a745;
+}
+
+/* Progress */
+.big-progress { display: flex; align-items: center; gap: 14px; }
+.progress-bar.big { height: 14px; }
+.big-progress-number { font-size: 1.4rem; font-weight: 700; color: #007bff; }
+
+/* Scope */
+.scope-list { margin: 0; padding-left: 20px; color: #444; }
+.scope-list li { margin: 6px 0; line-height: 1.5; }
+
+/* Tasks */
+.task-tree, .task-tree ul { list-style: none; margin: 0; padding: 0; }
+.task-tree.root { padding-left: 0; }
+.task-item {
+    border: 1px solid #eef0f2;
+    border-radius: 10px;
+    margin: 8px 0;
+    background: #fff;
+    transition: box-shadow .15s;
+}
+.task-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
+.task-line {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 12px 14px;
+}
+.tree-indent {
+    color: #c7ccd1;
+    font-family: monospace;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+.task-body { flex: 1; min-width: 0; }
+.task-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.task-name { font-weight: 600; color: #222; font-size: 1rem; }
+.task-desc { color: #555; font-size: 0.9rem; margin: 4px 0 8px; }
+.task-meta {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    color: #666; font-size: 0.85rem; margin-bottom: 8px;
+}
+.task-meta i { color: #999; margin-right: 4px; }
+.task-progress {
+    display: flex; align-items: center; gap: 10px;
+}
+.task-progress .progress-bar { flex: 1; }
+.progress-text { font-size: 0.85rem; color: #555; min-width: 42px; text-align: right; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .client-card { padding: 28px 20px; margin: 30px 16px; }
+    .project-summary-grid { grid-template-columns: 1fr; gap: 22px; }
+    .project-header { flex-direction: column; }
+    .client-shell { padding: 16px 12px 40px; }
+}
+
+/* Reuse + tweak a couple of main-app primitives on the client pages */
+.client-body .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+    border: none;
+}
+.client-body .progress-bar {
+    width: 100%;
+    background: #e9ecef;
+    border-radius: 999px;
+    overflow: hidden;
+    height: 10px;
+}
+.client-body .progress-fill {
+    background: linear-gradient(90deg, #007bff, #28a745);
+    height: 100%;
+    border-radius: 999px;
+    transition: width .3s ease;
+}
+.client-body .text-muted { color: #888 !important; }
+/* ----------------------------------------------------------------------
+   Language switcher
+---------------------------------------------------------------------- */
+.client-body .lang-switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed #e1e4e8;
+    font-size: .9rem;
+    color: #6a737d;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.client-body .lang-switch.inline {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    justify-content: flex-end;
+}
+.client-body .lang-switch-label {
+    margin-right: 6px;
+}
+.client-body .lang-switch-link {
+    display: inline-block;
+    padding: 4px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    color: #24292f;
+    background: #fff;
+    text-decoration: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+.client-body .lang-switch-link:hover {
+    background: #f6f8fa;
+    border-color: #afb8c1;
+    text-decoration: none;
+}
+
+/* Tighter header right column to fit switcher */
+.client-header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}

@@ -6,6 +6,7 @@
     <title><?= $title ?? APP_NAME ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="assets/js/subtask-manager.js" defer></script>
 </head>
 <body>
     <?php if (isset($show_nav) && $show_nav && isLoggedIn()): ?>
@@ -20,6 +21,9 @@
             </a>
             <a href="projects.php" class="nav-link">
                 <i class="fas fa-folder-open"></i> Projects
+            </a>
+            <a href="tasks.php" class="nav-link">
+                <i class="fas fa-tasks"></i> Tasks
             </a>
             <a href="contacts.php" class="nav-link">
                 <i class="fas fa-address-book"></i> Contacts

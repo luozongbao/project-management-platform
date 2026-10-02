@@ -1,288 +1,277 @@
-# PHP Project Management System
+# Project Management Platform
 
-A comprehensive web-based project management application built with PHP, designed for personal and small team project tracking with a focus on task management, contact organization, and progress monitoring.
+A PHP-based project management platform for small teams. It pairs an internal
+console (projects, tasks, contacts, users) with a public **client share
+portal** that lets stakeholders view read-only progress without logging in.
+
+> **Latest release:** v1.1.0 — see [RELEASE.md](RELEASE.md) for highlights.
+
+---
+
+## What's new in v1.1
+
+- **Public client portal** (`/client/`) — share a project with a 5-5-5
+  alphanumeric code; clients see a read-only dashboard (project info,
+  overall completion, scope, budget, full task tree with status and due
+  dates).
+- **English / Simplified Chinese** for the client portal, with a language
+  switcher, browser header detection, cookie-persisted preference, and
+  `?lang=` override.
+- **Docker-first install** — `docker-compose.yml`, `Dockerfile`,
+  `docker/entrypoint.sh`, and `config.template.php` together reproduce the
+  full stack in three containers.
+- **Database migrations** folder; the v1.1.0 migration
+  (`20261003_add_contacts_phone.sql`) fixes the `contacts.phone` crash on
+  task create / view (issue-001).
+
+---
 
 ## Features
 
-### 🔐 User Authentication & Security
-- **User Registration** with email verification
-- **Secure Login** with username or email
-- **Password Reset** via email with time-limited tokens
-- **Session Management** with configurable timeouts
-- **Password Hashing** using Argon2ID for maximum security
+### Internal console (authenticated)
 
-### 📊 Dashboard & Analytics
-- **Project Overview** with completion percentages
-- **Task Statistics** showing pending and completed items
-- **Upcoming Deadlines** tracking with visual indicators
-- **Progress Visualization** through interactive charts and progress bars
-- **Recent Activity** feed for quick project updates
+- **Projects** — name, description, scope, budget, currency, status, start /
+  expected / completion dates, responsible person, share code.
+- **Tasks** — hierarchical (parent + unlimited subtasks), status
+  (Not started / In progress / Completed / On hold), completion percentage,
+  expected + actual completion dates, responsible person, contact person.
+- **Contacts** — global contact database shared across projects, with
+  email, phone, mobile, company, position, address, WeChat / Line / Facebook
+  / LinkedIn.
+- **Users & auth** — registration with email verification, login
+  (username + password, Argon2id), password reset via email token, session
+  management.
+- **Dashboard** — task / project statistics, upcoming deadlines,
+  per-project completion percentages.
+- **AJAX endpoints** for in-place task progress, status, completion, and
+  contact autocomplete.
+- **PHPMailer 6.8** for transactional email (invitations, password
+  resets).
 
-### 📁 Project Management
-- **Project Creation & Editing** with detailed descriptions
-- **Project Status Tracking** (Not Started, In Progress, Completed, On Hold)
-- **Completion Date Management** with expected vs actual completion
-- **Responsible Person Assignment** for accountability
-- **Project Statistics** including task counts and completion rates
+### Client portal (public, no login)
 
-### ✅ Task Management System
-- **Hierarchical Tasks** with unlimited subtask nesting
-- **Task Assignment** to responsible persons and contact persons
-- **Progress Tracking** with percentage-based completion
-- **Deadline Management** with expected and actual completion dates
-- **Status Management** for comprehensive task lifecycle tracking
-- **Automatic Completion Calculation** based on subtask progress
+- **Landing page** with auto-formatting input — uppercase letters and
+  dashes are inserted automatically as the user types the share code.
+- **Read-only project dashboard** showing:
+  - Project name, description, status badge.
+  - Overall completion (average of top-level task percentages).
+  - Project info: start / expected / completion dates, project manager.
+  - Budget in the project's chosen currency.
+  - Counts: tasks, completed, open, contacts.
+  - Project scope (one bullet per line).
+  - Full task tree — every task and subtask with status, due date,
+    completion %, and responsible person.
+- **Share codes** generated with confusing characters excluded
+  (`0/O/1/I/L`).
+- **Localization** — English (default) and Simplified Chinese. Set via
+  `?lang=zh`, persisted in a 1-year cookie, falling back to
+  `Accept-Language`. Switcher is rendered on the landing page and the
+  dashboard header.
 
-### 👥 Contact Management
-- **Global Contact Database** shared across all projects
-- **Project-Specific Contacts** with relationship mapping
-- **Multi-Channel Communication** (Email, Phone, WeChat, LINE, Facebook, LinkedIn)
-- **Contact Descriptions** for detailed relationship context
-- **Contact Assignment** to tasks and projects
+---
 
-### 🌐 Advanced Features
-- **Timezone Management** with UTC storage and user-local display
-- **Email Notifications** using PHPMailer with SMTP support
-- **Responsive Design** optimized for desktop and mobile devices
-- **Database Views** for optimized query performance
-- **AJAX Interactions** for seamless user experience
-- **Form Validation** with real-time feedback
+## Quick start (Docker)
 
-## Technology Stack
+The fastest path. Requires Docker 24+ and Docker Compose v2.
 
-### Backend
-- **PHP 8.3+** - Modern PHP with type declarations and performance improvements
-- **MySQL/MariaDB** - Robust relational database with ACID compliance
-- **PDO** - Secure database abstraction layer with prepared statements
+```bash
+git clone <your-fork-or-this-repo> project-management-platform
+cd project-management-platform
 
-### Frontend
-- **HTML5** - Semantic markup for accessibility
-- **CSS3** - Modern styling with Flexbox and Grid layouts
-- **JavaScript (ES6+)** - Progressive enhancement and interactivity
-- **Font Awesome** - Professional icon library
+# Copy the env template and edit APP_PORT, APP_URL, DB credentials, SMTP.
+cp .env.example .env
+# edit .env
 
-### Email & Communication
-- **PHPMailer** - Enterprise-grade email handling with SMTP support
-- **SMTP Protocol** - Reliable email delivery with authentication
+docker compose up -d
+```
 
-### Security & Performance
-- **Password Hashing** - Argon2ID algorithm for password security
-- **CSRF Protection** - Session-based request validation
-- **SQL Injection Prevention** - Parameterized queries throughout
-- **XSS Protection** - Output escaping and input sanitization
+Then open `http://localhost:${APP_PORT}/install.php` in your browser and
+follow the installer. After install, log in at `http://localhost:${APP_PORT}/`.
 
-## Installation
+To run pending `.sql` files in `database/migrations/` against an existing
+database:
 
-### Prerequisites
-- PHP 8.3 or higher with extensions:
-  - PDO MySQL
-  - OpenSSL
-  - cURL
-  - JSON
-- MySQL 5.7+ or MariaDB 10.2+
-- Web server (Nginx recommended, Apache supported)
-- SMTP server access for email functionality
+```bash
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261003_add_client_share.sql
 
-### Quick Installation
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261003_add_contacts_phone.sql
+```
 
-1. **Download and Extract**
-   ```bash
-   # Clone or download the project files
-   git clone <repository-url> project-management
-   cd project-management
-   ```
+The included migrations are idempotent — safe to re-run.
 
-2. **Set Permissions**
-   ```bash
-   # Ensure web server can write to the application directory
-   chmod 755 -R .
-   chmod 777 . # For config.php creation during installation
-   ```
+---
 
-3. **Install Dependencies**
-   ```bash
-   # Install PHPMailer via Composer (recommended)
-   composer install
-   
-   # OR download PHPMailer manually to vendor/ directory
-   ```
+## Tech stack
 
-4. **Web Server Configuration**
+| Layer       | Choice                                              |
+| ----------- | --------------------------------------------------- |
+| Language    | PHP 8.3 (procedural, per-page)                      |
+| DB          | MariaDB 10.11 (MySQL-compatible)                     |
+| Web server  | nginx (alpine), reverse-proxied to php-fpm          |
+| Email       | PHPMailer 6.8 (SMTP)                                |
+| Composer    | One dependency (`phpmailer/phpmailer`)              |
+| Auth        | Argon2id password hashing, server-side sessions     |
+| Containers  | `pmp-app` (php-fpm), `pmp-web` (nginx), `pmp-db` (mariadb) |
 
-   **For Nginx:**
-   ```nginx
-   server {
-       listen 80;
-       server_name your-domain.com;
-       root /path/to/project-management;
-       index index.php;
-       
-       location / {
-           try_files $uri $uri/ /index.php?$query_string;
-       }
-       
-       location ~ \.php$ {
-           fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
-           fastcgi_index index.php;
-           fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-           include fastcgi_params;
-       }
-       
-       # Security headers
-       add_header X-Content-Type-Options nosniff;
-       add_header X-Frame-Options DENY;
-       add_header X-XSS-Protection "1; mode=block";
-   }
-   ```
+---
 
-   **For Apache (.htaccess is included):**
-   ```apache
-   # Ensure mod_rewrite is enabled
-   a2enmod rewrite
-   systemctl restart apache2
-   ```
+## Project layout
 
-5. **Run Installation Wizard**
-   - Navigate to `http://your-domain.com` in your web browser
-   - The installation wizard will automatically start
-   - Follow the 3-step installation process:
-     - **Step 1:** Welcome and requirements check
-     - **Step 2:** Database configuration and setup
-     - **Step 3:** SMTP email configuration
+```
+.
+├── ajax/                  AJAX endpoints (progress, status, contact lookup, …)
+├── assets/
+│   ├── css/               Internal stylesheet
+│   ├── js/                Internal JS
+│   └── …
+├── client/                Public client share portal (no login)
+│   ├── index.php          Code-entry landing page
+│   ├── dashboard.php      Read-only project dashboard
+│   ├── lang.php           ENG / 中文 translation catalog + helpers
+│   └── assets/client.css  Client portal stylesheet
+├── database/
+│   ├── schema.sql         Canonical schema (used by installer + migrations)
+│   ├── subtask_functions.sql   Optional trigger helper (see Known gaps)
+│   └── migrations/        Numbered, idempotent migration files
+├── docker/
+│   ├── entrypoint.sh      Container bootstrap
+│   └── nginx.conf         nginx site config
+├── docs/
+│   ├── requirements.md            v1.0 spec
+│   ├── 20261003 requirements.md    v1.1 spec (client portal + i18n)
+│   └── issues/                    Resolved bug reports
+├── includes/
+│   ├── Database.php       PDO singleton
+│   ├── EmailService.php   PHPMailer wrapper
+│   ├── functions.php      Shared helpers (e, formatMoney, generateShareCode, …)
+│   ├── header.php / footer.php   Internal layout
+│   └── …
+├── vendor/                Composer install (PHPMailer)
+├── config.php             Generated by installer (not committed)
+├── config.template.php    Template for manual setup
+├── docker-compose.yml     Three-container stack
+├── Dockerfile             php-fpm 8.3 image
+├── install.php            First-run installer
+├── login.php / register.php / forgot_password.php / profile.php / logout.php
+├── dashboard.php / projects.php / tasks.php / contacts.php
+├── project_*.php / task_*.php / contact_*.php   CRUD pages
+├── index.php              Internal landing page (post-login)
+├── composer.json
+├── README.md              ← you are here
+└── RELEASE.md             Per-version release notes
+```
 
-6. **Complete Setup**
-   - Delete `install.php` after successful installation
-   - Create your first user account
-   - Start managing your projects!
+---
 
-### Manual Configuration
+## Configuration
 
-If you prefer manual configuration, copy `config.template.php` to `config.php` and configure:
+Configuration is loaded from `config.php`, which is generated by
+`install.php`. To configure manually, start from `config.template.php`:
 
 ```php
-// Database Configuration
-const DB_HOST = 'localhost';
-const DB_NAME = 'project_management';
-const DB_USER = 'your_db_user';
-const DB_PASS = 'your_db_password';
-
-// SMTP Configuration
-const SMTP_HOST = 'smtp.gmail.com';
-const SMTP_PORT = 587;
-const SMTP_PROTOCOL = 'tls';
-const SMTP_USER = 'your_email@gmail.com';
-const SMTP_PASS = 'your_app_password';
+const APP_NAME = 'Project Management System';
+const APP_URL  = 'http://localhost';
 ```
 
-## File Structure
+Database credentials come from `.env` (see `.env.example`). Mail settings
+are read at runtime by `includes/EmailService.php` and configured through
+the admin UI after install.
 
+---
+
+## Localization
+
+The internal console is English-only in v1.1.0. The **client portal**
+(`client/index.php`, `client/dashboard.php`) supports:
+
+- **English** (default)
+- **简体中文**
+
+Locale is resolved in this order:
+
+1. `?lang=en|zh` query parameter (also writes a cookie).
+2. `client_lang` cookie (1 year).
+3. `Accept-Language` request header.
+4. Falls back to `en`.
+
+The translation catalog lives in [client/lang.php](client/lang.php). Add a
+new language by adding a top-level key to `client_translations()` and
+listing the code in `client_supported_langs()`.
+
+To extend localization to the internal console, copy the helper functions
+from `client/lang.php` into `includes/functions.php` (or move them there)
+and wrap the literals in the page files with `t('…')`.
+
+---
+
+## Database
+
+`database/schema.sql` is the canonical schema. It is loaded by
+`install.php` for fresh installs and serves as the reference for
+migrations. Apply new ones from `docker compose exec db … < migrations/<file>.sql`.
+
+Key v1.1 additions to the schema:
+
+- `projects.scope TEXT` — multi-line project scope rendered on the client
+  dashboard.
+- `projects.budget_amount DECIMAL(15,2)`, `projects.currency CHAR(3)` —
+  budget display (currencies: THB, USD, CNY, JPY, SGD, EUR).
+- `projects.share_code CHAR(17)` — the 5-5-5 code shared with clients.
+- `projects.expected_completion_date DATE`.
+- `contacts.phone VARCHAR(20)` (added in v1.1.0 migration).
+
+---
+
+## Development
+
+The app is procedural PHP — one file per route, no framework. Pages
+require `config.php` (auto-generated) plus `includes/Database.php` and
+`includes/functions.php`, then output HTML directly.
+
+Helpers worth knowing (see `includes/functions.php`):
+
+- `e($s)` — HTML-escape a string for output.
+- `formatDateTime($utc, $format)` — display a UTC datetime.
+- `formatMoney($amount, $currency)` — render an amount with currency
+  symbol.
+- `generateShareCode()` — produce a fresh 5-5-5 share code.
+- `buildClientShareUrl($code)` — build the absolute client URL.
+
+Database access goes through the PDO singleton:
+
+```php
+$db   = Database::getInstance();
+$rows = $db->fetchAll("SELECT … WHERE id = ?", [$id]);
+$row  = $db->fetchOne("SELECT … WHERE id = ?", [$id]);
+$db->execute("UPDATE … WHERE id = ?", [$id]);
 ```
-project-management/
-├── api/                    # API endpoints (future expansion)
-├── assets/
-│   ├── css/
-│   │   └── style.css      # Main stylesheet
-│   └── js/
-│       └── script.js      # Interactive JavaScript
-├── database/
-│   └── schema.sql         # Database structure
-├── docs/
-│   └── requirements.md    # Detailed requirements
-├── includes/
-│   ├── Database.php       # Database connection class
-│   ├── EmailService.php   # Email handling
-│   ├── functions.php      # Utility functions
-│   ├── header.php         # Page header template
-│   └── footer.php         # Page footer template
-├── pages/                 # Additional page components
-├── vendor/                # Composer dependencies
-├── composer.json          # Dependency management
-├── config.template.php    # Configuration template
-├── install.php           # Installation wizard
-├── index.php             # Application entry point
-├── login.php             # Authentication pages
-├── register.php
-├── forgot_password.php
-├── reset_password.php
-├── logout.php
-├── dashboard.php         # Main dashboard
-├── projects.php          # Project listing
-└── README.md
-```
 
-## Database Schema
+---
 
-The application uses a well-structured relational database with the following core tables:
+## Known gaps
 
-- **users** - User accounts and authentication
-- **projects** - Project information and metadata
-- **tasks** - Hierarchical task structure with subtask support
-- **contacts** - Global contact database
-- **project_contacts** - Project-contact relationships
-- **password_reset_tokens** - Secure password reset functionality
+These are tracked for v1.2:
 
-The schema includes optimized indexes, foreign key constraints, and database views for enhanced performance.
+- `contacts` table is missing `company`, `position`, `address` columns
+  that `contact_edit.php` writes and `contacts.php?search=…` filters on.
+  Direct visits to `/contacts.php` work; search and create fail until
+  those columns are added.
+- The auto-subtask trigger (`database/subtask_functions.sql`) is not
+  applied because MariaDB ≥ 10.5 disallows recursive stored functions.
+  Subtask completion does not auto-roll-up to parents; managers update
+  them manually. A migration to replace it with application-level rollups
+  is planned.
+- Internal app pages remain English-only. Client portal is fully i18n.
 
-## Usage Guide
+See [RELEASE.md](RELEASE.md) for the per-version changelog and [docs/issues](docs/issues)
+for resolved bug reports.
 
-### Getting Started
-1. **First Login** - Register your account and verify email
-2. **Create Project** - Set up your first project with details
-3. **Add Contacts** - Import or create project stakeholders
-4. **Create Tasks** - Break down work into manageable tasks
-5. **Track Progress** - Update completion percentages and status
-
-### Project Management Workflow
-1. **Project Creation** - Define scope, timeline, and responsibilities
-2. **Task Breakdown** - Create hierarchical task structure
-3. **Team Assignment** - Assign tasks to team members and contacts
-4. **Progress Monitoring** - Regular updates and status reviews
-5. **Completion Tracking** - Mark milestones and final delivery
-
-### Best Practices
-- **Regular Updates** - Keep task progress current for accurate reporting
-- **Clear Descriptions** - Use detailed task and project descriptions
-- **Realistic Deadlines** - Set achievable expected completion dates
-- **Contact Management** - Maintain up-to-date contact information
-- **Status Tracking** - Use status changes to reflect project lifecycle
-
-## Security Features
-
-- **Password Security** - Argon2ID hashing with salt
-- **Session Management** - Secure session handling with timeouts
-- **CSRF Protection** - Cross-site request forgery prevention
-- **Input Validation** - Comprehensive server-side validation
-- **SQL Injection Prevention** - Parameterized queries throughout
-- **XSS Protection** - Output escaping and sanitization
-- **Email Security** - Token-based password resets with expiration
-
-## Contributing
-
-This is a personal project management system. For feature requests or bug reports, please create an issue with detailed information including:
-- Environment details (PHP version, database version)
-- Steps to reproduce the issue
-- Expected vs actual behavior
-- Screenshots if applicable
+---
 
 ## License
 
-This project is released under the MIT License. See LICENSE file for details.
-
-## Support
-
-For technical support or questions:
-- Review the documentation in `/docs/requirements.md`
-- Check the installation wizard for configuration issues
-- Verify PHP and database requirements are met
-- Ensure proper file permissions are set
-
-## Version History
-
-### v1.0.0 (Current)
-- Complete project management system
-- User authentication and security
-- Project, task, and contact management
-- Responsive web interface
-- Email notification system
-- Installation wizard
-- Database optimization with views and indexes
+Internal project. License TBD.
