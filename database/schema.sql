@@ -49,6 +49,7 @@ CREATE TABLE contacts (
     description TEXT,
     mobile VARCHAR(20),
     email VARCHAR(255),
+    phone VARCHAR(20),
     wechat VARCHAR(100),
     line_id VARCHAR(100),
     facebook VARCHAR(255),

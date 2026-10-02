@@ -2,3 +2,4 @@ vendor/
 config.php
 .env
 .phpunit.result.cache
+docs/issues/*
