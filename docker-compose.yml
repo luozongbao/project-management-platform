@@ -1,0 +1,82 @@
+# docker-compose.yml for the Project Management Platform
+#
+# Usage:
+#   cp .env.example .env       # then edit values
+#   docker compose up -d --build
+#   open http://localhost:${APP_PORT}
+#
+# Configurable via .env:
+#   APP_PORT         host port mapped to the web server (default 80)
+#   DB_NAME          database name created on first run
+#   DB_USER          application database user
+#   DB_PASSWORD      application database password
+#   MYSQL_ROOT_PASSWORD  root password for the MariaDB container
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pmp-php
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_PROTOCOL: ${SMTP_PROTOCOL}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      APP_URL: ${APP_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - pmp-net
+
+  web:
+    image: nginx:alpine
+    container_name: pmp-web
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - pmp-net
+
+  db:
+    image: mariadb:10.11
+    container_name: pmp-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - pmp-db-data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/subtask_functions.sql:/docker-entrypoint-initdb.d/02-subtask.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - pmp-net
+
+volumes:
+  pmp-db-data:
+
+networks:
+  pmp-net:
+    driver: bridge
