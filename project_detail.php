@@ -106,6 +106,54 @@ $show_nav = true;
         </div>
     </div>
 
+    <!-- Client Sharing + Scope/Budget info (added 2026-10-03) -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="project-info-grid">
+                <div>
+                    <h3 class="info-heading"><i class="fas fa-list-check"></i> Project Scope</h3>
+                    <?php if (!empty($project['scope'])): ?>
+                        <ul class="scope-list">
+                            <?php foreach (preg_split('/\r\n|\r|\n/', (string)$project['scope']) as $line):
+                                $line = trim($line);
+                                if ($line === '') continue; ?>
+                                <li><?= e($line) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <p class="text-muted"><em>No scope / requirements defined yet. Add some on the edit page.</em></p>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <h3 class="info-heading"><i class="fas fa-coins"></i> Budget</h3>
+                    <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
+                        <p class="budget-amount"><?= e(formatMoney($project['budget_amount'], $project['currency'])) ?></p>
+                    <?php else: ?>
+                        <p class="text-muted"><em>No budget set.</em></p>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <h3 class="info-heading"><i class="fas fa-share-nodes"></i> Client Share</h3>
+                    <?php if (!empty($project['share_code'])):
+                        $share_url = buildClientShareUrl($project['share_code']); ?>
+                        <p class="share-code-label">Project Code</p>
+                        <p class="share-code"><code id="shareCode"><?= e($project['share_code']) ?></code></p>
+                        <p class="share-url-label">Direct Link</p>
+                        <div class="share-url-row">
+                            <input type="text" id="shareUrl" readonly value="<?= e($share_url) ?>" class="share-input">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="copyShareUrl()" title="Copy link">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <p class="share-hint text-muted"><small>Anyone with this link can view a read-only progress dashboard for this project.</small></p>
+                    <?php else: ?>
+                        <p class="text-muted"><em>No share code (older project). Recreate the project to generate one.</em></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Project Statistics -->
     <div class="project-stats-grid">
         <div class="stat-card">
@@ -727,15 +775,92 @@ $show_nav = true;
 }
 </style>
 
+<style>
+/* Client sharing section (added 2026-10-03) */
+.project-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 30px;
+}
+.info-heading {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 1.05rem;
+    border-bottom: 2px solid #f1f3f5;
+    padding-bottom: 8px;
+}
+.info-heading i {
+    color: #007bff;
+    margin-right: 8px;
+}
+.scope-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #444;
+}
+.scope-list li {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+.budget-amount {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #28a745;
+}
+.share-code-label, .share-url-label {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.share-code {
+    margin: 0 0 14px 0;
+}
+.share-code code {
+    font-size: 1.15rem;
+    background: #f1f3f5;
+    padding: 6px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+    color: #007bff;
+    font-weight: 600;
+}
+.share-url-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.share-input {
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.85rem;
+    padding: 8px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+.share-hint {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .project-info-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+</style>
+
 <script>
 // Set progress circle percentages
 document.addEventListener('DOMContentLoaded', function() {
     const progressCircles = document.querySelectorAll('.progress-circle[data-percentage]');
-    
+
     progressCircles.forEach(circle => {
         const percentage = circle.getAttribute('data-percentage');
         circle.style.setProperty('--percentage', percentage);
-        
+
         // Add color based on percentage
         if (percentage >= 80) {
             circle.style.borderColor = '#28a745';
@@ -749,6 +874,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Copy the client share URL (added 2026-10-03)
+function copyShareUrl() {
+    var input = document.getElementById('shareUrl');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    if (navigator.clipboard && !ok) {
+        navigator.clipboard.writeText(input.value).catch(function(){});
+    }
+    // Tiny visual feedback
+    var btn = document.activeElement;
+    if (btn && btn.tagName === 'BUTTON') {
+        var original = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+        setTimeout(function() { btn.innerHTML = original; }, 1500);
+    }
+}
 </script>
 
 <?php include 'includes/footer.php'; ?>
