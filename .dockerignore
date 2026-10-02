@@ -1,0 +1,24 @@
+# Build context exclusions. Keeps the Docker image small and the build cache
+# stable. Without these, .git/ and any local vendor/ would be copied into the
+# image, leaking history and slowing rebuilds.
+
+.git
+.gitignore
+.github
+.idea
+.vscode
+
+# Local state and tooling
+.env
+.env.*
+!.env.example
+docker-compose.yml
+docker/nginx.conf
+docker/.gitkeep
+
+# PHP / runtime artifacts
+vendor/
+config.php
+*.log
+*.cache
+.DS_Store

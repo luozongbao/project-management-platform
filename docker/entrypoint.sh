@@ -1,10 +1,21 @@
 #!/bin/sh
-# entrypoint.sh — runs at container start. Generates config.php from env vars
-# if it doesn't exist yet, then hands off to php-fpm.
+# entrypoint.sh — runs at container start.
+#
+# 1. Writes config.php from environment variables if missing.
+# 2. Runs `composer install` if vendor/autoload.php is missing (the bind
+#    mount in docker-compose.yml wipes anything baked into the image, so the
+#    install must happen after the volume is mounted).
+# 3. Hands off to php-fpm.
+#
+# Failures from composer install are loud by default so we don't ship a
+# broken image silently.
 set -e
 
 CONFIG_FILE="/var/www/html/config.php"
+VENDOR_DIR="/var/www/html/vendor"
+AUTOLOAD="$VENDOR_DIR/autoload.php"
 
+# --- 1. Generate config.php from env -----------------------------------------
 if [ ! -f "$CONFIG_FILE" ] && [ -n "$DB_NAME" ]; then
     cat > "$CONFIG_FILE" <<PHP
 <?php
@@ -30,6 +41,25 @@ const PASSWORD_RESET_EXPIRY = 3600;
 const ENCRYPTION_KEY        = '${ENCRYPTION_KEY:-please-change-this-32-char-key}';
 PHP
     echo "[entrypoint] Wrote $CONFIG_FILE from environment"
+fi
+
+# --- 2. Ensure composer dependencies are installed --------------------------
+if [ ! -f "$AUTOLOAD" ]; then
+    echo "[entrypoint] vendor/ missing — running composer install"
+    # composer.json / composer.lock are mounted from the project root.
+    composer install --no-dev --prefer-dist --no-scripts --no-interaction
+    composer dump-autoload --optimize --no-dev --no-interaction
+fi
+
+# --- 3. Fix ownership of generated files when running as root ----------------
+# When the project is bind-mounted, files created here are owned by root on the
+# host. If HOST_UID is set (e.g. HOST_UID=1000), chown them so the developer
+# can edit/delete them locally without sudo.
+if [ "$(id -u)" = "0" ] && [ -n "$HOST_UID" ]; then
+    # Only chown what we created / what composer owns; skip the rest of the
+    # bind-mounted tree to keep startup fast.
+    [ -f "$CONFIG_FILE" ] && chown "$HOST_UID:$HOST_GID" "$CONFIG_FILE" || true
+    [ -d "$VENDOR_DIR" ] && chown -R "$HOST_UID:$HOST_GID" "$VENDOR_DIR" || true
 fi
 
 exec "$@"

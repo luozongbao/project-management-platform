@@ -1,8 +1,3 @@
-# syntax=docker/dockerfile:1
-#
-# pmp-php: PHP 8.3 on Alpine, with Composer and PHPMailer-ready extensions.
-# Used by docker-compose.yml for the "app" service.
-
 FROM php:8.3-fpm-alpine
 
 ENV COMPOSER_HOME=/tmp/composer \
@@ -54,27 +49,16 @@ RUN { \
 # Working directory matches the project's webroot.
 WORKDIR /var/www/html
 
-# Copy composer manifests first so layer caches `composer install` when source
-# code changes but dependencies don't.
+# Copy composer manifests. We do NOT run `composer install` at build time because
+# the bind-mount in docker-compose.yml would wipe anything we put in
+# /var/www/html at runtime. The entrypoint installs dependencies after the
+# volume is mounted (and only if vendor/ is missing) so failures surface
+# instead of being swallowed.
 COPY composer.json composer.lock* ./
-
-# Only run `composer install` when the vendor directory isn't already present
-# (e.g. when a developer mounts the project as a bind mount for live editing).
-RUN if [ ! -d vendor ]; then \
-        composer install --no-dev --prefer-dist --no-scripts --no-autoloader || true; \
-    fi
-
 COPY . .
 
-# If vendor is still missing (e.g. bind mount overwrote it at runtime), ensure
-# PHPMailer is installed by name as a fallback.
-RUN if [ ! -d vendor/phpmailer/phpmailer ]; then \
-        composer require --no-update phpmailer/phpmailer:^6.8 || true; \
-        composer install --no-dev --prefer-dist --no-scripts || true; \
-    fi \
-    && composer dump-autoload --optimize --no-dev || true
-
-# Entrypoint that writes config.php from env vars before php-fpm starts.
+# Entrypoint that writes config.php from env vars and ensures vendor/ exists
+# before php-fpm starts.
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
