@@ -17,12 +17,18 @@ if ($_POST) {
     $scope = sanitize($_POST['scope'] ?? '');
     $budget_amount_raw = trim($_POST['budget_amount'] ?? '');
     $currency = strtoupper(trim($_POST['currency'] ?? ''));
-    $expected_completion_date = trim($_POST['expected_completion_date'] ?? '');
-    $completion_date = trim($_POST['completion_date'] ?? '');
+    $expected_completion_date = $_POST['expected_completion_date'] ?? '';
+    $completion_date = $_POST['completion_date'] ?? '';
     $status = $_POST['status'] ?? 'not_started';
 
     // Project dates are calendar dates (SQL DATE), not timestamps.
     $parseProjectDate = static function ($value, $label) use (&$errors) {
+        if (!is_string($value)) {
+            $errors[] = "$label must be a valid date.";
+            return null;
+        }
+
+        $value = trim($value);
         if ($value === '') {
             return null;
         }
@@ -331,6 +337,22 @@ $show_nav = true;
 }
 </style>
 
+<script>
+document.getElementById('status').addEventListener('change', function() {
+    const completionDateField = document.getElementById('completion_date');
+
+    if (this.value === 'completed' && !completionDateField.value) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        completionDateField.value = `${year}-${month}-${day}`;
+    } else if (this.value !== 'completed') {
+        completionDateField.value = '';
+    }
+});
+</script>
+
 <?php if ($project): ?>
 <script>
 function deleteProject() {
@@ -338,20 +360,6 @@ function deleteProject() {
         window.location.href = 'project_delete.php?id=<?= $project['id'] ?>';
     }
 }
-
-// Auto-update completion date when status changes to completed
-document.getElementById('status').addEventListener('change', function() {
-    const completionDateField = document.getElementById('completion_date');
-    
-    if (this.value === 'completed' && !completionDateField.value) {
-        // Set to today's date
-        const today = new Date().toISOString().split('T')[0];
-        completionDateField.value = today;
-    } else if (this.value !== 'completed') {
-        // Clear completion date if status is not completed
-        completionDateField.value = '';
-    }
-});
 </script>
 <?php endif; ?>
 

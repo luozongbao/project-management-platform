@@ -235,7 +235,8 @@ require `config.php` (auto-generated) plus `includes/Database.php` and
 Helpers worth knowing (see `includes/functions.php`):
 
 - `e($s)` — HTML-escape a string for output.
-- `formatDateTime($utc, $format)` — display a UTC datetime.
+- `formatDateTime($utc, $format)` — display UTC timestamps in the user's
+  timezone while preserving SQL calendar dates as entered.
 - `formatMoney($amount, $currency)` — render an amount with currency
   symbol.
 - `generateShareCode()` — produce a fresh 5-5-5 share code.
