@@ -17,21 +17,31 @@ if ($_POST) {
     $scope = sanitize($_POST['scope'] ?? '');
     $budget_amount_raw = trim($_POST['budget_amount'] ?? '');
     $currency = strtoupper(trim($_POST['currency'] ?? ''));
-    $expected_completion_date = $_POST['expected_completion_date'] ?? null;
-    $completion_date = $_POST['completion_date'] ?? null;
+    $expected_completion_date = trim($_POST['expected_completion_date'] ?? '');
+    $completion_date = trim($_POST['completion_date'] ?? '');
     $status = $_POST['status'] ?? 'not_started';
 
-    // Convert dates to UTC and handle empty values
-    if ($expected_completion_date && trim($expected_completion_date) !== '') {
-        $expected_completion_date = toUTC($expected_completion_date . ' 00:00:00');
-    } else {
-        $expected_completion_date = null;
-    }
-    if ($completion_date && trim($completion_date) !== '') {
-        $completion_date = toUTC($completion_date . ' 00:00:00');
-    } else {
-        $completion_date = null;
-    }
+    // Project dates are calendar dates (SQL DATE), not timestamps.
+    $parseProjectDate = static function ($value, $label) use (&$errors) {
+        if ($value === '') {
+            return null;
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+            $errors[] = "$label must be a valid date.";
+            return null;
+        }
+
+        [$year, $month, $day] = array_map('intval', explode('-', $value));
+        if (!checkdate($month, $day, $year)) {
+            $errors[] = "$label must be a valid date.";
+            return null;
+        }
+
+        return $value;
+    };
+    $expected_completion_date = $parseProjectDate($expected_completion_date, 'Expected completion date');
+    $completion_date = $parseProjectDate($completion_date, 'Actual completion date');
 
     // Budget amount parsing — store NULL when blank.
     $budget_amount = null;
@@ -241,7 +251,7 @@ $show_nav = true;
                                 Expected Completion Date
                             </label>
                             <input type="date" id="expected_completion_date" name="expected_completion_date"
-                                   value="<?= formatDateForInput($project['expected_completion_date'] ?? $_POST['expected_completion_date'] ?? '') ?>">
+                                   value="<?= e($project['expected_completion_date'] ?? $_POST['expected_completion_date'] ?? '') ?>">
                         </div>
                         
                         <div class="form-group">
@@ -250,7 +260,7 @@ $show_nav = true;
                                 Actual Completion Date
                             </label>
                             <input type="date" id="completion_date" name="completion_date"
-                                   value="<?= formatDateForInput($project['completion_date'] ?? $_POST['completion_date'] ?? '') ?>">
+                                   value="<?= e($project['completion_date'] ?? $_POST['completion_date'] ?? '') ?>">
                         </div>
                     </div>
 
