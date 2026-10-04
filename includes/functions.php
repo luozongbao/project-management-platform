@@ -65,11 +65,23 @@ function verifyPassword($password, $hash) {
 // Convert UTC datetime to user timezone
 function formatDateTime($utc_datetime, $format = 'Y-m-d H:i:s') {
     if (empty($utc_datetime)) return '';
-    
-    $utc = new DateTime($utc_datetime, new DateTimeZone('UTC'));
-    $userTimezone = new DateTimeZone($_SESSION['timezone'] ?? TIMEZONE);
-    $utc->setTimezone($userTimezone);
-    return $utc->format($format);
+
+    $value = (string)$utc_datetime;
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        $date = parseCalendarDate($value);
+        return $date ? $date->format($format) : '';
+    }
+
+    $utc = parseUtcDateTime($value);
+    if (!$utc) return '';
+
+    try {
+        $userTimezone = new DateTimeZone($_SESSION['timezone'] ?? TIMEZONE);
+        return $utc->setTimezone($userTimezone)->format($format);
+    } catch (Exception $e) {
+        error_log('Unable to format stored UTC datetime: ' . $e->getMessage());
+        return '';
+    }
 }
 
 // Convert user timezone datetime to UTC for storage
@@ -122,10 +134,56 @@ function isValidEmail($email) {
 // Format date for HTML date input
 function formatDateForInput($utc_datetime) {
     if (empty($utc_datetime)) return '';
-    $utc = new DateTime($utc_datetime, new DateTimeZone('UTC'));
-    $userTimezone = new DateTimeZone($_SESSION['timezone'] ?? TIMEZONE);
-    $utc->setTimezone($userTimezone);
-    return $utc->format('Y-m-d');
+
+    $value = (string)$utc_datetime;
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        $date = parseCalendarDate($value);
+        return $date ? $date->format('Y-m-d') : '';
+    }
+
+    $utc = parseUtcDateTime($value);
+    if (!$utc) return '';
+
+    try {
+        $userTimezone = new DateTimeZone($_SESSION['timezone'] ?? TIMEZONE);
+        return $utc->setTimezone($userTimezone)->format('Y-m-d');
+    } catch (Exception $e) {
+        error_log('Unable to format stored UTC date for input: ' . $e->getMessage());
+        return '';
+    }
+}
+
+function parseCalendarDate($value) {
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, new DateTimeZone('UTC'));
+    $errors = DateTimeImmutable::getLastErrors();
+
+    if (!$date || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+        || $date->format('Y-m-d') !== $value) {
+        error_log('Unable to format invalid stored calendar date: ' . $value);
+        return null;
+    }
+
+    return $date;
+}
+
+function parseUtcDateTime($value) {
+    $formats = [
+        ['!Y-m-d H:i:s', 'Y-m-d H:i:s'],
+        ['!Y-m-d\TH:i', 'Y-m-d\TH:i'],
+    ];
+
+    foreach ($formats as [$parseFormat, $outputFormat]) {
+        $datetime = DateTimeImmutable::createFromFormat($parseFormat, $value, new DateTimeZone('UTC'));
+        $errors = DateTimeImmutable::getLastErrors();
+
+        if ($datetime && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            && $datetime->format($outputFormat) === $value) {
+            return $datetime;
+        }
+    }
+
+    error_log('Unable to format invalid stored UTC datetime: ' . $value);
+    return null;
 }
 
 // Escape output for HTML

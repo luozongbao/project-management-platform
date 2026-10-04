@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.1.1 — 2026-10-04
+
+This patch release fixes the profile page layout and brings it in line with
+the rest of the internal console.
+
+### Improvements
+
+- Restored the logged-in navigation on the profile page.
+- Applied the shared page container, heading, and responsive spacing styles
+  used by the other internal pages.
+
+No database migration is required.
+
 ## v1.1.0 — 2026-10-03
 
 This release introduces a public client portal with shareable read-only project
