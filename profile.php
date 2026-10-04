@@ -152,9 +152,13 @@ $user_stats = [
     'contacts_count' => $db->fetchOne("SELECT COUNT(DISTINCT c.id) as count FROM contacts c JOIN project_contacts pc ON c.id = pc.contact_id JOIN projects p ON pc.project_id = p.id WHERE p.responsible_person_id = ?", [$user_id])['count'] ?? 0,
 ];
 
+$title = "User Profile";
+$show_nav = true;
+
 include 'includes/header.php';
 ?>
 
+<div class="page-container">
 <div class="page-header">
     <div class="page-title">
         <h1>
@@ -338,8 +342,36 @@ include 'includes/header.php';
         </div>
     </div>
 </div>
+</div>
 
 <style>
+.page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f1f3f4;
+}
+
+.page-title h1 {
+    margin: 0 0 8px 0;
+    color: #333;
+    font-size: 2rem;
+}
+
+.page-title p {
+    margin: 0;
+    color: #666;
+    font-size: 1rem;
+}
+
 .profile-layout {
     display: grid;
     grid-template-columns: 1fr 2fr;
@@ -445,6 +477,16 @@ include 'includes/header.php';
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    .page-container {
+        padding: 15px;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+
     .profile-layout {
         grid-template-columns: 1fr;
         gap: 15px;
