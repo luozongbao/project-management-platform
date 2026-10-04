@@ -4,7 +4,7 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.1.0 — see [RELEASE.md](RELEASE.md) for highlights.
+> **Latest release:** v1.1.1 — see [RELEASE.md](RELEASE.md) for highlights.
 
 ---
 
@@ -23,6 +23,9 @@ portal** that lets stakeholders view read-only progress without logging in.
 - **Database migrations** folder; the v1.1.0 migration
   (`20261003_add_contacts_phone.sql`) fixes the `contacts.phone` crash on
   task create / view (issue-001).
+- **Profile page polish** in v1.1.1 — restores the logged-in navigation and
+  aligns the page header, spacing, and responsive layout with the rest of
+  the internal console.
 
 ---
 
