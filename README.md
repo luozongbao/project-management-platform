@@ -4,16 +4,63 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.1.1 — see [RELEASE.md](RELEASE.md) for highlights.
+> **Latest release:** v1.2.0 — see [RELEASE.md](RELEASE.md) for highlights.
+
+---
+
+## What's new in v1.2
+
+- **Security hardening — Nginx deny rules (issue-003)**
+  - Explicitly block web access to `.env`, `.env.example`, `config.php`,
+    `config.template.php`, `.htaccess`, `_smtp_test.php`, `docs/`,
+    `database/`, `vendor/`, `includes/`, and source directories. The
+    diagnostic `_smtp_test.php` is no longer callable over HTTP.
+  - Authenticated and public PHP entry points are whitelisted; the client
+    portal remains reachable and the internal console still requires a
+    valid session.
+- **Root landing page for clients (issue-004)**
+  - `/` now hosts the public share-code form (and an "Owner sign in" link)
+    so owners and clients share one entry point. New share URLs are
+    generated against the root; the legacy `/client/` URL is preserved as
+    a 302 redirect to `/` (see v1.1.0).
+- **Project-Code-gated deletion (issue-005)**
+  - Project delete now opens a confirmation dialog that requires the
+    project manager to type the project's Project Code (the existing
+    `share_code`). Deletion is submitted as `POST` with the standard CSRF
+    token; the server re-checks ownership, CSRF, and the typed code
+    before deleting. Direct `GET` requests and requests missing any of
+    the three checks are non-destructive. Projects without a Project Code
+    cannot be deleted through this flow.
+- **Task time estimates (issue-006)**
+  - Every task and subtask can carry an optional total-time estimate,
+    entered in **hours** or **mandays** (1 manday = 8 hours). The value
+    is stored canonically in `tasks.estimated_hours` (`DECIMAL(12,4)`)
+    via the new `20261005_add_task_estimated_hours.sql` migration;
+    existing tasks stay unestimated.
+  - Validation rejects malformed, negative, or non-finite input; the
+    empty string still means "not estimated" and zero is not a usable
+    weight.
+- **Effort-weighted completion (issue-007)**
+  - When every sibling in a group has a positive estimate, completion is
+    reported as `Σ(estimated_hours × completion%) / Σ(estimated_hours)`.
+    If any sibling is unestimated or zero, the group falls back to the
+    existing equal-average so legacy and partially-estimated work is
+    not silently dropped.
+  - Applies to subtask rollups, parent-task derived completion, and the
+    project's `project_stats` view (`20261005_weight_project_completion.sql`).
+    All project, task, dashboard, and client-portal displays now agree
+    on the same server-side formula.
 
 ---
 
 ## What's new in v1.1
 
-- **Public client portal** (`/client/`) — share a project with a 5-5-5
-  alphanumeric code; clients see a read-only dashboard (project info,
-  overall completion, scope, budget, full task tree with status and due
-  dates).
+- **Public client portal** (entry at `/`, dashboard at `/client/dashboard.php`)
+  — share a project with a 5-5-5 alphanumeric code; clients see a read-only
+  dashboard (project info, overall completion, scope, budget, full task tree
+  with status and due dates). The domain root hosts the public share-code
+  form; the legacy `/client/` URL 302-redirects to `/` so existing bookmarks
+  keep working.
 - **English / Simplified Chinese** for the client portal, with a language
   switcher, browser header detection, cookie-persisted preference, and
   `?lang=` override.
@@ -36,8 +83,12 @@ portal** that lets stakeholders view read-only progress without logging in.
 - **Projects** — name, description, scope, budget, currency, status, start /
   expected / completion dates, responsible person, share code.
 - **Tasks** — hierarchical (parent + unlimited subtasks), status
-  (Not started / In progress / Completed / On hold), completion percentage,
-  expected + actual completion dates, responsible person, contact person.
+  (Not started / In progress / Completed / On hold), **effort-weighted
+  completion** when all sibling estimates are positive (equal-average
+  fallback when any sibling is unestimated or zero), expected + actual
+  completion dates, optional **effort estimate** in hours or mandays
+  (1 manday = 8 hours, stored canonically as hours), responsible person,
+  contact person.
 - **Contacts** — global contact database shared across projects, with
   email, phone, mobile, company, position, address, WeChat / Line / Facebook
   / LinkedIn.
@@ -53,6 +104,12 @@ portal** that lets stakeholders view read-only progress without logging in.
 
 ### Client portal (public, no login)
 
+- **Root entry point** (`/`) — the domain root now hosts the public
+  share-code form, so clients and project managers have a single shared
+  landing page. An "Owner sign in" link on the form reaches `/login.php`.
+- **Legacy `/client/` URL** — preserved as a redirect shim that 302-redirects
+  to `/` while passing through the original query string (so existing
+  bookmarks like `/client/?code=…` still work).
 - **Landing page** with auto-formatting input — uppercase letters and
   dashes are inserted automatically as the user types the share code.
 - **Read-only project dashboard** showing:
@@ -102,6 +159,18 @@ docker compose exec db \
 docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261003_add_contacts_phone.sql
+
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261005_add_task_estimated_hours.sql
+
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261005_add_task_estimated_hours.sql
+
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261005_weight_project_completion.sql
 ```
 
 The included migrations are idempotent — safe to re-run.
@@ -184,6 +253,40 @@ Database credentials come from `.env` (see `.env.example`). Mail settings
 are read at runtime by `includes/EmailService.php` and configured through
 the admin UI after install.
 
+## Web access boundaries
+
+The Docker deployment uses Nginx; `.htaccess` rules are not applied. The Nginx
+site configuration blocks direct HTTP access to dotfiles, configuration and
+deployment files, documentation, database scripts, dependencies, and internal
+source directories. Keep those deny rules ahead of PHP routing rules when
+changing `docker/nginx.conf`, because the first matching Nginx regex location
+is selected.
+
+Intentionally public PHP entry points are the authentication and first-run
+pages and the client portal (`client/index.php` and
+`client/dashboard.php`). The client dashboard requires the project's random
+share code and is read-only. Owner pages and AJAX endpoints must continue to
+enforce session authentication and resource ownership in PHP; hiding links or
+checking the request referrer is not an access-control mechanism. Diagnostic
+scripts such as `_smtp_test.php` must not be callable over HTTP.
+
+After changing the Nginx rules, validate the deployed configuration and smoke
+test that private files remain unavailable (adjust the host/port if `APP_PORT`
+is not the default):
+
+```sh
+docker compose exec web nginx -t
+for path in .env .env.example .htaccess config.php config.template.php \
+  _smtp_test.php docs/requirements.md database/schema.sql; do
+    code=$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost/$path")
+    test "$code" = 404 || {
+        echo "$path returned $code (expected 404)" >&2
+        exit 1
+    }
+done
+curl -fsS -o /dev/null http://localhost/assets/css/style.css
+```
+
 ---
 
 ## Localization
@@ -216,15 +319,18 @@ and wrap the literals in the page files with `t('…')`.
 `database/schema.sql` is the canonical schema. It is loaded by
 `install.php` for fresh installs and serves as the reference for
 migrations. Apply new ones from `docker compose exec db … < migrations/<file>.sql`.
+schema additions:
 
-Key v1.1 additions to the schema:
-
-- `projects.scope TEXT` — multi-line project scope rendered on the client
-  dashboard.
-- `projects.budget_amount DECIMAL(15,2)`, `projects.currency CHAR(3)` —
-  budget display (currencies: THB, USD, CNY, JPY, SGD, EUR).
-- `projects.share_code CHAR(17)` — the 5-5-5 code shared with clients.
-- `projects.expected_completion_date DATE`.
+- v1.1.0: `projects.scope TEXT` (multi-line project scope rendered on the
+  client dashboard), `projects.budget_amount DECIMAL(15,2)`,
+  `projects.currency CHAR(3)` (THB, USD, CNY, JPY, SGD, EUR),
+  `projects.share_code CHAR(17)` (the 5-5-5 code shared with clients),
+  `projects.expected_completion_date DATE`, `contacts.phone VARCHAR(20)`.
+- v1.2.0: `tasks.estimated_hours DECIMAL(12,4) NULL` — optional per-task
+  effort estimate, used as the weight for effort-weighted completion. The
+  `project_stats` view is updated so the project's reported completion
+  applies the same weighted-or-equal-average rule to its top-level
+  tasks
 - `contacts.phone VARCHAR(20)` (added in v1.1.0 migration).
 
 ---
@@ -255,18 +361,16 @@ $db->execute("UPDATE … WHERE id = ?", [$id]);
 ```
 
 ---
-
-## Known gaps
-
-These are tracked for v1.2:
-
-- `contacts` table is missing `company`, `position`, `address` columns
-  that `contact_edit.php` writes and `contacts.php?search=…` filters on.
-  Direct visits to `/contacts.php` work; search and create fail until
-  those columns are added.
 - The auto-subtask trigger (`database/subtask_functions.sql`) is not
   applied because MariaDB ≥ 10.5 disallows recursive stored functions.
-  Subtask completion does not auto-roll-up to parents; managers update
+  v1.2.0 replaces it with application-level rollups for parent-task
+  completion (effort-weighted when all siblings are estimated, equal
+  average otherwise), so the manual-update step is no longer required
+  for progress display. The optional trigger file is kept for reference
+  only.
+- Internal app pages remain English-only. The client portal is fully
+  i18n (EN / 简体中文). Extending the `client/lang.php` catalog to the
+  internal surface is tracked for a future releasee
   them manually. A migration to replace it with application-level rollups
   is planned.
 - Internal app pages remain English-only. Client portal is fully i18n.

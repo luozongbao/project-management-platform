@@ -47,6 +47,12 @@ $tasks = $db->fetchAll(
      LIMIT 20",
     [$contact_id, $user_id]
 );
+foreach ($tasks as &$task) {
+    $taskCompletion = getProjectTaskCompletionMap($db, $task['project_id']);
+    $task['completion_percentage'] =
+        $taskCompletion['task_completion'][(int)$task['id']] ?? 0;
+}
+unset($task);
 
 // Get contact statistics
 $contact_stats = $db->fetchOne(

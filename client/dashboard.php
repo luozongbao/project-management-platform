@@ -93,7 +93,7 @@ if ($error) {
 // a tree on the client without recursive SQL.
 $flat_tasks = $db->fetchAll(
     "SELECT t.id, t.parent_task_id, t.name, t.description, t.status,
-            t.completion_percentage, t.expected_completion_date, t.completion_date,
+            t.completion_percentage, t.estimated_hours, t.expected_completion_date, t.completion_date,
             u.name AS responsible_name,
             (SELECT COUNT(*) FROM tasks st WHERE st.parent_task_id = t.id) AS subtask_count
      FROM tasks t
@@ -102,6 +102,12 @@ $flat_tasks = $db->fetchAll(
      ORDER BY (t.parent_task_id IS NULL) DESC, t.parent_task_id ASC, t.created_at ASC",
     [$project['id']]
 );
+$taskCompletion = calculateTaskCompletionMap($flat_tasks);
+$project['avg_completion_percentage'] = $taskCompletion['project_completion'];
+foreach ($flat_tasks as &$task) {
+    $task['completion_percentage'] = $taskCompletion['task_completion'][(int)$task['id']] ?? 0;
+}
+unset($task);
 
 // Build a tree.
 $by_parent = [];

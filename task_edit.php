@@ -75,11 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $completion_percentage = floatval($_POST['completion_percentage'] ?? 0);
     $expected_completion_date = $_POST['expected_completion_date'] ?? null;
     $completion_date = $_POST['completion_date'] ?? null;
+    $total_time = $_POST['total_time'] ?? '';
+    $total_time_unit = $_POST['total_time_unit'] ?? 'hours';
     $responsible_person_id = $_POST['responsible_person_id'] ?? ($task['responsible_person_id'] ?? $user_id);
     $contact_person_id = $_POST['contact_person_id'] ?? null;
     $form_project_id = $_POST['project_id'] ?? $project_id;
     
     $errors = [];
+    $estimated_hours = null;
     
     // Validation
     if (empty($name)) {
@@ -116,6 +119,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!in_array($status, ['not_started', 'in_progress', 'completed', 'on_hold'])) {
         $errors[] = "Invalid task status selected.";
+    }
+
+    if (!in_array($total_time_unit, ['hours', 'mandays'], true)) {
+        $errors[] = "Choose hours or mandays for the total task time.";
+    }
+
+    if (!is_string($total_time) && !is_numeric($total_time)) {
+        $errors[] = "Total task time must be a valid non-negative number.";
+    } else {
+        $total_time = trim((string)$total_time);
+        if ($total_time !== '') {
+            if (!is_numeric($total_time) || !is_finite((float)$total_time) || (float)$total_time < 0) {
+                $errors[] = "Total task time must be a finite, non-negative number.";
+            } else {
+                $hours_value = (float)$total_time * ($total_time_unit === 'mandays' ? 8 : 1);
+                $hours_value = round($hours_value, 4);
+                if (!is_finite($hours_value) || $hours_value > 99999999.9999) {
+                    $errors[] = "Total task time exceeds the maximum supported estimate.";
+                } else {
+                    $estimated_hours = number_format($hours_value, 4, '.', '');
+                }
+            }
+        }
     }
     
     if ($completion_percentage < 0 || $completion_percentage > 100) {
@@ -160,14 +186,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "UPDATE tasks SET 
                         name = ?, description = ?, status = ?, completion_percentage = ?,
                         expected_completion_date = ?, completion_date = ?,
-                        responsible_person_id = ?, contact_person_id = ?, updated_at = NOW()
+                        estimated_hours = ?, responsible_person_id = ?, contact_person_id = ?, updated_at = NOW()
                      WHERE id = ?",
                     [
                         $name, $description, $status, $completion_percentage,
-                        $expected_completion_date, $completion_date,
+                        $expected_completion_date, $completion_date, $estimated_hours,
                         $responsible_person_id, $contact_person_id, $task_id
                     ]
                 );
+                syncProjectTaskCompletions($db, $task['project_id']);
                 
                 redirect("task_detail.php?id=$task_id", 'Task updated successfully!', 'success');
             } else {
@@ -177,19 +204,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->execute(
                     "INSERT INTO tasks (
                         name, description, status, completion_percentage,
-                        expected_completion_date, completion_date,
+                        expected_completion_date, completion_date, estimated_hours,
                         responsible_person_id, contact_person_id,
                         project_id, parent_task_id, created_at, updated_at
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
                         $name, $description, $status, $completion_percentage,
-                        $expected_completion_date, $completion_date,
+                        $expected_completion_date, $completion_date, $estimated_hours,
                         $responsible_person_id, $contact_person_id,
                         $final_project_id, $parent_id
                     ]
                 );
                 
                 $new_task_id = $db->lastInsertId();
+                syncProjectTaskCompletions($db, $final_project_id);
                 
                 redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
             }
@@ -325,6 +353,37 @@ $show_nav = true;
                                    oninput="updatePercentageSlider(this.value)">
                             <span class="percentage-symbol">%</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Effort Estimate</h3>
+                    <div class="form-group">
+                        <label for="total_time">Total Task Time:</label>
+                        <div class="estimate-input">
+                            <?php
+                            $posted_total_time = $_POST['total_time'] ?? null;
+                            $total_time_value = is_scalar($posted_total_time) ? (string)$posted_total_time : (
+                                isset($task['estimated_hours']) && $task['estimated_hours'] !== null
+                                    ? rtrim(rtrim(number_format((float)$task['estimated_hours'], 4, '.', ''), '0'), '.')
+                                    : ''
+                            );
+                            $selected_time_unit = $_POST['total_time_unit'] ?? 'hours';
+                            ?>
+                            <input
+                                type="number"
+                                id="total_time"
+                                name="total_time"
+                                min="0"
+                                step="any"
+                                value="<?= e($total_time_value) ?>"
+                                placeholder="Not estimated">
+                            <select id="total_time_unit" name="total_time_unit" aria-label="Total task time unit">
+                                <option value="hours" <?= $selected_time_unit === 'hours' ? 'selected' : '' ?>>Hours</option>
+                                <option value="mandays" <?= $selected_time_unit === 'mandays' ? 'selected' : '' ?>>Mandays</option>
+                            </select>
+                        </div>
+                        <p class="field-help">One manday equals 8 hours. Leave blank if the task has no estimate; zero is saved but is not a usable completion weight.</p>
                     </div>
                 </div>
 
@@ -601,6 +660,21 @@ function loadProjectContacts(projectId) {
     font-weight: 500;
 }
 
+.estimate-input {
+    display: flex;
+    gap: 10px;
+}
+
+.estimate-input input {
+    min-width: 0;
+    flex: 1;
+}
+
+.estimate-input select {
+    width: auto;
+    min-width: 120px;
+}
+
 .field-help {
     font-size: 0.85rem;
     color: #666;
@@ -693,8 +767,36 @@ function loadProjectContacts(projectId) {
     .percentage-input input[type="number"] {
         width: 100%;
     }
+
+    .estimate-input {
+        flex-direction: column;
+    }
+
+    .estimate-input select {
+        width: 100%;
+    }
 }
 </style>
+
+<script>
+const totalTimeInput = document.getElementById('total_time');
+const totalTimeUnit = document.getElementById('total_time_unit');
+
+totalTimeUnit.addEventListener('change', function() {
+    const amount = Number(totalTimeInput.value);
+    if (totalTimeInput.value.trim() === '' || !Number.isFinite(amount)) {
+        totalTimeUnit.dataset.previousUnit = this.value;
+        return;
+    }
+
+    const hours = totalTimeUnit.dataset.previousUnit === 'mandays' ? amount * 8 : amount;
+    const newAmount = this.value === 'mandays' ? hours / 8 : hours;
+    totalTimeInput.value = String(newAmount);
+    totalTimeUnit.dataset.previousUnit = this.value;
+});
+
+totalTimeUnit.dataset.previousUnit = totalTimeUnit.value;
+</script>
 
 <?php if ($is_editing): ?>
 <script>

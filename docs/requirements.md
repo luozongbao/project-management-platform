@@ -1,6 +1,7 @@
 Php project management to manage my personal project that include these features
 
 ## Technology Stack
+0. development environment use docker
 1. Nginx
 2. php 8.3
 3. Mariadb
