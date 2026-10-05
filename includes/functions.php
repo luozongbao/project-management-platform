@@ -383,9 +383,10 @@ function generateShareCode() {
 }
 
 // Build the absolute URL the client will use to view their project dashboard.
+// The entry point is the domain root — see /index.php (public landing).
 // Configurable via APP_URL so it works behind a reverse proxy / different host.
 function buildClientShareUrl($share_code) {
-    return rtrim(APP_URL, '/') . '/client/?code=' . rawurlencode($share_code);
+    return rtrim(APP_URL, '/') . '/?code=' . rawurlencode($share_code);
 }
 
 // Format a money amount with the project currency. No FX conversion — the

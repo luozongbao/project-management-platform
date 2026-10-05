@@ -21,12 +21,13 @@ canonical Docker compose stack, and a number of bug fixes.
 
 ### Highlights
 
-- **Client share portal** (`/client/`)
+- **Client share portal** (entry at `/`, dashboard at `/client/dashboard.php`)
   - New public, unauthenticated entry point. Anyone holding a project's
     `share_code` (a 5-5-5 alphanumeric code such as `SZ9GM-K2S3C-AWU6P`) can
     see a read-only snapshot of the project.
-  - Landing page (`client/index.php`) with auto-formatting input — uppercase
-    and dashes inserted automatically as the user types.
+  - Landing page at `/` (was `/client/`) with auto-formatting input —
+    uppercase and dashes inserted automatically as the user types.
+    `/client/` 302-redirects to `/` while preserving the query string.
   - Read-only dashboard (`client/dashboard.php`) showing:
     - Project info: name, description, status, manager, start / expected /
       completion dates.

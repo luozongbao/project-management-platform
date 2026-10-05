@@ -10,10 +10,12 @@ portal** that lets stakeholders view read-only progress without logging in.
 
 ## What's new in v1.1
 
-- **Public client portal** (`/client/`) — share a project with a 5-5-5
-  alphanumeric code; clients see a read-only dashboard (project info,
-  overall completion, scope, budget, full task tree with status and due
-  dates).
+- **Public client portal** (entry at `/`, dashboard at `/client/dashboard.php`)
+  — share a project with a 5-5-5 alphanumeric code; clients see a read-only
+  dashboard (project info, overall completion, scope, budget, full task tree
+  with status and due dates). The domain root hosts the public share-code
+  form; the legacy `/client/` URL 302-redirects to `/` so existing bookmarks
+  keep working.
 - **English / Simplified Chinese** for the client portal, with a language
   switcher, browser header detection, cookie-persisted preference, and
   `?lang=` override.
@@ -56,6 +58,12 @@ portal** that lets stakeholders view read-only progress without logging in.
 
 ### Client portal (public, no login)
 
+- **Root entry point** (`/`) — the domain root now hosts the public
+  share-code form, so clients and project managers have a single shared
+  landing page. An "Owner sign in" link on the form reaches `/login.php`.
+- **Legacy `/client/` URL** — preserved as a redirect shim that 302-redirects
+  to `/` while passing through the original query string (so existing
+  bookmarks like `/client/?code=…` still work).
 - **Landing page** with auto-formatting input — uppercase letters and
   dashes are inserted automatically as the user types the share code.
 - **Read-only project dashboard** showing:
