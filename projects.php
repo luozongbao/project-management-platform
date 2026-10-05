@@ -19,6 +19,12 @@ $projects = $db->fetchAll(
     [$user_id]
 );
 
+foreach ($projects as &$project) {
+    $completion = getProjectTaskCompletionMap($db, $project['id']);
+    $project['avg_completion_percentage'] = $completion['project_completion'];
+}
+unset($project);
+
 $title = "Projects";
 $show_nav = true;
 ?>

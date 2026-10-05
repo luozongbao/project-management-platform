@@ -38,7 +38,7 @@ try {
     
     // Verify that the user has access to this task
     $task = $db->fetchOne(
-        "SELECT t.id, t.parent_task_id, p.responsible_person_id
+        "SELECT t.id, t.parent_task_id, t.project_id, p.responsible_person_id
          FROM tasks t
          JOIN projects p ON t.project_id = p.id
          WHERE t.id = ?",
@@ -56,26 +56,14 @@ try {
         [$completion_percentage, $task_id]
     );
     
-    $response = ['success' => true];
-    
-    // If this is a subtask, calculate and update parent task completion
+    $completionMap = syncProjectTaskCompletions($db, $task['project_id']);
+    $response = [
+        'success' => true,
+        'task_progress' => $completionMap['task_completion'][(int)$task_id] ?? 0,
+    ];
     if ($task['parent_task_id']) {
-        $parent_subtasks = $db->fetchAll(
-            "SELECT completion_percentage FROM tasks WHERE parent_task_id = ?",
-            [$task['parent_task_id']]
-        );
-        
-        $total_completion = array_sum(array_column($parent_subtasks, 'completion_percentage'));
-        $avg_completion = count($parent_subtasks) > 0 ? $total_completion / count($parent_subtasks) : 0;
-        
-        // Update parent task completion
-        $db->execute(
-            "UPDATE tasks SET completion_percentage = ?, updated_at = NOW() WHERE id = ?",
-            [$avg_completion, $task['parent_task_id']]
-        );
-        
         $response['parent_task_id'] = $task['parent_task_id'];
-        $response['parent_progress'] = $avg_completion;
+        $response['parent_progress'] = $completionMap['task_completion'][(int)$task['parent_task_id']] ?? 0;
     }
     
     echo json_encode($response);

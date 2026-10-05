@@ -13,54 +13,32 @@ requireLogin();
 /**
  * Update parent task completion percentage based on subtasks
  */
-function updateParentTaskCompletion($db, $parent_task_id) {
-    // Get all subtasks for this parent task
-    $subtasks = $db->fetchAll(
-        "SELECT id, completion_percentage, status FROM tasks WHERE parent_task_id = ?",
-        [$parent_task_id]
-    );
-    
-    if (empty($subtasks)) {
+function updateParentTaskCompletion($db, $parent_task_id, $project_id) {
+    $completionMap = syncProjectTaskCompletions($db, $project_id);
+    if (!isset($completionMap['task_completion'][(int)$parent_task_id])) {
         return;
     }
-    
-    // Calculate average completion percentage
-    $total_completion = 0;
-    $completed_count = 0;
-    
-    foreach ($subtasks as $subtask) {
-        $total_completion += $subtask['completion_percentage'];
-        if ($subtask['status'] === 'completed') {
-            $completed_count++;
-        }
-    }
-    
-    $average_completion = round($total_completion / count($subtasks), 1);
-    
-    // Determine parent task status
+
+    $completion = $completionMap['task_completion'][(int)$parent_task_id];
     $parent_status = 'not_started';
-    if ($average_completion > 0 && $average_completion < 100) {
+    if ($completion > 0 && $completion < 100) {
         $parent_status = 'in_progress';
-    } elseif ($average_completion === 100.0) {
+    } elseif ($completion >= 100) {
         $parent_status = 'completed';
     }
-    
-    // Update parent task
-    $update_params = [$parent_status, $average_completion, $parent_task_id];
+
     $completion_date_sql = '';
-    
     if ($parent_status === 'completed') {
         $completion_date_sql = ', completion_date = NOW()';
     }
-    
+
     $db->execute(
         "UPDATE tasks SET 
          status = ?,
-         completion_percentage = ?,
          updated_at = NOW()
          {$completion_date_sql}
          WHERE id = ?",
-        $update_params
+        [$parent_status, $parent_task_id]
     );
 }
 
@@ -102,6 +80,19 @@ try {
         echo json_encode(['success' => false, 'message' => 'Task not found or access denied']);
         exit;
     }
+
+    $child_count = $db->fetchOne(
+        "SELECT COUNT(*) AS count FROM tasks WHERE parent_task_id = ?",
+        [$task_id]
+    )['count'] ?? 0;
+    if ((int)$child_count > 0) {
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'message' => 'This task has subtasks. Complete its subtasks to update its progress.',
+        ]);
+        exit;
+    }
     
     if ($task['status'] === 'completed') {
         echo json_encode(['success' => false, 'message' => 'Task is already completed']);
@@ -122,7 +113,9 @@ try {
     
     // If this is a subtask, update parent task completion percentage
     if ($task['parent_task_id']) {
-        updateParentTaskCompletion($db, $task['parent_task_id']);
+        updateParentTaskCompletion($db, $task['parent_task_id'], $task['project_id']);
+    } else {
+        syncProjectTaskCompletions($db, $task['project_id']);
     }
     
     // Get updated task data

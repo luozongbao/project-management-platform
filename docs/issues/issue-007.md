@@ -1,6 +1,6 @@
 # Calculate Effort-Weighted Completion
 
-**Status:** Open  
+**Status:** Implemented
 **Type:** Feature / Progress Calculation  
 **Depends on:** [issue-006](./issue-006.md)  
 **Implementation order:** 2 of 2

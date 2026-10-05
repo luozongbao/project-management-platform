@@ -28,6 +28,9 @@ if (!$project) {
     redirect('projects.php', 'Project not found or access denied.', 'danger');
 }
 
+$taskCompletion = getProjectTaskCompletionMap($db, $project_id);
+$project['avg_completion_percentage'] = $taskCompletion['project_completion'];
+
 // Get top-level tasks (no parent)
 $tasks = $db->fetchAll(
     "SELECT t.*, u.name as responsible_person_name, c.name as contact_person_name,
@@ -39,6 +42,10 @@ $tasks = $db->fetchAll(
      ORDER BY t.created_at DESC",
     [$project_id]
 );
+foreach ($tasks as &$task) {
+    $task['completion_percentage'] = $taskCompletion['task_completion'][(int)$task['id']] ?? 0;
+}
+unset($task);
 
 // Get project contacts
 $project_contacts = $db->fetchAll(

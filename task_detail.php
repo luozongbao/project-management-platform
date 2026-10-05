@@ -33,7 +33,8 @@ if (!$task) {
 
 // Get subtasks
 $subtasks = $db->fetchAll(
-    "SELECT t.*, u.name as responsible_person_name, c.name as contact_person_name
+    "SELECT t.*, u.name as responsible_person_name, c.name as contact_person_name,
+            (SELECT COUNT(*) FROM tasks child WHERE child.parent_task_id = t.id) AS subtask_count
      FROM tasks t
      LEFT JOIN users u ON t.responsible_person_id = u.id
      LEFT JOIN contacts c ON t.contact_person_id = c.id
@@ -42,16 +43,13 @@ $subtasks = $db->fetchAll(
     [$task_id]
 );
 
-// Calculate completion percentage based on subtasks if they exist
-if (!empty($subtasks)) {
-    $total_subtasks = count($subtasks);
-    $completed_subtasks = array_reduce($subtasks, function($carry, $subtask) {
-        return $carry + ($subtask['completion_percentage'] / 100);
-    }, 0);
-    $calculated_percentage = ($completed_subtasks / $total_subtasks) * 100;
-} else {
-    $calculated_percentage = $task['completion_percentage'];
+// Resolve nested task progress with the same weighted/fallback rule as projects.
+$taskCompletion = getProjectTaskCompletionMap($db, $task['project_id']);
+$calculated_percentage = $taskCompletion['task_completion'][(int)$task_id] ?? 0;
+foreach ($subtasks as &$subtask) {
+    $subtask['completion_percentage'] = $taskCompletion['task_completion'][(int)$subtask['id']] ?? 0;
 }
+unset($subtask);
 
 // Get task activity/comments (you can extend this for more detailed activity tracking)
 $activities = $db->fetchAll(
@@ -92,7 +90,7 @@ $show_nav = true;
             </h1>
         </div>
         <div class="page-actions">
-            <?php if ($task['status'] !== 'completed'): ?>
+            <?php if ($task['status'] !== 'completed' && empty($subtasks)): ?>
                 <button class="btn btn-success quick-complete-btn" 
                         data-task-id="<?= $task_id ?>" 
                         title="Mark as Completed">
@@ -212,7 +210,7 @@ $show_nav = true;
                                             </div>
                                         </div>
                                         <div class="subtask-actions">
-                                            <?php if ($subtask['status'] !== 'completed'): ?>
+                                            <?php if ($subtask['status'] !== 'completed' && (int)$subtask['subtask_count'] === 0): ?>
                                                 <button class="btn btn-sm btn-success quick-complete-btn" 
                                                         data-task-id="<?= $subtask['id'] ?>" 
                                                         title="Mark as Completed">

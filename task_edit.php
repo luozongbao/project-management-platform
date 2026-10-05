@@ -194,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $responsible_person_id, $contact_person_id, $task_id
                     ]
                 );
+                syncProjectTaskCompletions($db, $task['project_id']);
                 
                 redirect("task_detail.php?id=$task_id", 'Task updated successfully!', 'success');
             } else {
@@ -216,6 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 
                 $new_task_id = $db->lastInsertId();
+                syncProjectTaskCompletions($db, $final_project_id);
                 
                 redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
             }

@@ -81,6 +81,137 @@ function formatTaskEstimate($estimatedHours) {
     return $formatted . ' ' . (abs($hours - 1) < 0.00005 ? 'hour' : 'hours');
 }
 
+function calculateTaskGroupCompletion($tasks) {
+    if (empty($tasks)) {
+        return 0.0;
+    }
+
+    $allHavePositiveEstimates = true;
+    $weightedCompletion = 0.0;
+    $totalHours = 0.0;
+    $totalCompletion = 0.0;
+
+    foreach ($tasks as $task) {
+        $completion = (float)($task['completion_percentage'] ?? 0);
+        $estimate = $task['estimated_hours'] ?? null;
+        $totalCompletion += $completion;
+
+        if ($estimate === null || !is_numeric($estimate) || (float)$estimate <= 0) {
+            $allHavePositiveEstimates = false;
+            continue;
+        }
+
+        $hours = (float)$estimate;
+        $weightedCompletion += $hours * $completion;
+        $totalHours += $hours;
+    }
+
+    if ($allHavePositiveEstimates && $totalHours > 0) {
+        return $weightedCompletion / $totalHours;
+    }
+
+    return $totalCompletion / count($tasks);
+}
+
+function calculateTaskCompletionMap($tasks) {
+    $tasksById = [];
+    $childrenByParent = [];
+
+    foreach ($tasks as $task) {
+        $id = (int)$task['id'];
+        $tasksById[$id] = $task;
+        $parentId = $task['parent_task_id'] === null ? 0 : (int)$task['parent_task_id'];
+        $childrenByParent[$parentId][] = $id;
+    }
+
+    $completionById = [];
+    $calculating = [];
+    $getCompletion = function ($taskId) use (&$getCompletion, &$tasksById, &$childrenByParent, &$completionById, &$calculating) {
+        if (isset($completionById[$taskId])) {
+            return $completionById[$taskId];
+        }
+
+        $task = $tasksById[$taskId];
+        if (isset($calculating[$taskId])) {
+            return (float)($task['completion_percentage'] ?? 0);
+        }
+        $calculating[$taskId] = true;
+
+        $children = [];
+        foreach ($childrenByParent[$taskId] ?? [] as $childId) {
+            $children[] = [
+                'completion_percentage' => $getCompletion($childId),
+                'estimated_hours' => $tasksById[$childId]['estimated_hours'] ?? null,
+            ];
+        }
+
+        $completionById[$taskId] = $children
+            ? calculateTaskGroupCompletion($children)
+            : (float)($task['completion_percentage'] ?? 0);
+        unset($calculating[$taskId]);
+
+        return $completionById[$taskId];
+    };
+
+    foreach (array_keys($tasksById) as $taskId) {
+        $getCompletion($taskId);
+    }
+
+    $topLevelTasks = [];
+    foreach ($childrenByParent[0] ?? [] as $taskId) {
+        $topLevelTasks[] = [
+            'completion_percentage' => $completionById[$taskId],
+            'estimated_hours' => $tasksById[$taskId]['estimated_hours'] ?? null,
+        ];
+    }
+
+    return [
+        'project_completion' => calculateTaskGroupCompletion($topLevelTasks),
+        'task_completion' => $completionById,
+    ];
+}
+
+function getProjectTaskCompletionMap($db, $projectId) {
+    $tasks = $db->fetchAll(
+        "SELECT id, parent_task_id, estimated_hours, completion_percentage
+         FROM tasks WHERE project_id = ?",
+        [$projectId]
+    );
+
+    return calculateTaskCompletionMap($tasks);
+}
+
+function syncProjectTaskCompletions($db, $projectId) {
+    $tasks = $db->fetchAll(
+        "SELECT id, parent_task_id, estimated_hours, completion_percentage
+         FROM tasks WHERE project_id = ?",
+        [$projectId]
+    );
+    $completionMap = calculateTaskCompletionMap($tasks);
+    $parentIds = [];
+
+    foreach ($tasks as $task) {
+        if ($task['parent_task_id'] !== null) {
+            $parentIds[(int)$task['parent_task_id']] = true;
+        }
+    }
+
+    foreach (array_keys($parentIds) as $parentId) {
+        $storedCompletion = round($completionMap['task_completion'][$parentId], 2);
+        $db->execute(
+            "UPDATE tasks SET completion_percentage = ?, updated_at = NOW()
+             WHERE id = ? AND completion_percentage <> ?",
+            [
+                $storedCompletion,
+                $parentId,
+                $storedCompletion,
+            ]
+        );
+    }
+
+    return $completionMap;
+}
+
 // Hash password
 function hashPassword($password) {
     return password_hash($password, PASSWORD_ARGON2ID);
