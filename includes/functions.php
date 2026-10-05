@@ -52,6 +52,24 @@ function generateToken($length = 32) {
     return bin2hex(random_bytes($length / 2));
 }
 
+function getCsrfToken() {
+    startSession();
+
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = generateToken();
+    }
+
+    return $_SESSION['csrf_token'];
+}
+
+function validateCsrfToken($token) {
+    startSession();
+
+    return is_string($token)
+        && isset($_SESSION['csrf_token'])
+        && hash_equals($_SESSION['csrf_token'], $token);
+}
+
 // Hash password
 function hashPassword($password) {
     return password_hash($password, PASSWORD_ARGON2ID);

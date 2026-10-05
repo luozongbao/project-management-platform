@@ -137,6 +137,7 @@ if ($project_id) {
 
 $title = $project ? "Edit Project" : "New Project";
 $show_nav = true;
+$csrf_token = $project ? getCsrfToken() : null;
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -282,7 +283,7 @@ $show_nav = true;
                         </a>
                         
                         <?php if ($project): ?>
-                            <button type="button" class="btn btn-danger" onclick="deleteProject()" style="margin-left: auto;">
+                            <button type="button" class="btn btn-danger" onclick="openDeleteProjectDialog()" style="margin-left: auto;">
                                 <i class="fas fa-trash"></i>
                                 Delete Project
                             </button>
@@ -293,6 +294,44 @@ $show_nav = true;
         </div>
     </div>
 </div>
+
+<?php if ($project): ?>
+<dialog id="delete-project-dialog" class="delete-project-dialog" aria-labelledby="delete-project-title" aria-describedby="delete-project-warning">
+    <form method="POST" action="project_delete.php" class="delete-project-form">
+        <h2 id="delete-project-title">Delete project?</h2>
+        <p id="delete-project-warning">
+            This permanently deletes this project and may also delete its associated tasks and contacts.
+            This action cannot be undone.
+        </p>
+        <p>
+            To confirm, type Project Code
+            <?php if (!empty($project['share_code'])): ?>
+                <strong><?= e($project['share_code']) ?></strong>.
+            <?php else: ?>
+                <strong>unavailable</strong>. This project has no Project Code, so it cannot be deleted from here.
+            <?php endif; ?>
+        </p>
+        <?php if (!empty($project['share_code'])): ?>
+        <label for="delete-project-confirmation">Project Code</label>
+        <input
+            type="text"
+            id="delete-project-confirmation"
+            name="confirmation_code"
+            autocapitalize="characters"
+            autocomplete="off"
+            required
+            aria-describedby="delete-project-warning"
+            data-project-code="<?= e($project['share_code']) ?>">
+        <?php endif; ?>
+        <input type="hidden" name="project_id" value="<?= e($project['id']) ?>">
+        <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
+        <div class="delete-project-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteProjectDialog()">Cancel</button>
+            <button type="submit" class="btn btn-danger" id="confirm-delete-project" disabled <?= empty($project['share_code']) ? 'title="This project has no Project Code."' : '' ?>>Delete Project</button>
+        </div>
+    </form>
+</dialog>
+<?php endif; ?>
 
 <style>
 .page-container {
@@ -324,6 +363,48 @@ $show_nav = true;
     width: 16px;
 }
 
+.delete-project-dialog {
+    width: min(32rem, calc(100% - 2rem));
+    max-width: none;
+    max-height: calc(100% - 2rem);
+    margin: auto;
+    padding: 1.5rem;
+    border: 0;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.delete-project-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.delete-project-form h2 {
+    margin-bottom: 1rem;
+}
+
+.delete-project-form p,
+.delete-project-form label {
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.delete-project-form input[type="text"] {
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 1.25rem;
+    padding: 0.5rem;
+}
+
+.delete-project-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.delete-project-actions .btn {
+    min-height: 44px;
+}
+
 @media (max-width: 768px) {
     .form-actions {
         flex-direction: column;
@@ -333,6 +414,14 @@ $show_nav = true;
     .form-actions .btn {
         width: 100%;
         margin-left: 0 !important;
+    }
+
+    .delete-project-actions {
+        flex-direction: column-reverse;
+    }
+
+    .delete-project-actions .btn {
+        width: 100%;
     }
 }
 </style>
@@ -355,11 +444,36 @@ document.getElementById('status').addEventListener('change', function() {
 
 <?php if ($project): ?>
 <script>
-function deleteProject() {
-    if (confirm('Are you sure you want to delete this project?\n\nThis will also delete all associated tasks and cannot be undone.')) {
-        window.location.href = 'project_delete.php?id=<?= $project['id'] ?>';
+const deleteProjectDialog = document.getElementById('delete-project-dialog');
+const deleteProjectInput = document.getElementById('delete-project-confirmation');
+const deleteProjectSubmit = document.getElementById('confirm-delete-project');
+
+function openDeleteProjectDialog() {
+    deleteProjectDialog.showModal();
+    if (deleteProjectInput) {
+        deleteProjectInput.focus();
+    } else {
+        deleteProjectSubmit.focus();
     }
 }
+
+function closeDeleteProjectDialog() {
+    deleteProjectDialog.close();
+}
+
+if (deleteProjectInput) {
+    deleteProjectInput.addEventListener('input', function() {
+        deleteProjectSubmit.disabled = this.value === ''
+            || this.value !== this.dataset.projectCode;
+    });
+}
+
+deleteProjectDialog.addEventListener('close', function() {
+    if (deleteProjectInput) {
+        deleteProjectInput.value = '';
+    }
+    deleteProjectSubmit.disabled = true;
+});
 </script>
 <?php endif; ?>
 

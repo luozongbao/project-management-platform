@@ -184,6 +184,40 @@ Database credentials come from `.env` (see `.env.example`). Mail settings
 are read at runtime by `includes/EmailService.php` and configured through
 the admin UI after install.
 
+## Web access boundaries
+
+The Docker deployment uses Nginx; `.htaccess` rules are not applied. The Nginx
+site configuration blocks direct HTTP access to dotfiles, configuration and
+deployment files, documentation, database scripts, dependencies, and internal
+source directories. Keep those deny rules ahead of PHP routing rules when
+changing `docker/nginx.conf`, because the first matching Nginx regex location
+is selected.
+
+Intentionally public PHP entry points are the authentication and first-run
+pages and the client portal (`client/index.php` and
+`client/dashboard.php`). The client dashboard requires the project's random
+share code and is read-only. Owner pages and AJAX endpoints must continue to
+enforce session authentication and resource ownership in PHP; hiding links or
+checking the request referrer is not an access-control mechanism. Diagnostic
+scripts such as `_smtp_test.php` must not be callable over HTTP.
+
+After changing the Nginx rules, validate the deployed configuration and smoke
+test that private files remain unavailable (adjust the host/port if `APP_PORT`
+is not the default):
+
+```sh
+docker compose exec web nginx -t
+for path in .env .env.example .htaccess config.php config.template.php \
+  _smtp_test.php docs/requirements.md database/schema.sql; do
+    code=$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost/$path")
+    test "$code" = 404 || {
+        echo "$path returned $code (expected 404)" >&2
+        exit 1
+    }
+done
+curl -fsS -o /dev/null http://localhost/assets/css/style.css
+```
+
 ---
 
 ## Localization

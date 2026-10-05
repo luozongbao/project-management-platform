@@ -1,6 +1,6 @@
 # Protect Private Files and Direct Endpoints
 
-**Status:** Open  
+**Status:**  [IMPLEMENTED]  
 **Type:** Security
 
 ## Problem
