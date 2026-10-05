@@ -1,6 +1,6 @@
 # Add Task Time Estimates
 
-**Status:** Open  
+**Status:** Implemented
 **Type:** Feature / Data Model  
 **Depends on:** None  
 **Implementation order:** 1 of 2
@@ -44,3 +44,10 @@ equally significant regardless of how much work it represents.
   access.
 - Database migration and rollback/deployment behavior follow the project's
   existing migration conventions.
+
+## Implementation Notes
+
+- Estimates are stored in `tasks.estimated_hours` as nullable
+  `DECIMAL(12,4)` values. The maximum supported value is `99,999,999.9999`
+  hours; values that exceed it are rejected.
+- The migration is `database/migrations/20261005_add_task_estimated_hours.sql`.

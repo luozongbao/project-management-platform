@@ -203,6 +203,12 @@ $show_nav = true;
                                                         <?= e($subtask['responsible_person_name']) ?>
                                                     </span>
                                                 <?php endif; ?>
+                                                <?php if ($subtask['estimated_hours'] !== null): ?>
+                                                    <span class="task-estimate">
+                                                        <i class="fas fa-clock"></i>
+                                                        Total Time: <?= e(formatTaskEstimate($subtask['estimated_hours'])) ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                         <div class="subtask-actions">
@@ -279,6 +285,13 @@ $show_nav = true;
                         <label>Responsible Person:</label>
                         <span><?= e($task['responsible_person_name']) ?></span>
                     </div>
+
+                    <?php if ($task['estimated_hours'] !== null): ?>
+                        <div class="detail-item">
+                            <label>Total Task Time:</label>
+                            <span><?= e(formatTaskEstimate($task['estimated_hours'])) ?></span>
+                        </div>
+                    <?php endif; ?>
                     
                     <?php if ($task['contact_person_name']): ?>
                         <div class="detail-item">

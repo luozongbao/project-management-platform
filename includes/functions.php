@@ -70,6 +70,17 @@ function validateCsrfToken($token) {
         && hash_equals($_SESSION['csrf_token'], $token);
 }
 
+function formatTaskEstimate($estimatedHours) {
+    if ($estimatedHours === null || $estimatedHours === '') {
+        return '';
+    }
+
+    $hours = (float)$estimatedHours;
+    $formatted = rtrim(rtrim(number_format($hours, 4, '.', ','), '0'), '.');
+
+    return $formatted . ' ' . (abs($hours - 1) < 0.00005 ? 'hour' : 'hours');
+}
+
 // Hash password
 function hashPassword($password) {
     return password_hash($password, PASSWORD_ARGON2ID);

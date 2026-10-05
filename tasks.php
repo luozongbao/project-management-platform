@@ -308,6 +308,13 @@ $show_nav = true;
                                         <?= $task['subtask_count'] ?> subtasks
                                     </span>
                                 <?php endif; ?>
+
+                                <?php if ($task['estimated_hours'] !== null): ?>
+                                    <span class="task-estimate">
+                                        <i class="fas fa-clock"></i>
+                                        Total Time: <?= e(formatTaskEstimate($task['estimated_hours'])) ?>
+                                    </span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         

@@ -37,7 +37,8 @@ portal** that lets stakeholders view read-only progress without logging in.
   expected / completion dates, responsible person, share code.
 - **Tasks** — hierarchical (parent + unlimited subtasks), status
   (Not started / In progress / Completed / On hold), completion percentage,
-  expected + actual completion dates, responsible person, contact person.
+  expected + actual completion dates, optional effort estimate in hours or
+  mandays (8 hours per manday), responsible person, contact person.
 - **Contacts** — global contact database shared across projects, with
   email, phone, mobile, company, position, address, WeChat / Line / Facebook
   / LinkedIn.
@@ -102,6 +103,10 @@ docker compose exec db \
 docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261003_add_contacts_phone.sql
+
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261005_add_task_estimated_hours.sql
 ```
 
 The included migrations are idempotent — safe to re-run.
