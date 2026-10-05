@@ -35,13 +35,20 @@ $uncompleted_tasks = $db->fetchOne(
     [$user_id]
 )['count'] ?? 0;
 
-// Overall completion percentage (average of all project completion percentages)
-$overall_completion = $db->fetchOne(
-    "SELECT AVG(avg_completion_percentage) as avg_completion 
-     FROM project_stats 
-     WHERE id IN (SELECT id FROM projects WHERE responsible_person_id = ?)",
+// Calculate each project's weighted task completion, then retain the existing
+// equal average across projects for the account-wide dashboard statistic.
+$user_project_ids = $db->fetchAll(
+    "SELECT id FROM projects WHERE responsible_person_id = ?",
     [$user_id]
-)['avg_completion'] ?? 0;
+);
+$completionByProject = [];
+foreach ($user_project_ids as $userProject) {
+    $projectCompletion = getProjectTaskCompletionMap($db, $userProject['id']);
+    $completionByProject[(int)$userProject['id']] = $projectCompletion;
+}
+$overall_completion = count($completionByProject) > 0
+    ? array_sum(array_column($completionByProject, 'project_completion')) / count($completionByProject)
+    : 0;
 
 // Recent projects
 $recent_projects = $db->fetchAll(
@@ -54,6 +61,11 @@ $recent_projects = $db->fetchAll(
      LIMIT 5",
     [$user_id]
 );
+foreach ($recent_projects as &$project) {
+    $project['avg_completion_percentage'] =
+        $completionByProject[(int)$project['id']]['project_completion'] ?? 0;
+}
+unset($project);
 
 // Upcoming deadlines
 $upcoming_deadlines = $db->fetchAll(
@@ -68,10 +80,18 @@ $upcoming_deadlines = $db->fetchAll(
      LIMIT 5",
     [$user_id]
 );
+foreach ($upcoming_deadlines as &$deadline) {
+    if (!isset($completionByProject[(int)$deadline['id']])) {
+        $completionByProject[(int)$deadline['id']] = getProjectTaskCompletionMap($db, $deadline['id']);
+    }
+    $deadline['avg_completion_percentage'] =
+        $completionByProject[(int)$deadline['id']]['project_completion'];
+}
+unset($deadline);
 
 // Recent tasks
 $recent_tasks = $db->fetchAll(
-    "SELECT t.id, t.name, t.status, t.completion_percentage, p.name as project_name,
+    "SELECT t.id, t.project_id, t.name, t.status, t.completion_percentage, p.name as project_name,
             t.expected_completion_date, u.name as responsible_person_name
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
@@ -81,6 +101,15 @@ $recent_tasks = $db->fetchAll(
      LIMIT 5",
     [$user_id]
 );
+foreach ($recent_tasks as &$task) {
+    $taskProjectId = (int)$task['project_id'];
+    if (!isset($completionByProject[$taskProjectId])) {
+        $completionByProject[$taskProjectId] = getProjectTaskCompletionMap($db, $taskProjectId);
+    }
+    $task['completion_percentage'] =
+        $completionByProject[$taskProjectId]['task_completion'][(int)$task['id']] ?? 0;
+}
+unset($task);
 
 $title = "Dashboard";
 $show_nav = true;

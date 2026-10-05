@@ -302,3 +302,27 @@
     flex-wrap: wrap;
     justify-content: flex-end;
 }
+
+/* Owner login link on the public landing page */
+.client-body .owner-login {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed #e1e4e8;
+    text-align: center;
+}
+.client-body .owner-login-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #495057;
+    font-size: 0.92rem;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: color .15s ease, background .15s ease;
+}
+.client-body .owner-login-link:hover {
+    color: #007bff;
+    background: #f6f8fa;
+    text-decoration: none;
+}

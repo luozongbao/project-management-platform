@@ -2,9 +2,11 @@
 /**
  * Client portal localization (English / Simplified Chinese).
  *
- * Designed for the unauthenticated /client/ surface only. We deliberately
- * keep this separate from the internal app's strings to avoid regressing
- * the auth pages, and to make it easy to evolve the catalog independently.
+ * Designed for the unauthenticated client surface (the domain-root landing
+ * page in /index.php and the read-only dashboard in client/dashboard.php).
+ * We deliberately keep this separate from the internal app's strings to
+ * avoid regressing the auth pages, and to make it easy to evolve the
+ * catalog independently.
  *
  * Usage:
  *   require_once __DIR__ . '/lang.php';
@@ -36,6 +38,7 @@ function client_translations() {
             'landing.foot'           => 'Lost your code? Please contact your project manager.',
             'landing.try_again'      => 'Try another code',
             'landing.lang_label'     => 'Language',
+            'landing.owner_login'    => 'Owner sign in',
             // Errors
             'err.empty_code'         => 'Please enter your project code.',
             'err.bad_format'         => "That doesn't look like a valid project code. Codes look like AX498-99ZB2-92C3J.",
@@ -91,6 +94,7 @@ function client_translations() {
             'landing.foot'           => '找不到代码?请联系您的项目经理。',
             'landing.try_again'      => '重新输入代码',
             'landing.lang_label'     => '语言',
+            'landing.owner_login'    => '管理员登录',
             // Errors
             'err.empty_code'         => '请输入您的项目代码。',
             'err.bad_format'         => '代码格式不正确,示例:AX498-99ZB2-92C3J。',

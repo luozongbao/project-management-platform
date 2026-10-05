@@ -80,6 +80,7 @@ CREATE TABLE tasks (
     contact_person_id INT NULL,
     expected_completion_date DATE,
     completion_date DATE,
+    estimated_hours DECIMAL(12,4) NULL,
     completion_percentage DECIMAL(5,2) DEFAULT 0.00,
     status ENUM('not_started', 'in_progress', 'completed', 'on_hold') DEFAULT 'not_started',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -119,7 +120,17 @@ SELECT
     COUNT(DISTINCT t.id) as total_tasks,
     COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN t.id END) as completed_tasks,
     COUNT(DISTINCT CASE WHEN t.status != 'completed' THEN t.id END) as uncompleted_tasks,
-    COALESCE(AVG(CASE WHEN t.parent_task_id IS NULL THEN t.completion_percentage END), 0) as avg_completion_percentage,
+    COALESCE((
+        SELECT CASE
+            WHEN COUNT(*) = 0 THEN 0
+            WHEN SUM(CASE WHEN top_task.estimated_hours IS NULL OR top_task.estimated_hours <= 0 THEN 1 ELSE 0 END) = 0
+                THEN SUM(top_task.estimated_hours * top_task.completion_percentage) / NULLIF(SUM(top_task.estimated_hours), 0)
+            ELSE AVG(top_task.completion_percentage)
+        END
+        FROM tasks top_task
+        WHERE top_task.project_id = p.id
+          AND top_task.parent_task_id IS NULL
+    ), 0) as avg_completion_percentage,
     COUNT(DISTINCT pc.contact_id) as contact_count
 FROM projects p
 LEFT JOIN tasks t ON p.id = t.project_id
@@ -140,6 +151,7 @@ SELECT
     c.name as contact_person_name,
     t.expected_completion_date,
     t.completion_date,
+    t.estimated_hours,
     t.completion_percentage,
     t.status,
     t.created_at,

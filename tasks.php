@@ -54,6 +54,17 @@ $tasks = $db->fetchAll(
     $params
 );
 
+$completionByProject = [];
+foreach ($tasks as &$task) {
+    $taskProjectId = (int)$task['project_id'];
+    if (!isset($completionByProject[$taskProjectId])) {
+        $completionByProject[$taskProjectId] = getProjectTaskCompletionMap($db, $taskProjectId);
+    }
+    $task['completion_percentage'] =
+        $completionByProject[$taskProjectId]['task_completion'][(int)$task['id']] ?? 0;
+}
+unset($task);
+
 // Get projects for filter dropdown
 $user_projects = $db->fetchAll(
     "SELECT id, name FROM projects WHERE responsible_person_id = ? ORDER BY name",
@@ -249,7 +260,7 @@ $show_nav = true;
                                 <?php endif; ?>
                             </div>
                             <div class="task-actions">
-                                <?php if ($task['status'] !== 'completed'): ?>
+                                <?php if ($task['status'] !== 'completed' && (int)$task['subtask_count'] === 0): ?>
                                     <button class="btn btn-sm btn-success quick-complete-btn" 
                                             data-task-id="<?= $task['id'] ?>" 
                                             title="Mark as Completed">
@@ -306,6 +317,13 @@ $show_nav = true;
                                     <span class="subtask-count">
                                         <i class="fas fa-sitemap"></i>
                                         <?= $task['subtask_count'] ?> subtasks
+                                    </span>
+                                <?php endif; ?>
+
+                                <?php if ($task['estimated_hours'] !== null): ?>
+                                    <span class="task-estimate">
+                                        <i class="fas fa-clock"></i>
+                                        Total Time: <?= e(formatTaskEstimate($task['estimated_hours'])) ?>
                                     </span>
                                 <?php endif; ?>
                             </div>
