@@ -163,6 +163,12 @@ body {
     gap: 20px;
 }
 
+.form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
+
 /* Buttons */
 .btn {
     display: inline-block;
@@ -398,6 +404,11 @@ body {
     }
     
     .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .form-row-3 {
         grid-template-columns: 1fr;
         gap: 0;
     }
