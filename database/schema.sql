@@ -48,9 +48,12 @@ CREATE TABLE contacts (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    address TEXT,                                       -- Free-form postal address (issue-009)
     mobile VARCHAR(20),
     email VARCHAR(255),
     phone VARCHAR(20),
+    company VARCHAR(255),                               -- Company / organization (issue-009)
+    position VARCHAR(255),                              -- Job title / role (issue-009)
     wechat VARCHAR(100),
     line_id VARCHAR(100),
     facebook VARCHAR(255),

@@ -1,9 +1,9 @@
 # Add Project Start Date Field
 
-**Status:** Accepted — Unreleased, ships in **v1.3.0**
+**Status:** Accepted — Shipped in **v1.2.1**
 **Type:** Feature / Data Model
 **Priority:** Medium
-**Release:** v1.3.0 (unreleased, packaged together with v1.3.1; see [RELEASE.md](../../RELEASE.md))
+**Release:** v1.2.1 (originally planned as v1.3.0; renumbered and bundled with v1.3.1 and v1.4 into a single v1.2.1 release; see [RELEASE.md](../../RELEASE.md))
 **Affects:** `projects` table, project create/edit form, project read view, client portal dashboard
 
 ## Problem
@@ -90,7 +90,8 @@ Semantics:
   `information_schema.COLUMNS` the same way
   `20261005_add_task_estimated_hours.sql` does.
 - MariaDB DDL implicitly commits; do not wrap in a transaction.
-- Documented in `README.md` next to the other v1.3 migrations.
+- Documented in `README.md` next to the other v1.2.1 migrations
+  (originally labelled v1.3 in the draft).
 
 ## UX / form changes (`project_edit.php`)
 

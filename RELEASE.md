@@ -1,65 +1,33 @@
 # Release Notes
 
-> **Unreleased** — v1.3.0 + v1.3.1 will be tagged and announced
-> together as a single release. The notes below describe the planned
-> contents of that release.
+## v1.2.1 — 2026-10-06
 
-## v1.3.1 — Unreleased (2026-10-06)
+Bundles the planned **v1.3**, **v1.3.1**, and **v1.4** work-items into a
+single **v1.2.1** release (the next patch slot after v1.2.0) because
+they all touch the same project + contact surface and the same DB
+shape.
 
-> **Patch release shipped together with v1.3.0.** No schema changes; no
-> migration required. See the **v1.3 / v1.3.1 unified upgrade notes** at
-> the bottom of this file.
+- Originally planned as **v1.3**: optional **Project Start Date**
+  (issue-008).
+- Originally planned as **v1.3.1**: a small patch on top —
+  **dashboard "New Project" CTA target** + **CSRF hardening** on the
+  project create / edit POST handler (QA findings against the v1.3
+  draft, documented in
+  `docs/issues/issue-008/tester-note-001.md`).
+- Originally planned as **v1.4**: ships the missing `contacts`
+  columns (**company**, **position**, **address**) so the contact
+  create / edit form stops crashing, and makes the underlying PDO
+  error visible in the next schema-drift bug (issue-009).
 
-Patch release responding to QA findings documented in
-`docs/issues/issue-008/tester-note-001.md`. No schema changes; no
-migration required.
-
-### Highlights
-
-- **Dashboard "New Project" CTA — bug 2**
-  - `dashboard.php` "Recent Projects" → "+ New Project" button now
-    routes to `project_edit.php` (the create form), not to
-    `projects.php` (the list). Matches the label and reduces clicks to
-    one. The same CTA on `projects.php` already routed correctly.
-- **CSRF protection on project create / edit POST — bug 4**
-  - `project_edit.php` now allocates the CSRF token for both create
-    and edit (was previously only allocated when editing an existing
-    project).
-  - The main create / edit form embeds a hidden `csrf_token` input, and
-    the POST handler calls `validateCsrfToken()` before processing any
-    other field. A cross-site request without a valid token is rejected
-    with `"Invalid form token. Please reload the page and submit
-    again."` and does not mutate `projects` (including `start_date`,
-    `expected_completion_date`, `completion_date`, `status`).
-  - The inline delete dialog continues to validate its own CSRF token
-    via `project_delete.php` (unchanged).
-  - Out of scope for this patch: same CSRF hardening should be applied
-    to other write handlers (`task_edit.php`, `contact_edit.php`,
-    `register.php`, `forgot_password.php`, `reset_password.php`, AJAX
-    endpoints). Track under a separate ticket.
-
-### Upgrade notes
-
-> Use the **v1.3 / v1.3.1 unified upgrade notes** at the bottom of
-> this file — they describe the single combined upgrade flow for both
-> versions since they ship together.
-
-## v1.3.0 — Unreleased (2026-10-06)
-
-This release introduces an optional, user-settable **Project Start Date**
-that the client portal can render in its `Started` row instead of the
-audit `created_at` timestamp, and finishes a long-standing schema-drift
-fix on the `contacts` table. Shipped together with **v1.3.1** as a
-single release — see the **v1.3 / v1.3.1 unified upgrade notes** at the
-bottom of this file.
+All three shipped together under the **v1.2.1** tag.
 
 ### Highlights
 
-- **Project Start Date (issue-008)**
+- **Project Start Date (issue-008, originally planned as v1.3)**
   - New optional `projects.start_date DATE` column, distinct from
-    `created_at`. The manager decides when work on the project actually
-    began; the database row's insertion time is no longer mis-reported
-    as the project's start date.
+    `created_at`. The manager decides when work on the project
+    actually began; the database row's insertion time is no longer
+    mis-reported as the project's start date.
   - The project create / edit form gains a third date field next to
     `Expected Completion Date` and `Actual Completion Date`. The form
     pre-fills from the stored value, parses dates with the existing
@@ -68,8 +36,8 @@ bottom of this file.
     `completion_date` (historical imports stay importable).
   - The internal project detail page shows `Started: <date>` in the
     project-meta strip (conditional on the column being non-null).
-  - The internal projects list shows `Started: <date>` as a small meta
-    line under each project card.
+  - The internal projects list shows `Started: <date>` as a small
+    meta line under each project card.
   - The client portal dashboard now renders the user-supplied
     `start_date` in its `Started` row. When the column is `NULL` the
     row renders as `Not set` (matching the `Expected Completion Date`
@@ -87,52 +55,93 @@ bottom of this file.
     exercised for valid / leap-year / malformed / non-calendar / empty
     inputs.
 
-- **Contact create / edit no longer crashes — missing `contacts`
-  columns (issue-009)**
+- **Contact write path no longer crashes — missing `contacts` columns
+  (issue-009, originally planned as v1.4)**
   - Adds `contacts.company VARCHAR(255) NULL`,
     `contacts.position VARCHAR(255) NULL`, and
     `contacts.address TEXT NULL`. The contact write path
-    (`contact_edit.php`) and the contacts search (`contacts.php`) have
-    always referenced these columns; without the schema the create /
-    edit form failed on every submit with MariaDB error
+    (`contact_edit.php`), the read view (`contact_detail.php`), and
+    the contacts search (`contacts.php`) have all been referencing
+    these columns; without the schema the create / edit form failed on
+    every submit with MariaDB error
     `1054 (42S22): Unknown column 'company' in 'INSERT INTO'` and the
-    user saw the generic "Error saving contact: Database execute
-    failed" message. The same drift class was previously fixed for
+    user saw the generic `"Error saving contact: Database execute
+    failed"` message. The same drift class was previously fixed for
     `phone` in issue-001 / v1.1.0.
   - Migration:
     `database/migrations/20261006_add_contacts_company_position_address.sql`
     (idempotent, guarded by `information_schema`). Existing rows stay
     `NULL` and continue to render with the existing "Not set" fallbacks.
   - `Database::execute()` and `Database::query()` now prepend the
-    underlying PDO error message to the thrown `Exception`, so future
-    schema-drift bugs surface directly to the form instead of being
-    hidden as `"Database execute failed"`.
+    underlying PDO error message to the thrown `Exception`, so the
+    next schema-drift bug surfaces directly to the form instead of
+    being hidden as `"Database execute failed"`.
+  - Regression test: `database/contacts_columns_test.php` performs the
+    exact failing `INSERT` from the bug report (name `张总`, wechat
+    `YADEPAN18`), then `UPDATE`s the new columns and re-reads them; it
+    also exercises the search-by-company query and the new
+    error-message wrapper, then cleans up after itself.
 
-### v1.3 / v1.3.1 — unified upgrade notes
+- **Dashboard "New Project" CTA — bug 2 from `tester-note-001`
+  (originally planned as v1.3.1)**
+  - `dashboard.php` "Recent Projects" → "+ New Project" button now
+    routes to `project_edit.php` (the create form), not to
+    `projects.php` (the list). Matches the label and reduces clicks to
+    one. The same CTA on `projects.php` already routed correctly.
 
-Because v1.3.0 and v1.3.1 are packaged together, the upgrade flow is
-the combined one. Apply this from any prior release (including a
-fresh `v1.2.0` install):
+- **CSRF protection on project create / edit POST — bug 4 from
+  `tester-note-001` (originally planned as v1.3.1)**
+  - `project_edit.php` now allocates the CSRF token for both create
+    and edit (was previously only allocated when editing an existing
+    project).
+  - The main create / edit form embeds a hidden `csrf_token` input,
+    and the POST handler calls `validateCsrfToken()` before
+    processing any other field. A cross-site request without a valid
+    token is rejected with
+    `"Invalid form token. Please reload the page and submit again."`
+    and does not mutate `projects` (including `start_date`,
+    `expected_completion_date`, `completion_date`, `status`).
+  - The inline delete dialog continues to validate its own CSRF token
+    via `project_delete.php` (unchanged).
+  - The `project_start_date_test.php` regression test was extended to
+    assert the dashboard CTA target and the form CSRF inputs.
+  - Out of scope for this release: same CSRF hardening should be
+    applied to other write handlers (`task_edit.php`,
+    `contact_edit.php`, `register.php`, `forgot_password.php`,
+    `reset_password.php`, AJAX endpoints). Track under a separate
+    ticket.
+
+### Upgrade notes
+
+Apply this from any prior release (including a fresh `v1.2.0` install):
 
 1. Pull the latest code.
-2. Re-run the v1.3.0 migrations (both are idempotent):
+2. Re-run the v1.2.1 migrations (both are idempotent):
    ```bash
    docker compose exec db mariadb -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" \
      < database/migrations/20261006_add_project_start_date.sql
    docker compose exec db mariadb -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" \
      < database/migrations/20261006_add_contacts_company_position_address.sql
    ```
-   v1.3.1 has no database change.
-3. (Optional) Run the extended regression test inside the app
-   container. It now also asserts the dashboard CTA target and the
-   form CSRF inputs introduced in v1.3.1:
+3. (Recommended) Run the regression tests inside the app container:
    ```bash
    docker compose exec app php database/project_start_date_test.php
+   docker compose exec app php database/contacts_columns_test.php
+   docker compose exec app php database/task_completion_test.php
    ```
 4. For fresh installs, point `docker-compose.yml` at a clean checkout
    and run `docker compose up -d`. The installer is reachable at
    `http://localhost:${APP_PORT}/install.php`. Fresh databases include
    the new columns via the updated `database/schema.sql`.
+
+### Refusals / non-changes
+
+The QA report on issue-008 also flagged a third bullet about
+`fa-flag` on the dashboard "Recent Projects" item. v1.2.1 does **not**
+change that icon because `docs/issues/issue-008.md:102` explicitly
+specifies `fa-flag` for that exact entry. Reviewed: a later
+"themed icons" pass is the right place to revisit the entire icon set
+together.
 
 ---
 
@@ -238,7 +247,7 @@ task effort estimates with effort-weighted completion rollups.
 
 > The first "Known gaps" bullet — missing `contacts.company`,
 > `position`, `address` columns — was the top-of-stack item in v1.2.0
-> and is **resolved in v1.3.0** (see issue-009 below).
+> and is **resolved in v1.2.1** (see issue-009 below).
 
 ### Upgrade notes
 

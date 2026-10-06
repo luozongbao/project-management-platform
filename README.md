@@ -4,62 +4,73 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.2.0 (2026-10-05) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.2.1 (2026-10-06) — see [RELEASE.md](RELEASE.md) for the full changelog.
 >
-> **Unreleased (packaged together):** **v1.3** (feature: Project Start Date — issue-008; bug fix: missing contact columns — issue-009) + **v1.3.1** (patch: dashboard CTA + CSRF hardening from issue-008 / tester-note-001).
+> **Bundled together (release tag: v1.2.1):** The planned v1.3 / v1.3.1 / v1.4
+> work-items were packaged into one release — **v1.2.1** — because they all
+> touch the project + contact surface and the DB shape. Originally planned
+> as v1.3: Project Start Date (issue-008). Originally planned as v1.3.1:
+> dashboard CTA + CSRF hardening on the project create / edit form
+> (tester-note-001). Originally planned as v1.4: missing `company` /
+> `position` / `address` columns on `contacts` (issue-009) plus surfacing
+> underlying PDO errors. All three shipped under the v1.2.1 tag.
 
 ---
 
-## What's new in the unreleased v1.3 / v1.3.1
+## What's new in v1.2.1
 
-> **Not yet released.** v1.3.0 ships the Project Start Date feature
-> and the missing `contacts` column fix; v1.3.1 is a small patch on top
-> (dashboard CTA + CSRF hardening on the project create / edit form).
-> Both will be tagged and announced in a single release.
+### v1.2.1 — Contacts `company` / `position` / `address` columns (issue-009, originally planned as v1.4)
 
-### v1.3 — Project Start Date + contact schema fix
+- The contact create / edit form, the read view (`contact_detail.php`),
+  and the search box (`contacts.php`) all referenced `c.company`,
+  `c.position`, and `c.address`, but the `contacts` table never had
+  those columns. Every contact create / edit failed with
+  `"Database execute failed"`. v1.2.1 ships the three missing columns.
+- `contacts.company VARCHAR(255) NULL`, `contacts.position
+  VARCHAR(255) NULL`, `contacts.address TEXT NULL`. All optional;
+  only `name` is required. Existing rows keep all three as `NULL`.
+- Migration: `database/migrations/20261006_add_contacts_company_position_address.sql`
+  (idempotent, `information_schema` guard, same shape as
+  `20261003_add_contacts_phone.sql`).
+- `database/schema.sql` `CREATE TABLE contacts` updated so a fresh
+  install no longer needs the migration.
+- `Database::execute()` and `Database::query()` now surface the
+  underlying PDO error in the thrown exception's message
+  (`"Database execute failed: Unknown column 'x' in …"`), so the
+  next schema-drift bug is visible in the form rather than only in
+  `error_log`.
+- Regression test: `database/contacts_columns_test.php` performs the
+  exact failing `INSERT` from the bug report (name `张总`, wechat
+  `YADEPAN18`), then `UPDATE`s the new columns and re-reads them; it
+  also exercises the search-by-company query and the new
+  error-message wrapper, then cleans up after itself.
 
-- **Project Start Date (issue-008)**
-  - New optional `projects.start_date DATE` column, distinct from
-    `created_at`. The manager now records when work on the project
-    actually began, instead of the client portal reporting the row's
-    audit insertion time.
-  - The project create / edit form has a third date input next to the
-    existing `Expected Completion Date` and `Actual Completion Date`,
-    pre-filled from the stored value. Submitting with a malformed date
-    is rejected with a clear error; submitting with `start_date` later
-    than `expected_completion_date` or `completion_date` surfaces a
-    non-blocking warning so historical imports stay importable.
-  - The internal project detail page shows `Started: <date>` (hidden
-    when unset); the projects list shows `Started: <date>` under each
-    card; the client dashboard's `Started` row now reads from
-    `start_date` and renders `Not set` when the column is `NULL`
-    rather than echoing `created_at`.
-  - Migration: `database/migrations/20261006_add_project_start_date.sql`
-    (idempotent, guarded by `information_schema`). Existing rows keep
-    `start_date = NULL` and continue to render with the `Not set`
-    fallback.
-  - Regression test: `database/project_start_date_test.php` asserts the
-    new column drives the displayed dates everywhere and exercises the
-    form's parser for valid / leap-year / malformed / empty inputs.
-- **Contact write path no longer crashes (issue-009)**
-  - Adds the `company`, `position`, and `address` columns to `contacts`
-    that the form has been binding all along (`contact_edit.php`,
-    `contact_detail.php`, `contacts.php` search). Without these columns,
-    every contact create / edit was failing with MariaDB error
-    `1054 (42S22): Unknown column 'company' in 'INSERT INTO'` and the
-    user saw the generic "Error saving contact: Database execute
-    failed" message.
-  - Migration: `database/migrations/20261006_add_contacts_company_position_address.sql`
-    (idempotent, guarded by `information_schema`). Existing rows stay
-    `NULL` and continue to render with the existing "Not set"
-    fallbacks.
-  - `Database::execute()` and `Database::query()` now prepend the
-    underlying PDO error message to the thrown `Exception` so the next
-    schema-drift bug surfaces directly to the form instead of being
-    hidden as `"Database execute failed"`.
+### v1.2.1 — Project Start Date (issue-008, originally planned as v1.3)
 
-### v1.3.1 — Dashboard CTA + CSRF hardening (issue-008 / tester-note-001)
+- New optional `projects.start_date DATE` column, distinct from
+  `created_at`. The manager now records when work on the project
+  actually began, instead of the client portal reporting the row's
+  audit insertion time.
+- The project create / edit form has a third date input next to the
+  existing `Expected Completion Date` and `Actual Completion Date`,
+  pre-filled from the stored value. Submitting with a malformed date
+  is rejected with a clear error; submitting with `start_date` later
+  than `expected_completion_date` or `completion_date` surfaces a
+  non-blocking warning so historical imports stay importable.
+- The internal project detail page shows `Started: <date>` (hidden
+  when unset); the projects list shows `Started: <date>` under each
+  card; the client dashboard's `Started` row now reads from
+  `start_date` and renders `Not set` when the column is `NULL`
+  rather than echoing `created_at`.
+- Migration: `database/migrations/20261006_add_project_start_date.sql`
+  (idempotent, guarded by `information_schema`). Existing rows keep
+  `start_date = NULL` and continue to render with the `Not set`
+  fallback.
+- Regression test: `database/project_start_date_test.php` asserts the
+  new column drives the displayed dates everywhere and exercises the
+  form's parser for valid / leap-year / malformed / empty inputs.
+
+### v1.2.1 — Dashboard CTA + CSRF hardening (issue-008 / tester-note-001, originally planned as v1.3.1)
 
 - Dashboard "Recent Projects" → "+ New Project" button now routes to
   `project_edit.php` (the create form) instead of `projects.php` (the
@@ -238,7 +249,7 @@ docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261005_weight_project_completion.sql
 
-# v1.3.0 — Project Start Date (issue-008) + contact schema fix (issue-009)
+# v1.2.1 — Project Start Date (issue-008) + contact schema fix (issue-009)
 docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261006_add_project_start_date.sql
@@ -406,7 +417,7 @@ schema additions:
   applies the same weighted-or-equal-average rule to its top-level
   tasks
 - `contacts.phone VARCHAR(20)` (added in v1.1.0 migration).
-- v1.3.0: `projects.start_date DATE NULL` — user-settable project start
+- v1.2.1: `projects.start_date DATE NULL` — user-settable project start
   date, distinct from the audit `created_at`; renders on the project
   detail page, the projects list, and the client portal dashboard.
   `contacts.company VARCHAR(255) NULL`,
