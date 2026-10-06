@@ -46,7 +46,12 @@ class Database {
             return $stmt;
         } catch (PDOException $e) {
             error_log("Database query failed: " . $e->getMessage());
-            throw new Exception("Database query failed");
+            // Surface the underlying PDO message so schema-drift bugs
+            // (Unknown column …, Unknown table …) are visible to callers
+            // without requiring a log tail. The wrapper Exception still
+            // starts with the generic prefix that older callers (and
+            // test suites) match on.
+            throw new Exception("Database query failed: " . $e->getMessage(), 0, $e);
         }
     }
 
@@ -64,7 +69,10 @@ class Database {
             return $stmt->execute($params);
         } catch (PDOException $e) {
             error_log("Database execute failed: " . $e->getMessage());
-            throw new Exception("Database execute failed");
+            // See query() above — surface the underlying PDO message so
+            // the next "Database execute failed: Unknown column 'X' in '…'"
+            // surfaces immediately.
+            throw new Exception("Database execute failed: " . $e->getMessage(), 0, $e);
         }
     }
 

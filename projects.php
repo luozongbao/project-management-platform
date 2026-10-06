@@ -10,11 +10,11 @@ $user_id = getCurrentUserId();
 
 // Get projects with statistics
 $projects = $db->fetchAll(
-    "SELECT ps.*, p.description, p.created_at, u.name as responsible_person_name 
+    "SELECT ps.*, p.description, p.created_at, p.start_date, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
-     WHERE p.responsible_person_id = ? 
+     WHERE p.responsible_person_id = ?
      ORDER BY p.created_at DESC",
     [$user_id]
 );
@@ -118,15 +118,22 @@ $show_nav = true;
                                 <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
                             </span>
                         </div>
-                        
+
                         <div class="project-dates">
+                            <?php if (!empty($project['start_date'])): ?>
+                                <div class="date-item started">
+                                    <i class="fas fa-flag"></i>
+                                    <span>Started: <?= formatDateTime($project['start_date'], 'M j, Y') ?></span>
+                                </div>
+                            <?php endif; ?>
+
                             <?php if ($project['expected_completion_date']): ?>
                                 <div class="date-item">
                                     <i class="fas fa-calendar"></i>
                                     <span>Due: <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?></span>
                                 </div>
                             <?php endif; ?>
-                            
+
                             <?php if ($project['completion_date']): ?>
                                 <div class="date-item completed">
                                     <i class="fas fa-check-circle"></i>
