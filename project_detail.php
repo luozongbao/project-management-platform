@@ -96,6 +96,12 @@ $show_nav = true;
                     <i class="fas fa-user"></i>
                     <?= e($project['responsible_person_name']) ?>
                 </span>
+                <?php if (!empty($project['start_date'])): ?>
+                    <span class="start-date">
+                        <i class="fas fa-flag"></i>
+                        Started: <?= formatDateTime($project['start_date'], 'M j, Y') ?>
+                    </span>
+                <?php endif; ?>
                 <?php if ($project['expected_completion_date']): ?>
                     <span class="expected-date">
                         <i class="fas fa-calendar"></i>

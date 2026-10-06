@@ -44,7 +44,7 @@ if (!$error) {
     $project = $db->fetchOne(
         "SELECT p.id, p.name, p.description, p.scope, p.budget_amount, p.currency,
                 p.status, p.responsible_person_id, p.expected_completion_date,
-                p.completion_date, p.created_at, p.share_code,
+                p.start_date, p.completion_date, p.created_at, p.share_code,
                 ps.total_tasks, ps.completed_tasks, ps.uncompleted_tasks,
                 ps.avg_completion_percentage, ps.contact_count,
                 u.name AS owner_name
@@ -212,7 +212,7 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
             <div>
                 <h3 class="info-heading"><i class="fas fa-info-circle"></i> <?= e(t('dash.project_info')) ?></h3>
                 <ul class="kv-list">
-                    <li><span class="k"><?= e(t('dash.started')) ?></span><span class="v"><?= e(formatDateTime($project['created_at'], 'M j, Y')) ?></span></li>
+                    <li><span class="k"><?= e(t('dash.started')) ?></span><span class="v"><?= !empty($project['start_date']) ? e(formatDateTime($project['start_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></span></li>
                     <li><span class="k"><?= e(t('dash.expected')) ?></span><span class="v"><?= $project['expected_completion_date'] ? e(formatDateTime($project['expected_completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></span></li>
                     <li><span class="k"><?= e(t('dash.completed')) ?></span><span class="v"><?= $project['completion_date'] ? e(formatDateTime($project['completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.in_progress')) . '</em>' ?></span></li>
                     <li><span class="k"><?= e(t('dash.manager')) ?></span><span class="v"><?= e($project['owner_name']) ?></span></li>

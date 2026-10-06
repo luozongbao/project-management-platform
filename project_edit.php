@@ -12,12 +12,19 @@ $errors = [];
 
 // Handle form submission for project creation/update
 if ($_POST) {
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Invalid form token. Please reload the page and submit again.';
+        // Re-render with errors. We deliberately do NOT process the rest of the
+        // payload once CSRF has failed, to keep the error UX clean and avoid
+        // acting on untrusted input.
+    } else {
     $name = sanitize($_POST['name'] ?? '');
     $description = sanitize($_POST['description'] ?? '');
     $scope = sanitize($_POST['scope'] ?? '');
     $budget_amount_raw = trim($_POST['budget_amount'] ?? '');
     $currency = strtoupper(trim($_POST['currency'] ?? ''));
     $expected_completion_date = $_POST['expected_completion_date'] ?? '';
+    $start_date = $_POST['start_date'] ?? '';
     $completion_date = $_POST['completion_date'] ?? '';
     $status = $_POST['status'] ?? 'not_started';
 
@@ -47,7 +54,17 @@ if ($_POST) {
         return $value;
     };
     $expected_completion_date = $parseProjectDate($expected_completion_date, 'Expected completion date');
+    $start_date = $parseProjectDate($start_date, 'Project start date');
     $completion_date = $parseProjectDate($completion_date, 'Actual completion date');
+
+    // Non-blocking warnings: a start date later than expected/actual completion
+    // is suspicious but legal (historical imports, back-dated planning).
+    if ($start_date !== null && $expected_completion_date !== null && $start_date > $expected_completion_date) {
+        $errors[] = "Project start date is later than the expected completion date. Please double-check the dates.";
+    }
+    if ($start_date !== null && $completion_date !== null && $start_date > $completion_date) {
+        $errors[] = "Project start date is later than the actual completion date. Please double-check the dates.";
+    }
 
     // Budget amount parsing — store NULL when blank.
     $budget_amount = null;
@@ -83,10 +100,12 @@ if ($_POST) {
                 // Update existing project (share_code is intentionally NOT regenerated)
                 $db->execute(
                     "UPDATE projects SET name = ?, description = ?, scope = ?, budget_amount = ?,
-                     currency = ?, expected_completion_date = ?, completion_date = ?, status = ?,
-                     updated_at = NOW() WHERE id = ? AND responsible_person_id = ?",
+                     currency = ?, expected_completion_date = ?, start_date = ?,
+                     completion_date = ?, status = ?, updated_at = NOW()
+                     WHERE id = ? AND responsible_person_id = ?",
                     [$name, $description, $scope, $budget_amount, $currency,
-                     $expected_completion_date, $completion_date, $status, $project_id, $user_id]
+                     $expected_completion_date, $start_date, $completion_date, $status,
+                     $project_id, $user_id]
                 );
                 redirect('project_detail.php?id=' . $project_id, 'Project updated successfully!', 'success');
             } else {
@@ -97,9 +116,10 @@ if ($_POST) {
                     $db->execute(
                         "INSERT INTO projects (name, description, scope, budget_amount, currency,
                          share_code, responsible_person_id, expected_completion_date,
-                         completion_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                         start_date, completion_date, status, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
                         [$name, $description, $scope, $budget_amount, $currency,
-                         $share_code, $user_id, $expected_completion_date,
+                         $share_code, $user_id, $expected_completion_date, $start_date,
                          $completion_date, $status]
                     );
                 } catch (Exception $e) {
@@ -107,9 +127,10 @@ if ($_POST) {
                     $db->execute(
                         "INSERT INTO projects (name, description, scope, budget_amount, currency,
                          share_code, responsible_person_id, expected_completion_date,
-                         completion_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                         start_date, completion_date, status, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
                         [$name, $description, $scope, $budget_amount, $currency,
-                         $share_code, $user_id, $expected_completion_date,
+                         $share_code, $user_id, $expected_completion_date, $start_date,
                          $completion_date, $status]
                     );
                 }
@@ -120,6 +141,7 @@ if ($_POST) {
             $errors[] = "Failed to save project. Please try again.";
         }
     }
+    } // end else (!validateCsrfToken failed)
 }
 
 // Load existing project data
@@ -137,7 +159,9 @@ if ($project_id) {
 
 $title = $project ? "Edit Project" : "New Project";
 $show_nav = true;
-$csrf_token = $project ? getCsrfToken() : null;
+// CSRF token is required for both create and edit, and is also reused
+// by the inline delete dialog further down the page.
+$csrf_token = getCsrfToken();
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -171,6 +195,7 @@ $csrf_token = $project ? getCsrfToken() : null;
                 <?php endif; ?>
 
                 <form method="POST" data-validate>
+                    <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
                     <div class="form-row">
                         <div class="form-group">
                             <label for="name">
@@ -251,7 +276,17 @@ $csrf_token = $project ? getCsrfToken() : null;
                         </div>
                     </div>
 
-                    <div class="form-row">
+                    <div class="form-row form-row-3">
+                        <div class="form-group">
+                            <label for="start_date">
+                                <i class="fas fa-flag"></i>
+                                Project Start Date
+                            </label>
+                            <input type="date" id="start_date" name="start_date"
+                                   value="<?= e($project['start_date'] ?? $_POST['start_date'] ?? '') ?>">
+                            <small>Optional. The day work on this project actually began.</small>
+                        </div>
+
                         <div class="form-group">
                             <label for="expected_completion_date">
                                 <i class="fas fa-calendar"></i>
@@ -260,7 +295,7 @@ $csrf_token = $project ? getCsrfToken() : null;
                             <input type="date" id="expected_completion_date" name="expected_completion_date"
                                    value="<?= e($project['expected_completion_date'] ?? $_POST['expected_completion_date'] ?? '') ?>">
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="completion_date">
                                 <i class="fas fa-calendar-check"></i>

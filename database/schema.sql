@@ -33,6 +33,7 @@ CREATE TABLE projects (
     share_code CHAR(17) NULL,                         -- Public client share code, format AAAA0-AAAA0-AAAA0 (e.g. AX498-99ZB2-92C3J)
     responsible_person_id INT NOT NULL,
     expected_completion_date DATE,
+    start_date DATE,                                -- User-settable Project Start Date (issue-008); NULL means "not recorded"
     completion_date DATE,
     status ENUM('not_started', 'in_progress', 'completed', 'on_hold') DEFAULT 'not_started',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -47,9 +48,12 @@ CREATE TABLE contacts (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    address TEXT,                                       -- Free-form postal address (issue-009)
     mobile VARCHAR(20),
     email VARCHAR(255),
     phone VARCHAR(20),
+    company VARCHAR(255),                               -- Company / organization (issue-009)
+    position VARCHAR(255),                              -- Job title / role (issue-009)
     wechat VARCHAR(100),
     line_id VARCHAR(100),
     facebook VARCHAR(255),

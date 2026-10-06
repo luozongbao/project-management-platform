@@ -179,7 +179,7 @@ $show_nav = true;
                     <i class="fas fa-folder-open"></i>
                     Recent Projects
                 </h2>
-                <a href="projects.php" class="btn btn-primary">
+                <a href="project_edit.php" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     New Project
                 </a>
