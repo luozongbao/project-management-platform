@@ -6,9 +6,14 @@
  * connection because the fix is purely a CSS + markup change. The test
  * asserts that:
  *
- *   1. assets/css/style.css contains the new issue-013 rules
- *      (form-grid, form-section.full-row, form-section h3, mobile breakpoint
- *       and the new estimate-input rules).
+ *   1. assets/css/style.css contains the issue-013 rules:
+ *      a. The 2-column form-grid layout (Basic / Status / Effort /
+ *         Assignment / Dates) and its mobile collapse.
+ *      b. The .page-header / .page-actions flex row (the
+ *         "Put on Hold" button is in the same row as "Edit Task" /
+ *         "Add Subtask" / "Complete Task").
+ *      c. The .checkbox-label flex row (the issue-011 inherit-mode
+ *         checkbox and its text label render on the same line).
  *   2. task_edit.php initialises $effective_inherit at the top of the page
  *      so the "Total Task Time" disable check does not emit a PHP
  *      "Undefined variable" warning on a new task (which never renders
@@ -20,6 +25,11 @@
  *      it as the original tester report described).
  *   5. Both modified PHP files lint cleanly.
  *
+ * The spec ("revised" 2026-10-12) explicitly says a regression test is
+ * not required because the fix is CSS-only. We keep one anyway for
+ * consistency with the project's prior bug-fix pattern (issue-010, -011
+ * tester notes) and to lock the structural invariants in.
+ *
  * Exit code 0 = all checks pass, 1 = at least one failed.
  */
 
@@ -29,8 +39,10 @@ $root = realpath(__DIR__ . '/..');
 $failures = [];
 
 // ---------------------------------------------------------------------
-// 1. style.css contains the new form-grid / form-section / estimate-input
-//    rules plus a mobile breakpoint.
+// 1. style.css contains the issue-013 rules:
+//    a. form-grid / form-section / estimate-input (initial spec scope)
+//    b. .page-header / .page-actions flex row (revised spec scope)
+//    c. .checkbox-label flex row (revised spec scope)
 // ---------------------------------------------------------------------
 $cssPath = $root . '/assets/css/style.css';
 $css = is_file($cssPath) ? file_get_contents($cssPath) : '';
@@ -42,11 +54,31 @@ $cssRequired = [
     'grid-column: 1 / -1'         => 'full-row grid-column override',
     '.form-grid .form-section h3' => 'section heading selector',
     '.estimate-input'             => 'estimate-input flex row',
+    // Revised spec (2026-10-12):
+    '.page-header'                => '.page-header flex row (page title + actions)',
+    'justify-content: space-between' => '.page-header justify-content',
+    '.page-actions'               => '.page-actions flex row (Put on Hold / Edit / Add Subtask)',
+    'flex-wrap: wrap'             => '.page-actions / .page-header flex-wrap for narrow viewports',
 ];
 foreach ($cssRequired as $needle => $label) {
     if (strpos($css, $needle) === false) {
         $failures[] = "style.css is missing $label (looked for '$needle')";
     }
+}
+
+// .checkbox-label: stricter check — verify the rule BODY (display:flex +
+// align-items:center + gap:8px + cursor:pointer) exists immediately
+// after the selector, so a future dev can't delete the rule body and
+// leave just the selector sitting in a comment.
+if (!preg_match('/\.checkbox-label\s*\{\s*display:\s*flex;\s*align-items:\s*center;\s*gap:\s*8px;\s*cursor:\s*pointer;/s', $css)) {
+    $failures[] = 'style.css is missing the .checkbox-label rule body (display:flex, align-items:center, gap:8px, cursor:pointer)';
+}
+
+// The revised spec mandates a `.checkbox-label input[type="checkbox"]`
+// rule that pins the touch-target size at 18x18 px (WCAG 2.5.5
+// sufficient). Verify the rule exists and sets explicit width/height.
+if (!preg_match('/\.checkbox-label\s+input\[type="checkbox"\][^{]*\{[^}]*width:\s*18px[^}]*height:\s*18px/s', $css)) {
+    $failures[] = "style.css is missing the .checkbox-label input[type=\"checkbox\"] rule with width:18px and height:18px";
 }
 
 // Mobile breakpoint should collapse the grid to one column.
@@ -57,6 +89,22 @@ if (!preg_match('/@media\s*\([^)]*max-width:\s*768px[^)]*\)[^{]*\{[^}]*\.form-gr
     if (strpos($css, '@media (max-width: 768px)') === false) {
         $failures[] = "style.css is missing the @media (max-width: 768px) breakpoint";
     }
+}
+
+// The revised spec also adds a mobile override on .page-header
+// (flex-direction: column on phones) and on .page-header .page-actions
+// (justify-content: stretch so the buttons share the row). Check that
+// the file contains BOTH the @media (max-width: 768px) block AND
+// `flex-direction: column` rules on .page-header somewhere in the
+// stylesheet. (We do not require them to be in the same rule block,
+// because the @media block contains many rules and a strict per-block
+// regex is fragile.)
+$hasMobileBreakpoint = strpos($css, '@media (max-width: 768px)') !== false;
+$hasPageHeaderColumn = preg_match('/\.page-header\s*\{[^}]*flex-direction:\s*column/s', $css) === 1;
+if (!$hasMobileBreakpoint) {
+    $failures[] = "style.css is missing the @media (max-width: 768px) breakpoint";
+} elseif (!$hasPageHeaderColumn) {
+    $failures[] = "style.css is missing the .page-header { flex-direction: column; } mobile rule";
 }
 
 // ---------------------------------------------------------------------
@@ -143,7 +191,10 @@ if ($failures) {
 }
 
 echo "PASS: issue-013 layout regression test\n";
-echo "  - style.css contains all required .form-grid / .form-section / .estimate-input rules\n";
+echo "  - style.css contains .form-grid / .form-section / .estimate-input (initial spec)\n";
+echo "  - style.css contains .page-header / .page-actions flex row (revised spec)\n";
+echo "  - style.css contains .checkbox-label flex row with 18x18 checkbox (revised spec)\n";
+echo "  - style.css contains the @media (max-width: 768px) mobile breakpoint with .page-header { flex-direction: column; }\n";
 echo "  - task_edit.php initialises \$effective_inherit before the form HTML\n";
 echo "  - task_edit.php wraps the Dates section with class=\"form-section full-row\"\n";
 echo "  - task_detail.php renders the Hold/Resume form inside <div class=\"page-actions\">\n";

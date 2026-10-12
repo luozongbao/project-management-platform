@@ -505,6 +505,76 @@ body {
     flex-shrink: 0;
 }
 
+/* Issue-013 (revised): page header is a two-column flex row so the
+ * page-title (breadcrumb + <h1>) sits on the left and the
+ * page-actions (Put on Hold / Edit / Add Subtask / Complete Task)
+ * sit on the right. Without this rule the inline-form inside
+ * .page-actions collapses the actions onto their own line, which
+ * was the original tester bug. min-width: 0 on .page-title is the
+ * standard flex-overflow guard against a long task name. */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.page-header .page-title {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.page-header .page-actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* A standalone .page-actions row (not nested inside .page-header)
+ * still needs the flex layout so the children line up horizontally. */
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+/* Issue-013 (revised): checkbox-label is a flex row so the
+ * <input type="checkbox"> and its text label render on the same
+ * line, vertically centered. Used by the issue-011 "Use sum of
+ * sub-task hours" checkbox (and any future checkbox row). The
+ * native <label> already makes the whole row clickable; the
+ * cursor: pointer is a visual hint. */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #333;
+    line-height: 1.4;
+}
+
+.checkbox-label input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.checkbox-label > span {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 /* Status-specific tints for the Auto pill, kept subtle so the badge remains primary. */
 .derived-pill .fa-magic {
     color: #845ef7;
@@ -548,7 +618,26 @@ body {
     .estimate-input select {
         width: 100%;
     }
-    
+
+    /* Issue-013 (revised): on phones the page-header stacks the
+     * title above the actions row, and the buttons inside
+     * .page-actions share the row width equally. Pairs with the
+     * existing .btn { width: 100% } rule above to give full-width
+     * stacked buttons. */
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-header .page-actions {
+        justify-content: stretch;
+    }
+
+    .page-header .page-actions .btn,
+    .page-header .page-actions .inline-form {
+        flex: 1 1 auto;
+    }
+
     .btn {
         width: 100%;
         margin-bottom: 10px;

@@ -6,16 +6,20 @@ portal** that lets stakeholders view read-only progress without logging in.
 
 > **Latest release:** v1.5.1 (2026-10-13) — see [RELEASE.md](RELEASE.md) for the full changelog.
 >
-> **v1.5.1** ships a small UI-regression fix against the v1.5.0
-> `task_edit.php` / `task_detail.php` surface (issue-013): the
-> two-column form grid is now defined in the project-wide
-> `assets/css/style.css` (with a mobile collapse at <768px and
-> a `full-row` modifier for the Dates section), the
-> `$effective_inherit` PHP warning on a brand-new task is
-> silenced by a top-level initialisation, and a new
-> `database/task_layout_issue013_test.php` locks the changes in.
-> No DB / schema / JS / translation changes. Pull and reload —
-> no restart required.
+> **v1.5.1** ships two small UI-layout fixes against the v1.5.0
+> `task_edit.php` / `task_detail.php` surface (issue-013, revised
+> 2026-10-12): the "Put on Hold" button on `task_detail.php` now
+> sits on the same row as "Edit Task" / "+ Add Subtask" (a new
+> `.page-actions` flex rule in `assets/css/style.css`), and the
+> "Use sum of sub-task hours" checkbox on `task_edit.php` now
+> renders on one line with its text label (a new
+> `.checkbox-label` flex rule with an 18x18 touch target).
+> Three earlier structural items from the original spec
+> (`.form-grid` two-column layout, `$effective_inherit`
+> initialisation, Hold / Resume form position) are confirmed
+> already in place. A new mobile breakpoint collapses
+> `.page-header` to a column at <768px. No DB / schema / JS /
+> translation changes. Pull and reload — no restart required.
 >
 > **v1.5.0** ships the parent-task model upgrade: a parent task with
 > sub-tasks can now opt into a **sum-of-sub-task-hours** inherit mode for
@@ -48,48 +52,56 @@ portal** that lets stakeholders view read-only progress without logging in.
 
 ## What's new in v1.5.1
 
-### v1.5.1 — UI regression fixes against the v1.5.0 task edit / detail surface (issue-013)
+### v1.5.1 — UI layout fixes on the v1.5.0 task edit / detail surface (issue-013, revised scope)
 
-- **`task_edit.php` form grid layout is back to two columns.**
-  The 2-column form grid (Basic Information / Status & Progress
-  / Effort Estimate / Assignment / Dates) is now defined in the
-  project-wide `assets/css/style.css` (`.form-grid` with
-  `grid-template-columns: 1fr 1fr`, 20px / 28px gap, `min-width: 0`
-  on child sections, mobile collapse to one column below 768px).
-  The Dates section is marked `class="form-section full-row"` so
-  it spans both columns of the grid instead of being squeezed
-  into the left column. A matching `.estimate-input` rule
-  documents the flex row layout for the `Total Task Time` input
-  + unit selector.
-- **`task_edit.php` no longer emits a PHP warning on a brand-new
-  task.** The `$effective_inherit` flag was previously only
-  assigned inside the `if ($is_editing && $subtask_count > 0)`
-  branch, but was unconditionally read further down to decide
-  whether to disable the `Total Task Time` field. A brand-new
-  task has no sub-tasks yet, so the branch never executed and
-  the read produced a PHP "Undefined variable" warning every
-  time the form was rendered. The flag is now initialised to
-  `false` at the top of the page init block, and re-derived
-  inside the editing branch from the saved DB value (with a
-  fallback to the live POST value on validation failure, so a
-  failed save still preserves the user's last choice).
-- **`task_detail.php` "Put on Hold" / "Resume" button position.**
-  The form is rendered inside the `<div class="page-actions">`
-  row alongside "Edit Task" and "+ Add Subtask", with the
-  `.inline-form` rules from `style.css` keeping it inline. The
-  issue-011 / issue-012 work had already moved the button into
-  the right place; this change is structural confirmation, not
-  a DOM move.
+- **`task_detail.php` "Put on Hold" / "Resume" button falls onto
+  its own row — fixed.** `.page-actions` had no rule in
+  `assets/css/style.css`, so it defaulted to `display: block`
+  and the Hold / Resume `<form class="inline-form">` (which is
+  correctly nested inside `<div class="page-actions">`) wrapped
+  below the other action buttons. A new `.page-actions` rule
+  (`display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  justify-content: flex-end; margin-bottom: 20px;`) puts every
+  action control back on one row. A new `.page-header` flex rule
+  (with `justify-content: space-between`) lays out the page
+  title and the action row on the same baseline.
+- **`task_edit.php` "Use sum of sub-task hours" checkbox and its
+  text label render on separate lines — fixed.** `.checkbox-label`
+  had no rule in `assets/css/style.css`, so the default block-flow
+  put the input and the `<span>` on two separate lines. A new
+  `.checkbox-label` rule (`display: flex; align-items: center;
+  gap: 8px; cursor: pointer; font-weight: 500; color: #333; line-height: 1.4;`)
+  puts them back on one line, and the inner
+  `.checkbox-label input[type="checkbox"]` rule pins the touch
+  target to `18px × 18px` (WCAG 2.5.5 target size, sufficient).
+- **Mobile breakpoint extended.** The existing
+  `@media (max-width: 768px)` block now also collapses
+  `.page-header` to a column (`flex-direction: column;
+  align-items: stretch;`) and stretches the action buttons to
+  full width, so the action row stays reachable with a thumb
+  on a phone.
+- **Background (unchanged from the original 2026-10-12 spec).**
+  The 2-column `.form-grid` layout in `task_edit.php` is
+  defined in `assets/css/style.css` with the Dates section
+  marked `class="form-section full-row"`; the
+  `$effective_inherit` PHP warning on a brand-new task is
+  silenced by a top-level initialisation; the Hold / Resume
+  `<form class="inline-form">` in `task_detail.php` is rendered
+  inside the `<div class="page-actions">` row (the v1.5.1 fix
+  is the new `.page-actions` flex rule above).
 - **Regression test:** `database/task_layout_issue013_test.php`
-  (new) — a structural source-grep test that asserts the new
-  CSS rules are in `style.css`, the `$effective_inherit`
-  initialisation appears before the form HTML in
-  `task_edit.php`, the `class="form-section full-row"` is present
-  on the Dates section, the Hold / Resume form is positioned
-  inside `<div class="page-actions">` in `task_detail.php`, and
-  both modified PHP files lint cleanly. Verified the test
-  catches a regression by temporarily removing the init line
-  (test fails) and restoring it (test passes).
+  (new) — a structural source-grep test that asserts the
+  `.form-grid`, `.page-header`, `.page-actions`,
+  `.checkbox-label` (with 18x18 checkbox), and mobile
+  breakpoint rules are in `style.css`; the
+  `$effective_inherit` initialisation appears before the form
+  HTML in `task_edit.php`; the `class="form-section full-row"`
+  is present on the Dates section; the Hold / Resume form is
+  positioned inside `<div class="page-actions">` in
+  `task_detail.php`; and both modified PHP files lint cleanly.
+  Verified the test catches a regression by temporarily
+  removing the `.checkbox-label` rule body (test fails) and
+  restoring it (test passes).
 
 ## What's new in v1.5.0
 

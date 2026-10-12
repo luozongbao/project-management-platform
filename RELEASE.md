@@ -2,69 +2,89 @@
 
 ## v1.5.1 — 2026-10-13
 
-UI regression fixes against the v1.5.0 `task_edit.php` /
-`task_detail.php` surface, tracked as `docs/issues/issue-013.md`.
-No DB / schema / JS / translation changes. Three structural
-fixes:
+UI layout fixes for the v1.5.0 `task_edit.php` / `task_detail.php`
+surface, tracked as `docs/issues/issue-013.md` (revised 2026-10-12).
+No DB / schema / JS / translation changes. Two CSS bugs fixed,
+plus three earlier structural items confirmed already in place:
 
-- **`task_edit.php` form-grid layout collapsed to one column.**
-  The two-column grid (Basic Information / Status & Progress /
-  Effort Estimate / Assignment / Dates) is now defined in the
-  project-wide `assets/css/style.css` (`.form-grid` with
-  `grid-template-columns: 1fr 1fr`, 20px / 28px gap,
-  `align-items: start`, `min-width: 0` on child sections). Below
-  768px the grid collapses to a single column, matching the
-  existing mobile breakpoint in the stylesheet. The "Dates"
-  section is marked `class="form-section full-row"` so it spans
-  both columns of the grid instead of being squeezed into the
-  left column.
-- **`task_edit.php` "Total Task Time" field no longer emits a
-  PHP warning on a brand-new task.** The `$effective_inherit`
-  flag was previously only assigned inside the
-  `if ($is_editing && $subtask_count > 0)` branch, but was
-  unconditionally read further down to decide whether to disable
-  the field — which meant a brand-new task (which has no
-  sub-tasks yet, so the branch never executes) produced a PHP
-  "Undefined variable" warning every time the form was
-  rendered. The flag is now initialised to `false` at the top of
-  the page init block, and re-derived inside the editing branch
-  from the saved DB value (with a fallback to the live POST
-  value on validation failure, so a failed save still
-  preserves the user's last choice).
-- **`task_detail.php` "Put on Hold" / "Resume" button position.**
-  The form is rendered inside the `<div class="page-actions">`
-  row alongside "Edit Task" and "+ Add Subtask", with the
-  `.inline-form` rules from `style.css` keeping it inline. (The
-  tester report described it as positioned above the actions
-  row; inspection showed the issue-011 / issue-012 work had
-  already moved it into the right place, so this fix is
-  structural confirmation rather than a DOM move.)
+**Bugs fixed (revised scope, 2026-10-12)**
+
+- **`task_detail.php` "Put on Hold" / "Resume" button falls onto
+  its own row.** `.page-actions` had no rule in
+  `assets/css/style.css`, so it defaulted to `display: block` and
+  the Hold / Resume `<form class="inline-form">` (which was
+  correctly nested inside `<div class="page-actions">`) wrapped
+  below the other action buttons. Added a `.page-actions` rule
+  (`display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  justify-content: flex-end`) so all action controls sit on one
+  row. Also added a `.page-header` rule (flex row with
+  `justify-content: space-between`) so the page title and the
+  action row lay out correctly on the same baseline.
+- **`task_edit.php` "Use sum of sub-task hours" checkbox and
+  its text label render on separate lines.** `.checkbox-label`
+  had no rule in `assets/css/style.css`, so the default block-flow
+  put the input and the `<span>` on two separate lines. Added a
+  `.checkbox-label` rule (`display: flex; align-items: center;
+  gap: 8px; cursor: pointer;`) and pinned the touch target to
+  `18px × 18px` on `.checkbox-label input[type="checkbox"]` for
+  WCAG 2.5.5 (target size, sufficient).
+- **Mobile breakpoint extended.** The existing
+  `@media (max-width: 768px)` block now also collapses
+  `.page-header` to a column (`flex-direction: column;
+  align-items: stretch;`) and stretches the action buttons to
+  full width, so the action row remains reachable with a thumb
+  on a phone.
+
+**Background (already in place from the original 2026-10-12 spec,
+unchanged in this revised scope)**
+
+- `task_edit.php` two-column `.form-grid` layout defined in
+  `assets/css/style.css`, with the Dates section marked
+  `class="form-section full-row"` so it spans both columns.
+- `task_edit.php` top-level `$effective_inherit = false`
+  initialisation silences the "Undefined variable" PHP warning
+  on a brand-new task.
+- `task_detail.php` Hold / Resume `<form class="inline-form">`
+  is rendered inside the `<div class="page-actions">` row
+  (the structural position was already correct; the v1.5.1 fix
+  is the new `.page-actions` flex rule above).
 
 ### Regression coverage
 
-- `database/task_layout_issue013_test.php` (new) — a structural
+- `database/task_layout_issue013_test.php` — a structural
   regression test that source-greps the new CSS rules in
-  `assets/css/style.css`, asserts that the `$effective_inherit`
-  initialisation appears before the form HTML in
-  `task_edit.php`, asserts the `class="form-section full-row"`
-  is present on the Dates section, asserts the Hold / Resume
-  form is positioned inside `<div class="page-actions">` in
-  `task_detail.php`, and lints both modified PHP files.
-  Includes a self-check that the test catches a regression by
-  re-introducing the bug (the init line is stripped, the test
-  fails, the init line is restored, the test passes again).
+  `assets/css/style.css` (`.form-grid`, `.form-section`,
+  `.estimate-input`, `.page-header`, `.page-actions`,
+  `.checkbox-label` + 18x18 touch target, plus the
+  `@media (max-width: 768px)` mobile collapse for
+  `.page-header` and `.form-grid`), asserts that the
+  `$effective_inherit` initialisation appears before the form
+  HTML in `task_edit.php`, asserts the
+  `class="form-section full-row"` is present on the Dates
+  section, asserts the Hold / Resume form is positioned inside
+  `<div class="page-actions">` in `task_detail.php`, and lints
+  both modified PHP files. Includes a self-check that the test
+  catches a regression by re-introducing the bug (the
+  `.checkbox-label` rules are stripped, the test fails, the
+  rules are restored, the test passes again).
 
 ### Files changed
 
 - `assets/css/style.css` — added `.form-grid`,
   `.form-grid .form-section`, `.form-grid .form-section.full-row`,
-  `.form-grid .form-section h3`, `.estimate-input` rules plus
-  the matching mobile breakpoint.
+  `.form-grid .form-section h3`, `.estimate-input` rules
+  (original scope) plus `.page-header`, `.page-header .page-title`,
+  `.page-header .page-actions`, `.page-actions`,
+  `.checkbox-label`, `.checkbox-label input[type="checkbox"]`,
+  `.checkbox-label > span` rules and a matching mobile
+  breakpoint (revised scope).
 - `task_edit.php` — top-level `$effective_inherit = false`
   initialisation, re-derivation inside the editing branch,
-  `class="form-section full-row"` on the Dates section.
+  `class="form-section full-row"` on the Dates section,
+  `<label class="checkbox-label" for="inherit_subtask_hours">`
+  on the inherit-mode checkbox.
 - `database/task_layout_issue013_test.php` — new regression
-  test.
+  test, extended for the revised scope.
 
 ### Upgrade notes
 
