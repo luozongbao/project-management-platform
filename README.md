@@ -4,7 +4,13 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.2.1 (2026-10-06) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.4.1 (2026-10-12) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.4.1 (issue-010)** ships a purely client-side sub-tasks toggle on the
+> public client dashboard: a one-click control that collapses or expands
+> the nested sub-trees under each top-level workstream. State is persisted
+> per device via `localStorage` under `client_dash.subtasks_visible.<share_code>`.
+> No backend / schema change.
 >
 > **Bundled together (release tag: v1.2.1):** The planned v1.3 / v1.3.1 / v1.4
 > work-items were packaged into one release — **v1.2.1** — because they all
@@ -14,6 +20,54 @@ portal** that lets stakeholders view read-only progress without logging in.
 > (tester-note-001). Originally planned as v1.4: missing `company` /
 > `position` / `address` columns on `contacts` (issue-009) plus surfacing
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
+
+---
+
+## What's new in v1.4.1
+
+### v1.4.1 — Sub-tasks toggle on the client dashboard (issue-010)
+
+- New "Show all sub-tasks" / "Show top-level only" toggle rendered inline
+  with the "Tasks & Progress" heading on `client/dashboard.php`. Click
+  flips between collapsed and expanded views of the task hierarchy.
+- The toggle only appears when the project has at least one sub-task
+  (i.e. at least one task row with `subtask_count > 0`); projects with
+  no sub-tasks still render the flat list as before, with no extra
+  control to misread.
+- **Default state is "top-level only"** for the first visit and for
+  every project that has sub-tasks. Returning visitors who chose
+  "expanded" see the full tree on first paint with no flash of
+  collapsed content (the inline script runs at the end of `<body>`,
+  before the browser commits the first frame).
+- The choice is persisted in `localStorage` under the per-project key
+  `client_dash.subtasks_visible.<share_code>`. Each project has its
+  own key, so a stakeholder who manages two projects keeps both
+  preferences.
+- When `localStorage` is unavailable (private mode, sandboxed
+  iframe, JS disabled), the page still defaults to "top-level only"
+  and the toggle remains visible but its click is a safe no-op.
+- Accessibility: the control is a real `<button type="button">` with
+  `aria-pressed`, `aria-controls="tasks-progress"`, and an
+  `aria-label`; nested `<ul class="task-tree">` carry
+  `aria-hidden="true"` while collapsed so screen readers skip the
+  subtree. The icon flips between `fa-eye` and `fa-eye-slash` to
+  make the current state obvious without relying on color.
+- Purely client-side: no new DB columns, no new SQL, no new
+  endpoints. The existing `render_task_tree()` is untouched; only
+  the wrapper section's id, the new button, the localised labels,
+  the inline script, and one scoped CSS rule are added.
+- Localized: three new keys in `client/lang.php`
+  (`dash.subtasks_show_all`, `dash.subtasks_show_top`,
+  `dash.subtasks_toggle_aria`) for both English and Simplified
+  Chinese.
+- Regression test: `client/toggle_subtasks_test.php` exercises the
+  server-rendered DOM contract (toggle button + section ids + script
+  + CSS rule + per-project localStorage key isolation) for projects
+  **with** and **without** sub-tasks, plus a project with no tasks
+  at all, and re-implements the click flip in PHP to assert the
+  state machine parity. Self-contained: drops and re-creates the
+  `CalculateTaskCompletion` triggers around the test so the test is
+  not coupled to MariaDB's recursive-trigger guard.
 
 ---
 

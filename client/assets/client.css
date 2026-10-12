@@ -3,6 +3,27 @@
  * assets/css/style.css (which provides base resets + .card + .btn + .alert).
  */
 
+/* Sub-tasks toggle (issue-010) — scoped to #tasks-progress so other uses
+   of .task-tree elsewhere in the app are not affected. */
+.subtasks-toggle {
+    margin-left: 8px;
+    vertical-align: middle;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.subtasks-toggle i { font-size: 0.85rem; }
+#tasks-progress[data-subtasks="hidden"] ul.task-tree:not(.root) {
+    /* Hide the nested sub-trees. The root <ul class="task-tree root"> is
+       the direct child of #tasks-progress and represents top-level work
+       streams; the :not(.root) clause keeps it visible. The inner
+       <ul class="task-tree"> nodes (no .root) are the sub-trees rendered
+       by render_task_tree(). */
+    display: none;
+}
+
 /* Make the main app's .footer + .navbar invisible — public pages don't have them
    rendered into the DOM, but in case shared classes ever collide, we keep things tidy. */
 

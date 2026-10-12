@@ -75,6 +75,11 @@ function client_translations() {
             'dash.task_due'          => 'Due',
             'dash.task_completed'    => 'Completed',
 
+            // Sub-tasks toggle (issue-010)
+            'dash.subtasks_show_all' => 'Show all sub-tasks',
+            'dash.subtasks_show_top' => 'Show top-level only',
+            'dash.subtasks_toggle_aria' => 'Toggle sub-tasks visibility',
+
             // Statuses
             'status.not_started'     => 'Not started',
             'status.in_progress'     => 'In progress',
@@ -130,6 +135,11 @@ function client_translations() {
             'dash.contact_pm'        => '如有疑问,请联系您的项目经理。',
             'dash.task_due'          => '截止',
             'dash.task_completed'    => '已完成',
+
+            // Sub-tasks toggle (issue-010)
+            'dash.subtasks_show_all' => '显示所有子任务',
+            'dash.subtasks_show_top' => '仅显示顶级任务',
+            'dash.subtasks_toggle_aria' => '切换子任务显示',
 
             // Statuses
             'status.not_started'     => '未开始',

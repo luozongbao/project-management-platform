@@ -1,5 +1,95 @@
 # Release Notes
 
+## v1.4.1 — 2026-10-12
+
+Client-portal-only feature release. Adds a sub-tasks toggle to the
+public client dashboard so a stakeholder can collapse or expand the
+nested sub-trees under each top-level workstream without scrolling
+through a wall of sub-tasks. No DB changes, no migrations, no new
+endpoints. The state is stored per device in `localStorage`.
+
+### Highlights
+
+- **Sub-tasks toggle on the client dashboard (issue-010)**
+  - Inline button rendered next to the "Tasks & Progress" heading on
+    `client/dashboard.php`. Label flips between **"Show all
+    sub-tasks"** (EN) / **"显示所有子任务"** (中文) and **"Show
+    top-level only"** (EN) / **"仅显示顶级任务"** (中文); the icon
+    flips between `fa-eye` and `fa-eye-slash`. The control is hidden
+    entirely on projects that have no sub-tasks — nothing to
+    collapse, so the control would be misleading.
+  - **Default state is "top-level only"** for first-time visitors and
+    for any project that has sub-tasks. The nested sub-trees are
+    visually hidden via a scoped CSS rule, not by re-rendering
+    server-side; the page HTML is the same on every load and only
+    the section's `data-subtasks` attribute + the button's
+    `aria-pressed` differ.
+  - The user's choice is persisted in `localStorage` under
+    `client_dash.subtasks_visible.<share_code>`. Returning visitors
+    who previously chose "expanded" see the full tree on first
+    paint with no flash of collapsed content (the inline script
+    runs at the end of `<body>`, before the browser commits the
+    first frame). Each project has its own key, so two projects
+    keep two separate preferences.
+  - When `localStorage` is unavailable (private mode, sandboxed
+    iframe, JS disabled), the page still defaults to "top-level
+    only" and the toggle remains visible but its click is a safe
+    no-op.
+  - Accessibility: the control is a real `<button type="button">`
+    with `aria-pressed`, `aria-controls="tasks-progress"`, and an
+    `aria-label`; nested `<ul class="task-tree">` carry
+    `aria-hidden="true"` while collapsed so screen readers skip
+    the subtree. The icon + text combination means there is no
+    reliance on colour alone.
+  - Purely client-side: no new DB columns, no new SQL, no new
+    endpoints. The existing `render_task_tree()` is untouched;
+    only the wrapper section's id, the new button, the localised
+    labels, the inline script, and one scoped CSS rule
+    (`#tasks-progress[data-subtasks="hidden"] ul.task-tree:not(.root)`)
+    are added.
+  - Share code is interpolated into the inline script via
+    `json_encode(..., JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS |
+    JSON_HEX_QUOT)` so a future change to the share-code character
+    set cannot break the page.
+
+### Localisation
+
+Three new keys added to `client_translations()` in `client/lang.php`
+for both English and Simplified Chinese:
+
+| Key                          | EN                       | 中文                   |
+| ---------------------------- | ------------------------ | ---------------------- |
+| `dash.subtasks_show_all`     | `Show all sub-tasks`     | `显示所有子任务`        |
+| `dash.subtasks_show_top`     | `Show top-level only`    | `仅显示顶级任务`        |
+| `dash.subtasks_toggle_aria`  | `Toggle sub-tasks visibility` | `切换子任务显示`   |
+
+### Upgrade notes
+
+This release has **no database change** and **no migration**. To
+deploy:
+
+1. Pull the latest code. The change is server-rendered HTML + one
+   inline `<script>` + one CSS rule, so no rebuild is needed.
+2. (Optional) Run the new regression test inside the app container:
+   ```bash
+   docker compose exec app php client/toggle_subtasks_test.php
+   ```
+3. Clear any CDN / reverse-proxy cache for `client/dashboard.php`
+   and `client/assets/client.css` so visitors see the new control
+   on the next page load.
+
+### Out of scope
+
+- Per-task accordion (collapsing individual sub-trees independently).
+- An "Expand all / Collapse all" pair of controls. The single toggle
+  is sufficient for the use case.
+- Persisting the choice across devices or browsers. This is a
+  per-device preference, like the existing `client_lang` cookie.
+- Surfacing the toggle on the internal console's task pages.
+- A server-side query-parameter override (e.g. `?subtasks=1`).
+
+---
+
 ## v1.2.1 — 2026-10-06
 
 Bundles the planned **v1.3**, **v1.3.1**, and **v1.4** work-items into a

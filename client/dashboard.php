@@ -252,10 +252,30 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
     </section>
 
     <!-- Tasks -->
-    <section class="card client-section">
+    <?php
+        // Only render the sub-tasks toggle if there is at least one sub-task
+        // anywhere in the tree. (subtask_count is computed by the SELECT.)
+        $has_subtasks = false;
+        foreach ($flat_tasks as $_t) {
+            if ((int)$_t['subtask_count'] > 0) { $has_subtasks = true; break; }
+        }
+        unset($_t);
+    ?>
+    <section class="card client-section" id="tasks-progress" data-subtasks="hidden">
         <h2 class="section-title">
             <i class="fas fa-tasks"></i> <?= e(t('dash.tasks_heading')) ?>
             <small class="text-muted">(<?= (int)count($flat_tasks) ?> <?= e(t('dash.total_suffix')) ?>)</small>
+            <?php if ($has_subtasks): ?>
+                <button type="button" id="subtasks-toggle"
+                        class="btn btn-secondary btn-sm subtasks-toggle"
+                        data-state="hidden"
+                        aria-controls="tasks-progress"
+                        aria-pressed="false"
+                        aria-label="<?= e(t('dash.subtasks_toggle_aria')) ?>">
+                    <i class="fas fa-eye" aria-hidden="true"></i>
+                    <span class="subtasks-toggle-label"><?= e(t('dash.subtasks_show_all')) ?></span>
+                </button>
+            <?php endif; ?>
         </h2>
         <?php if (empty($flat_tasks)): ?>
             <p class="text-muted"><em><?= e(t('dash.no_tasks')) ?></em></p>
@@ -272,6 +292,65 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
     </p>
 
 </main>
+
+<?php if ($has_subtasks): ?>
+<script>
+(function () {
+    // Sub-tasks toggle (issue-010). Runs at the end of <body> so the section
+    // is already in the DOM; no DOMContentLoaded wait, no flash. State is
+    // per-project, stored in localStorage. Safe no-op when localStorage is
+    // unavailable (e.g. Safari private mode, sandboxed iframes).
+    var section = document.getElementById('tasks-progress');
+    var btn = document.getElementById('subtasks-toggle');
+    if (!section || !btn) { return; }
+    var labelEl = btn.querySelector('.subtasks-toggle-label');
+    var iconEl = btn.querySelector('i');
+    var shareCode = <?= json_encode($project['share_code'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var LABEL_SHOW_ALL = <?= json_encode(t('dash.subtasks_show_all'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var LABEL_SHOW_TOP = <?= json_encode(t('dash.subtasks_show_top'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var STORAGE_KEY = 'client_dash.subtasks_visible.' + shareCode;
+
+    function readPref() {
+        try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+    }
+    function writePref(v) {
+        try { localStorage.setItem(STORAGE_KEY, v); } catch (e) { /* no-op */ }
+    }
+    function applyState(state) {
+        section.setAttribute('data-subtasks', state);
+        btn.setAttribute('data-state', state);
+        var visible = (state === 'visible');
+        btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        if (labelEl) { labelEl.textContent = visible ? LABEL_SHOW_TOP : LABEL_SHOW_ALL; }
+        if (iconEl) {
+            iconEl.className = visible ? 'fas fa-eye-slash' : 'fas fa-eye';
+        }
+        // Reflect on nested <ul class="task-tree"> nodes so screen readers
+        // can skip the subtree when collapsed.
+        var subs = section.querySelectorAll('ul.task-tree');
+        for (var i = 0; i < subs.length; i++) {
+            subs[i].setAttribute('aria-hidden', visible ? 'false' : 'true');
+        }
+    }
+
+    // First-paint: honour the stored preference without a flash.
+    var stored = readPref();
+    if (stored === '1') {
+        applyState('visible');
+    } else {
+        // Default already encoded in the server-rendered markup; just mirror
+        // the aria-hidden attributes so screen readers see the same state.
+        applyState('hidden');
+    }
+
+    btn.addEventListener('click', function () {
+        var next = (btn.getAttribute('data-state') === 'visible') ? 'hidden' : 'visible';
+        applyState(next);
+        writePref(next === 'visible' ? '1' : '0');
+    });
+})();
+</script>
+<?php endif; ?>
 
 </body>
 </html>
