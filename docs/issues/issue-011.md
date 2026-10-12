@@ -4,6 +4,7 @@
 **Type:** Feature / Data Model (small) / UX
 **Priority:** Medium
 **Depends on:** [issue-006](./issue-006.md) (task estimates), [issue-007](./issue-007.md) (effort-weighted completion)
+**Related:** [issue-012](./issue-012.md) (parent **status** derived from sub-task statuses — same parent surface, independent reviewable unit)
 **Affects:** `tasks` table, `task_edit.php`, `task_detail.php`, `tasks.php`, `client/dashboard.php`, `database/schema.sql`, new `database/migrations/…sql`, `includes/functions.php`
 
 ## Problem
@@ -527,6 +528,14 @@ the project bundle via the `font-awesome` CDN include on
 - A migration that back-fills `inherit_subtask_hours = 1` for any
   existing row. The flag is a fresh decision; old data stays
   manual (`NULL` → `0` semantics).
+- Deriving a parent's `status` from its sub-task statuses. That
+  is a separate, larger behavioural change (auto-promotion rules,
+  sticky `on_hold`, server-side `status` defence on the edit
+  form, a new `ajax/parent_hold.php` endpoint, the `Auto` pill on
+  `task_detail.php`) and is tracked under
+  [issue-012](./issue-012.md). This issue is only about the
+  parent's `estimated_hours`; the two ship together but are
+  independently reviewable.
 
 ## Implementation notes for the developer
 
