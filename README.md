@@ -4,7 +4,19 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.4.1 (2026-10-12) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.5.0 (2026-10-12) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.5.0** ships the parent-task model upgrade: a parent task with
+> sub-tasks can now opt into a **sum-of-sub-task-hours** inherit mode for
+> its effort estimate (issue-011), and its **status** is now derived from
+> its sub-tasks' statuses (issue-012). Both changes share the same
+> parent surface (`task_edit.php` / `task_detail.php`) and were released
+> together as a single coordinated change. The status change is the more
+> user-visible of the two: the task detail page now shows an **"Auto"**
+> pill next to a parent's status, the status dropdown is read-only for
+> parents with sub-tasks, and a new **"On Hold"** / **"Resume"** action
+> under *Page actions* is the only legitimate path to change a parent's
+> status. One small additive migration. No breaking API changes.
 >
 > **v1.4.1 (issue-010)** ships a purely client-side sub-tasks toggle on the
 > public client dashboard: a one-click control that collapses or expands
@@ -22,6 +34,61 @@ portal** that lets stakeholders view read-only progress without logging in.
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
 
 ---
+
+## What's new in v1.5.0
+
+### v1.5.0 — Parent effort inherit mode + parent status derived from sub-tasks (issues 011 + 012)
+
+- **Parent effort inherit mode (issue-011).** A parent task that has
+  sub-tasks can now opt into a sum-of-sub-task-hours mode for its
+  effort estimate. A new nullable `tasks.inherit_subtask_hours
+  TINYINT(1)` column records the choice. A new shared helper
+  `resolveTaskEstimateHours()` in `includes/functions.php` is the
+  single source of truth for the displayed number, consumed by
+  `task_detail.php`, `tasks.php`, `project_detail.php`, and
+  `client/dashboard.php`. The task edit form renders a new
+  **"Use sum of sub-task hours as total task time"** checkbox
+  (only when editing a task that already has sub-tasks, to
+  preserve the parent-must-be-created-first invariant). When
+  ticked, the `Total Task Time` input is disabled and the live
+  sum is shown next to it. A server-side defence forces
+  `estimated_hours = NULL` on save when the flag is set, and a
+  validation rule rejects an empty / zero manual `Total Task
+  Time` for a parent that has sub-tasks and is not in inherit
+  mode. The project detail page now shows a `Total Time` cell
+  in the task table (previously missing entirely).
+  Migration: `database/migrations/20261012_add_task_inherit_subtask_hours.sql`
+  (idempotent, `information_schema` guard). Regression test:
+  `database/task_inherit_subtask_hours_test.php`.
+- **Parent status derived from sub-tasks (issue-012).** A parent
+  task's `status` is now derived from its sub-tasks' statuses.
+  The shared helper `deriveParentStatus()` (in
+  `includes/functions.php`) implements the rule from the issue
+  brief: any child `in_progress` → `in_progress`; otherwise
+  any child `completed` → `completed`; otherwise `not_started`;
+  `on_hold` is sticky (a held parent stays held across sub-task
+  changes; only an explicit *Resume* brings it back). The
+  helper is consumed by both the extended
+  `syncProjectTaskCompletions()` and the new
+  `ajax/parent_hold.php` endpoint, which is the **only**
+  legitimate path that mutates a parent's status while it has
+  children. The task detail page shows an **"Auto"** pill
+  (`fa-magic`, `.derived-pill`) next to the status badge for
+  any task that has sub-tasks. The task edit page renders the
+  status field as a read-only badge for parents with sub-tasks
+  (the submitted value is ignored on the server). New *On
+  Hold* / *Resume* buttons on the task detail page POST to
+  `ajax/parent_hold.php` with `action=hold` or `action=resume`;
+  both paths call `syncProjectTaskCompletions()` at the end so
+  the project rollup, the task list, and the client portal stay
+  in sync. `ajax/complete_task.php` calls the helper directly
+  in both branches now (the local `updateParentTaskCompletion`
+  wrapper was removed in the same change to keep a single
+  source of truth). `completion_date` is set on transition to
+  `completed` and cleared on demotion from `completed`, with a
+  `WHERE completion_percentage <> ? OR status <> ?` guard to
+  keep `updated_at` honest on no-op syncs. Regression test:
+  `database/task_parent_status_derived_test.php`.
 
 ## What's new in v1.4.1
 
@@ -310,6 +377,12 @@ docker compose exec db \
 docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261006_add_contacts_company_position_address.sql
+
+# v1.5.0 — Parent effort inherit mode (issue-011) + parent status derived
+# from sub-tasks (issue-012)
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261012_add_task_inherit_subtask_hours.sql
 ```
 
 The included migrations are idempotent — safe to re-run.
@@ -334,7 +407,7 @@ The included migrations are idempotent — safe to re-run.
 
 ```
 .
-├── ajax/                  AJAX endpoints (progress, status, contact lookup, …)
+├── ajax/                  AJAX endpoints (progress, status, contact lookup, parent hold, …)
 ├── assets/
 │   ├── css/               Internal stylesheet
 │   ├── js/                Internal JS
@@ -506,6 +579,22 @@ $rows = $db->fetchAll("SELECT … WHERE id = ?", [$id]);
 $row  = $db->fetchOne("SELECT … WHERE id = ?", [$id]);
 $db->execute("UPDATE … WHERE id = ?", [$id]);
 ```
+
+Regression tests live in `database/` and `client/`. Each is a single
+self-contained PHP script that connects via the same `config.php` +
+`includes/` chain the app uses, exercises the behavior, and cleans up
+after itself. Run with:
+
+```bash
+docker compose exec app php database/task_completion_test.php
+docker compose exec app php database/task_inherit_subtask_hours_test.php    # v1.5.0
+docker compose exec app php database/task_parent_status_derived_test.php    # v1.5.0
+docker compose exec app php database/contacts_columns_test.php
+docker compose exec app php database/project_start_date_test.php
+docker compose exec app php client/toggle_subtasks_test.php
+```
+
+All tests should print a single `… passed.` line and exit 0.
 
 ---
 - The auto-subtask trigger (`database/subtask_functions.sql`) is not

@@ -67,6 +67,24 @@ if ($project_id) {
     );
 }
 
+// Issue-011: For an existing parent task, fetch its sub-task count + estimates
+// so we can render the "Use sum of sub-task hours" checkbox and the live
+// "Computed total" hint. A task with no sub-tasks never gets the checkbox.
+$subtask_count = 0;
+$subtask_estimates = [];
+$inherit_from_post = null;
+if ($is_editing) {
+    $subtask_rows = $db->fetchAll(
+        "SELECT id, estimated_hours FROM tasks WHERE parent_task_id = ?",
+        [$task_id]
+    );
+    $subtask_count = count($subtask_rows);
+    foreach ($subtask_rows as $row) {
+        $subtask_estimates[] = (float)$row['estimated_hours'];
+    }
+    $inherit_from_post = $task['inherit_subtask_hours'] ?? null;
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
@@ -80,7 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $responsible_person_id = $_POST['responsible_person_id'] ?? ($task['responsible_person_id'] ?? $user_id);
     $contact_person_id = $_POST['contact_person_id'] ?? null;
     $form_project_id = $_POST['project_id'] ?? $project_id;
-    
+
+    // Issue-011: inherit_subtask_hours is the literal string '1' or anything else
+    // (treated as false). Survive validation failure via the helper.
+    $posted_inherit = $_POST['inherit_subtask_hours'] ?? null;
+    $inherit_from_post = ($posted_inherit === '1') ? 1 : 0;
+
     $errors = [];
     $estimated_hours = null;
     
@@ -143,6 +166,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    // Issue-011: server-side defence — when the inherit flag is on, ignore
+    // the (potentially stale, browser-disabled) total_time value entirely.
+    if ($is_editing && $inherit_from_post === 1) {
+        $estimated_hours = null;
+    }
+
+    // Issue-011: a parent with at least one sub-task must have either a
+    // non-zero total_time OR inherit mode on. Empty/zero is rejected when
+    // inherit mode is off and the task has children.
+    if ($is_editing && $subtask_count > 0 && $inherit_from_post !== 1) {
+        if ($total_time === '' || (float)$total_time <= 0) {
+            $errors[] = "Tasks with sub-tasks must specify a non-zero total task time, or check 'Use sum of sub-task hours'.";
+        }
+    }
+
+    // Issue-012: server-side defence — for a parent with children, ignore
+    // any submitted status value (the on-hold / resume button on the detail
+    // page is the only legitimate path). The completion_date and 100%
+    // auto-derivation for non-parent tasks still applies below.
+    if ($is_editing && $task['parent_task_id'] === null && $subtask_count > 0) {
+        $status = $task['status'] ?? 'not_started';
+    }
     
     if ($completion_percentage < 0 || $completion_percentage > 100) {
         $errors[] = "Completion percentage must be between 0 and 100.";
@@ -181,44 +227,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             if ($is_editing) {
+                // Issue-011: persist the inherit flag. For a task with no sub-tasks
+                // the column is forced to 0 regardless of what the form posted.
+                $stored_inherit = ($subtask_count > 0 && $inherit_from_post === 1) ? 1 : 0;
+
                 // Update existing task
                 $db->execute(
-                    "UPDATE tasks SET 
+                    "UPDATE tasks SET
                         name = ?, description = ?, status = ?, completion_percentage = ?,
                         expected_completion_date = ?, completion_date = ?,
-                        estimated_hours = ?, responsible_person_id = ?, contact_person_id = ?, updated_at = NOW()
+                        estimated_hours = ?, inherit_subtask_hours = ?,
+                        responsible_person_id = ?, contact_person_id = ?, updated_at = NOW()
                      WHERE id = ?",
                     [
                         $name, $description, $status, $completion_percentage,
                         $expected_completion_date, $completion_date, $estimated_hours,
+                        $stored_inherit,
                         $responsible_person_id, $contact_person_id, $task_id
                     ]
                 );
                 syncProjectTaskCompletions($db, $task['project_id']);
-                
+
                 redirect("task_detail.php?id=$task_id", 'Task updated successfully!', 'success');
             } else {
                 // Create new task
                 $final_project_id = $is_subtask ? $parent_task['project_id'] : $form_project_id;
-                
+
                 $db->execute(
                     "INSERT INTO tasks (
                         name, description, status, completion_percentage,
                         expected_completion_date, completion_date, estimated_hours,
+                        inherit_subtask_hours,
                         responsible_person_id, contact_person_id,
                         project_id, parent_task_id, created_at, updated_at
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
                         $name, $description, $status, $completion_percentage,
                         $expected_completion_date, $completion_date, $estimated_hours,
+                        0, // new tasks can never start in inherit mode (no children yet)
                         $responsible_person_id, $contact_person_id,
                         $final_project_id, $parent_id
                     ]
                 );
-                
+
                 $new_task_id = $db->lastInsertId();
                 syncProjectTaskCompletions($db, $final_project_id);
-                
+
                 redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
             }
         } catch (Exception $e) {
@@ -322,32 +376,55 @@ $show_nav = true;
                 <!-- Status & Progress -->
                 <div class="form-section">
                     <h3>Status & Progress</h3>
-                    
+
+                    <?php
+                    // Issue-012: for a parent with sub-tasks, the status field is
+                    // a read-only display. The on-hold / resume button on the task
+                    // detail page is the only path that mutates status.
+                    $is_parent_with_subs = $is_editing && ($task['parent_task_id'] ?? null) === null && $subtask_count > 0;
+                    $status_label = ucfirst(str_replace('_', ' ', $task['status'] ?? 'not_started'));
+                    ?>
                     <div class="form-group">
                         <label for="status">Status:</label>
-                        <select id="status" name="status" onchange="handleStatusChange(this.value)">
-                            <option value="not_started" <?= ($_POST['status'] ?? $task['status'] ?? 'not_started') === 'not_started' ? 'selected' : '' ?>>
-                                Not Started
-                            </option>
-                            <option value="in_progress" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'in_progress' ? 'selected' : '' ?>>
-                                In Progress
-                            </option>
-                            <option value="completed" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'completed' ? 'selected' : '' ?>>
-                                Completed
-                            </option>
-                            <option value="on_hold" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'on_hold' ? 'selected' : '' ?>>
-                                On Hold
-                            </option>
-                        </select>
+                        <?php if ($is_parent_with_subs): ?>
+                            <input type="text" id="status_display" name="status_display"
+                                   value="<?= e($status_label) ?>"
+                                   disabled aria-describedby="status_help">
+                            <input type="hidden" name="status" value="<?= e($task['status']) ?>">
+                            <p class="field-help" id="status_help">
+                                <i class="fas fa-magic"></i>
+                                This task has <?= (int)$subtask_count ?> sub-task(s), so its
+                                status follows the sub-tasks automatically:
+                                <strong>completed</strong> if all sub-tasks are completed,
+                                <strong>in progress</strong> if any are in progress, and
+                                <strong>not started</strong> otherwise. To put this parent
+                                on hold, use the “On Hold” action on the task detail page.
+                            </p>
+                        <?php else: ?>
+                            <select id="status" name="status" onchange="handleStatusChange(this.value)">
+                                <option value="not_started" <?= ($_POST['status'] ?? $task['status'] ?? 'not_started') === 'not_started' ? 'selected' : '' ?>>
+                                    Not Started
+                                </option>
+                                <option value="in_progress" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'in_progress' ? 'selected' : '' ?>>
+                                    In Progress
+                                </option>
+                                <option value="completed" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'completed' ? 'selected' : '' ?>>
+                                    Completed
+                                </option>
+                                <option value="on_hold" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'on_hold' ? 'selected' : '' ?>>
+                                    On Hold
+                                </option>
+                            </select>
+                        <?php endif; ?>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="completion_percentage">Completion Percentage:</label>
                         <div class="percentage-input">
                             <input type="range" id="completion_slider" min="0" max="100" step="5"
                                    value="<?= $_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0 ?>"
                                    oninput="updatePercentageInput(this.value)">
-                            <input type="number" id="completion_percentage" name="completion_percentage" 
+                            <input type="number" id="completion_percentage" name="completion_percentage"
                                    min="0" max="100" step="0.1"
                                    value="<?= $_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0 ?>"
                                    oninput="updatePercentageSlider(this.value)">
@@ -358,17 +435,74 @@ $show_nav = true;
 
                 <div class="form-section">
                     <h3>Effort Estimate</h3>
+                    <?php
+                    // Issue-011: render the inherit checkbox only for a parent
+                    // task that has at least one sub-task. Compute the live sum
+                    // and positive-estimate count for the hint.
+                    $inherit_checked = $is_editing && $subtask_count > 0 && !empty($task['inherit_subtask_hours']);
+                    $inherit_positive = 0;
+                    $inherit_sum = 0.0;
+                    foreach ($subtask_estimates as $_est) {
+                        if ($_est !== null && is_numeric($_est) && (float)$_est > 0) {
+                            $inherit_positive++;
+                            $inherit_sum += (float)$_est;
+                        }
+                    }
+                    unset($_est);
+                    ?>
+                    <?php if ($is_editing && $subtask_count > 0): ?>
+                        <?php
+                        // On validation failure, prefer the user's last POST over the
+                        // saved DB value so a failed save doesn't silently clear the flag.
+                        $effective_inherit = $inherit_from_post !== null
+                            ? ((int)$inherit_from_post === 1)
+                            : $inherit_checked;
+                        ?>
+                        <div class="form-group inherit-group">
+                            <label class="checkbox-label" for="inherit_subtask_hours">
+                                <input type="checkbox"
+                                       id="inherit_subtask_hours"
+                                       name="inherit_subtask_hours"
+                                       value="1"
+                                       <?= $effective_inherit ? 'checked' : '' ?>
+                                       data-inherit-toggle
+                                       aria-describedby="inherit-hint">
+                                <span>Use sum of sub-task hours as total task time</span>
+                            </label>
+                            <p class="field-help">When checked, the total below is locked to the sum of this task's sub-task estimates. Leave unchecked to enter a manual total.</p>
+                            <p class="field-help" id="inherit-hint" <?= $inherit_checked ? '' : 'hidden' ?>>
+                                Computed total: <strong><span id="inherit-sum"><?= number_format($inherit_sum, 4, '.', '') ?></span></strong>
+                                hours (from <span id="inherit-count"><?= (int)$inherit_positive ?></span> sub-task(s) with
+                                positive estimates).
+                            </p>
+                            <p class="field-help" id="inherit-empty-hint" <?= ($inherit_checked && $inherit_positive === 0) ? '' : 'hidden' ?>>
+                                None of the sub-tasks currently have a positive estimate. The
+                                parent's completion will use the equal-average fallback until
+                                at least one sub-task has a value.
+                            </p>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="form-group">
                         <label for="total_time">Total Task Time:</label>
                         <div class="estimate-input">
                             <?php
+                            // Issue-011: when in inherit mode the disabled field keeps
+                            // showing the resolved sum so the user sees what will be saved.
                             $posted_total_time = $_POST['total_time'] ?? null;
-                            $total_time_value = is_scalar($posted_total_time) ? (string)$posted_total_time : (
-                                isset($task['estimated_hours']) && $task['estimated_hours'] !== null
-                                    ? rtrim(rtrim(number_format((float)$task['estimated_hours'], 4, '.', ''), '0'), '.')
-                                    : ''
-                            );
+                            if ($is_editing && $subtask_count > 0 && !empty($task['inherit_subtask_hours'])) {
+                                $total_time_value = $inherit_positive > 0
+                                    ? rtrim(rtrim(number_format($inherit_sum, 4, '.', ''), '0'), '.')
+                                    : '';
+                            } elseif (is_scalar($posted_total_time)) {
+                                $total_time_value = (string)$posted_total_time;
+                            } elseif (isset($task['estimated_hours']) && $task['estimated_hours'] !== null) {
+                                $total_time_value = rtrim(rtrim(number_format((float)$task['estimated_hours'], 4, '.', ''), '0'), '.');
+                            } else {
+                                $total_time_value = '';
+                            }
                             $selected_time_unit = $_POST['total_time_unit'] ?? 'hours';
+                            $total_time_disabled = $effective_inherit;
                             ?>
                             <input
                                 type="number"
@@ -377,8 +511,11 @@ $show_nav = true;
                                 min="0"
                                 step="any"
                                 value="<?= e($total_time_value) ?>"
-                                placeholder="Not estimated">
-                            <select id="total_time_unit" name="total_time_unit" aria-label="Total task time unit">
+                                placeholder="Not estimated"
+                                <?= $total_time_disabled ? 'disabled aria-disabled="true"' : '' ?>>
+                            <select id="total_time_unit" name="total_time_unit"
+                                    aria-label="Total task time unit"
+                                    <?= $total_time_disabled ? 'disabled aria-disabled="true"' : '' ?>>
                                 <option value="hours" <?= $selected_time_unit === 'hours' ? 'selected' : '' ?>>Hours</option>
                                 <option value="mandays" <?= $selected_time_unit === 'mandays' ? 'selected' : '' ?>>Mandays</option>
                             </select>
@@ -511,6 +648,30 @@ function updatePercentageInput(value) {
 function updatePercentageSlider(value) {
     document.getElementById('completion_slider').value = value;
 }
+
+// Issue-011: when the inherit checkbox is toggled, lock/unlock the
+// total_time field. The server is the source of truth; this is a UX
+// nicety so the field visually disables without a round-trip.
+document.addEventListener('DOMContentLoaded', function () {
+    var inheritBox = document.getElementById('inherit_subtask_hours');
+    if (!inheritBox) { return; }
+    var total = document.getElementById('total_time');
+    var unit = document.getElementById('total_time_unit');
+    var hint = document.getElementById('inherit-hint');
+    var emptyHint = document.getElementById('inherit-empty-hint');
+    var sumEl = document.getElementById('inherit-sum');
+    var countEl = document.getElementById('inherit-count');
+
+    function apply() {
+        var on = inheritBox.checked;
+        if (total) { total.disabled = on; total.setAttribute('aria-disabled', on ? 'true' : 'false'); }
+        if (unit)  { unit.disabled  = on; unit.setAttribute('aria-disabled',  on ? 'true' : 'false'); }
+        if (hint)  { hint.hidden = !on; }
+        if (emptyHint) { emptyHint.hidden = !(on && countEl && countEl.textContent === '0'); }
+    }
+    inheritBox.addEventListener('change', apply);
+    apply();
+});
 
 // Load contacts for selected project
 function loadProjectContacts(projectId) {

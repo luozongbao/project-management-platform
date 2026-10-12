@@ -65,6 +65,26 @@ foreach ($tasks as &$task) {
 }
 unset($task);
 
+// Issue-011: build a parent → child estimates map for the rows on this page
+// so we can render inherit-mode estimates without N+1 queries.
+$childEstimatesByParent = [];
+$parentIds = [];
+foreach ($tasks as $task) {
+    if (!empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0) {
+        $parentIds[] = (int)$task['id'];
+    }
+}
+if (!empty($parentIds)) {
+    $placeholders = implode(',', array_fill(0, count($parentIds), '?'));
+    $child_rows = $db->fetchAll(
+        "SELECT parent_task_id, estimated_hours FROM tasks WHERE parent_task_id IN ($placeholders)",
+        $parentIds
+    );
+    foreach ($child_rows as $row) {
+        $childEstimatesByParent[(int)$row['parent_task_id']][] = $row;
+    }
+}
+
 // Get projects for filter dropdown
 $user_projects = $db->fetchAll(
     "SELECT id, name FROM projects WHERE responsible_person_id = ? ORDER BY name",
@@ -320,10 +340,20 @@ $show_nav = true;
                                     </span>
                                 <?php endif; ?>
 
-                                <?php if ($task['estimated_hours'] !== null): ?>
+                                <?php
+                                $child_estimates_for_task = $childEstimatesByParent[(int)$task['id']] ?? [];
+                                $resolved_total = resolveTaskEstimateHours($task, $child_estimates_for_task);
+                                $inherit_active = !empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0;
+                                ?>
+                                <?php if ($resolved_total !== null): ?>
                                     <span class="task-estimate">
                                         <i class="fas fa-clock"></i>
-                                        Total Time: <?= e(formatTaskEstimate($task['estimated_hours'])) ?>
+                                        Total Time: <?= e(formatTaskEstimate($resolved_total)) ?>
+                                        <?php if ($inherit_active): ?>
+                                            <i class="fas fa-link inherit-indicator"
+                                               title="Auto-calculated from sub-tasks"
+                                               aria-label="Auto-calculated from sub-tasks"></i>
+                                        <?php endif; ?>
                                     </span>
                                 <?php endif; ?>
                             </div>

@@ -390,6 +390,78 @@ body {
     color: #adb5bd;
 }
 
+/* Derived / Inherit indicators (issue-011, issue-012) */
+.derived-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6c757d;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.derived-pill i {
+    font-size: 0.7rem;
+}
+
+.inherit-indicator {
+    color: #6f42c1;
+    font-size: 0.85em;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.inherit-indicator[title] {
+    cursor: help;
+}
+
+.inherit-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.9rem;
+    margin: 12px 0;
+}
+
+.inherit-warning i {
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.inherit-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* Inline forms (e.g. On Hold / Resume buttons under page-actions) */
+.inline-form {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+.inline-form button {
+    margin: 0;
+}
+
+/* Status-specific tints for the Auto pill, kept subtle so the badge remains primary. */
+.derived-pill .fa-magic {
+    color: #845ef7;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .navbar {

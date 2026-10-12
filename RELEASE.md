@@ -1,5 +1,158 @@
 # Release Notes
 
+## v1.5.0 — 2026-10-12
+
+Parent-task model upgrade. Adds an **inherit mode** for a parent
+task's effort so the user no longer has to keep the parent in sync
+with the sum of its sub-tasks' estimates by hand, and makes a
+parent's **status** derive from its sub-tasks so the project
+rollup, the task list, and the client portal all agree on what a
+parent is doing. The two changes share the same parent surface
+(`task_edit.php` / `task_detail.php`) and are released together so
+the validation rules and the display wiring land in a single
+coordinated change. One small additive migration. No breaking API
+changes.
+
+### Highlights
+
+- **Parent effort inherit mode (issue-011)**
+  - New nullable column `tasks.inherit_subtask_hours TINYINT(1) NULL`
+    (default `NULL`; existing rows are unchanged). The flag is only
+    surfaced on the edit form when the task already has at least
+    one sub-task — the parent-must-be-created-first invariant from
+    the original issue brief is preserved.
+  - New helper `resolveTaskEstimateHours(?array $task, array $childTasks)`
+    in `includes/functions.php` is the **single source of truth**
+    consumed by all four display surfaces:
+    - When `inherit_subtask_hours = 1`, the function returns the
+      sum of the children's positive `estimated_hours` (zero and
+      NULL child estimates are excluded), or `NULL` if no child has
+      a positive estimate.
+    - When the flag is `0` or `NULL`, the function returns the
+      stored `estimated_hours` (with the existing null / zero /
+      negative guards) so manual-mode parents behave exactly as
+      they did before this release.
+  - The task edit form (`task_edit.php`) renders a new checkbox
+    **"Use sum of sub-task hours as total task time"** (EN) /
+    inline equivalent on the internal app. When ticked, the
+    `Total Task Time` numeric input is disabled, an inline script
+    toggles the disabled state on click, and a read-only hint
+    shows the current live sum. A **server-side defence** forces
+    `estimated_hours = NULL` on save whenever the flag is `1`, so
+    even a hand-crafted POST cannot leave a stale manual value in
+    the row.
+  - Validation: editing a parent that has sub-tasks with the flag
+    off and an empty / zero / non-positive `Total Task Time` now
+    fails with the existing error-pattern:
+    *"Tasks with sub-tasks must specify a non-zero total task time,
+    or check 'Use sum of sub-task hours'."* — the user is
+    steered to either pick a number or tick the box.
+  - All four display surfaces now agree on the number:
+    - `task_detail.php` (parent block)
+    - `tasks.php` (list view, N+1-safe — child estimates are
+      loaded in a single follow-up query for parents with the
+      flag set, not row-by-row)
+    - `project_detail.php` (the project-level task table now
+      shows a `Total Time` cell that was previously missing
+      entirely)
+    - `client/dashboard.php` (read-only client portal, the
+      number alone — no inherit-mode indicator on the public
+      surface per the issue spec)
+  - Inherit-mode rows render a small `fa-link` icon next to the
+    number in the internal console so the manager can see at a
+    glance that the value is computed, not typed. If a parent
+    is in inherit mode but none of its children have positive
+    estimates, `task_detail.php` shows an `alert alert-warning`
+    banner so the manager is not silently left with a missing
+    number.
+  - Migration: `database/migrations/20261012_add_task_inherit_subtask_hours.sql`
+    (idempotent, guarded by `information_schema.COLUMNS`). Fresh
+    installs are covered by the matching `database/schema.sql`
+    update. Existing rows are untouched (the column is `NULL`
+    by default and `NULL` is treated as "manual mode").
+  - Regression test: `database/task_inherit_subtask_hours_test.php`
+    asserts the column exists in the right slot of the table,
+    exercises `resolveTaskEstimateHours()` against twelve pure-function
+    cases (inherit, manual, mixed-child, rounding, zero / null /
+    negative children), and runs a live DB round-trip that
+    toggles the flag and confirms the stored `estimated_hours`
+    is forced `NULL` on save. Source-grep checks confirm all
+    four display surfaces call the helper, the form binds the
+    field, the migration declares the column with the
+    information_schema guard, and `schema.sql` declares the
+    column for fresh installs.
+
+- **Parent status derived from sub-tasks (issue-012)**
+  - `deriveParentStatus(?string $currentStatus, array $childStatuses)`
+    in `includes/functions.php` is the **single source of truth**
+    for parent → child status rollup, consumed by both the
+    server-side `syncProjectTaskCompletions()` extension and the
+    new `ajax/parent_hold.php` endpoint:
+    - **on_hold is sticky** — once a parent is held, subsequent
+      sub-task changes do **not** auto-resume it; the manager
+      must explicitly press *Resume* on the task detail page.
+    - Otherwise, the derived status is: any child `in_progress`
+      → `in_progress`; otherwise any child `completed` →
+      `completed`; otherwise `not_started`. (The implementation
+      follows the exact spec the issue brief documents; the rule
+      is documented and unit-tested.)
+  - `syncProjectTaskCompletions()` now also re-derives the
+    parent's `status` and aligns `completion_date`:
+    - On transition to `completed`, `completion_date` is set to
+      `COALESCE(completion_date, NOW())` so a completed parent
+      never has a missing completion date.
+    - On demotion **from** `completed`, `completion_date` is
+      cleared to `NULL` so a re-opened parent does not keep
+      stale "completed" history.
+    - A `WHERE completion_percentage <> ? OR status <> ?` guard
+      keeps `updated_at` honest when the helper is a no-op.
+  - `task_detail.php` shows a small **"Auto"** pill (`fa-magic`,
+    `.derived-pill`) next to the status badge for any task that
+    has sub-tasks — visual cue that the value is derived, not
+    typed. The pill is suppressed on the client portal.
+  - `task_edit.php` now renders the **status** field as a
+    **read-only** badge for any task that has sub-tasks (the
+    dropdown is replaced with the current status label and an
+    explanation text: *"This task has sub-tasks, so its status
+    is derived automatically. To put it on hold, use the 'On
+    Hold' action on the task detail page."*). The submitted
+    `status` value is **ignored** for parents with sub-tasks
+    (server-side defence) so hand-crafted POSTs cannot desync
+    the rollup.
+  - New endpoint `ajax/parent_hold.php` is the only legitimate
+    path that mutates a parent's status while it has children:
+    - `action=hold` sets `tasks.status = 'on_hold'`.
+    - `action=resume` re-derives the status from the current
+      sub-task statuses via `deriveParentStatus(null, …)` and
+      updates `completion_date` in the same way
+      `syncProjectTaskCompletions()` does.
+    - Both paths call `syncProjectTaskCompletions($db, $projectId)`
+      at the end so the project's rollup, the task list, and the
+      client portal are all updated atomically.
+    - CSRF, login, ownership (project owner), and parent-with-
+      children constraints are enforced. Errors return
+      `400` / `403` / `404` / `405` as appropriate. The
+      endpoint detects `X-Requested-With: XMLHttpRequest` and
+      returns JSON; otherwise it redirects back to the task
+      detail page so the buttons can be plain form submits.
+  - `ajax/complete_task.php` now calls `syncProjectTaskCompletions()`
+    directly in both branches (sub-task and top-level). The
+    helper extension makes the old local `updateParentTaskCompletion()`
+    wrapper redundant, so it was removed in the same change to
+    keep a single source of truth.
+  - Regression test: `database/task_parent_status_derived_test.php`
+    exercises `deriveParentStatus()` against twelve pure-function
+    cases plus an exhaustive 4×4 current × child matrix, runs a
+    live DB round-trip that exercises: (a) all-not-started →
+    not_started, (b) one in_progress child → in_progress, (c)
+    all children completed → completed with `completion_date`
+    set, (d) demotion to in_progress clears `completion_date`,
+    (e) on_hold stickiness across `syncProjectTaskCompletions()`,
+    (f) resume derivation. Source-grep checks confirm
+    `ajax/parent_hold.php` calls the right helpers,
+    `task_detail.php` renders the pill and the buttons, and
+    `includes/functions.php` exports both new helpers.
+
 ## v1.4.1 — 2026-10-12
 
 Client-portal-only feature release. Adds a sub-tasks toggle to the

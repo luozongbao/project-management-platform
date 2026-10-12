@@ -85,6 +85,7 @@ CREATE TABLE tasks (
     expected_completion_date DATE,
     completion_date DATE,
     estimated_hours DECIMAL(12,4) NULL,
+    inherit_subtask_hours TINYINT(1) NULL DEFAULT NULL,  -- issue-011: when 1, parent's effort is sum of sub-task estimates
     completion_percentage DECIMAL(5,2) DEFAULT 0.00,
     status ENUM('not_started', 'in_progress', 'completed', 'on_hold') DEFAULT 'not_started',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

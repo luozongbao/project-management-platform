@@ -91,12 +91,35 @@ $show_nav = true;
         </div>
         <div class="page-actions">
             <?php if ($task['status'] !== 'completed' && empty($subtasks)): ?>
-                <button class="btn btn-success quick-complete-btn" 
-                        data-task-id="<?= $task_id ?>" 
+                <button class="btn btn-success quick-complete-btn"
+                        data-task-id="<?= $task_id ?>"
                         title="Mark as Completed">
                     <i class="fas fa-check"></i>
                     Complete Task
                 </button>
+            <?php endif; ?>
+            <?php // Issue-012: On Hold / Resume button for parents with sub-tasks. ?>
+            <?php if ($task['parent_task_id'] === null && count($subtasks) > 0): ?>
+                <?php if ($task['status'] !== 'on_hold'): ?>
+                    <form method="POST" action="ajax/parent_hold.php" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+                        <input type="hidden" name="task_id" value="<?= (int)$task_id ?>">
+                        <input type="hidden" name="action" value="hold">
+                        <button class="btn btn-outline" type="submit"
+                                onclick="return confirm('Put this parent task on hold? Sub-tasks are not affected.')">
+                            <i class="fas fa-pause"></i> Put on Hold
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <form method="POST" action="ajax/parent_hold.php" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+                        <input type="hidden" name="task_id" value="<?= (int)$task_id ?>">
+                        <input type="hidden" name="action" value="resume">
+                        <button class="btn btn-success" type="submit">
+                            <i class="fas fa-play"></i> Resume
+                        </button>
+                    </form>
+                <?php endif; ?>
             <?php endif; ?>
             <a href="task_edit.php?id=<?= $task_id ?>" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
@@ -118,9 +141,16 @@ $show_nav = true;
             <div class="card task-status-card">
                 <div class="card-header">
                     <h3>Task Overview</h3>
-                    <span class="status status-<?= $task['status'] ?>">
-                        <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
-                    </span>
+                    <div>
+                        <span class="status status-<?= $task['status'] ?>">
+                            <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
+                        </span>
+                        <?php if (!empty($subtasks)): ?>
+                            <span class="derived-pill" title="Status follows sub-tasks automatically">
+                                <i class="fas fa-magic"></i> Auto
+                            </span>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="progress-section">
@@ -201,10 +231,19 @@ $show_nav = true;
                                                         <?= e($subtask['responsible_person_name']) ?>
                                                     </span>
                                                 <?php endif; ?>
-                                                <?php if ($subtask['estimated_hours'] !== null): ?>
+                                                <?php
+                                                // Issue-011: subtasks may themselves be parents
+                                                // with their own sub-tasks, in which case their
+                                                // estimate is derived. We don't have the grand-
+                                                // children loaded here; the resolved value still
+                                                // matches the saved column for non-inherit subtasks
+                                                // and falls back to the manual value otherwise.
+                                                $sub_estimate = resolveTaskEstimateHours($subtask, []);
+                                                ?>
+                                                <?php if ($sub_estimate !== null): ?>
                                                     <span class="task-estimate">
                                                         <i class="fas fa-clock"></i>
-                                                        Total Time: <?= e(formatTaskEstimate($subtask['estimated_hours'])) ?>
+                                                        Total Time: <?= e(formatTaskEstimate($sub_estimate)) ?>
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
@@ -284,10 +323,40 @@ $show_nav = true;
                         <span><?= e($task['responsible_person_name']) ?></span>
                     </div>
 
-                    <?php if ($task['estimated_hours'] !== null): ?>
+                    <?php
+                    // Issue-011: render the parent's Total Task Time via the shared
+                    // helper, so this surface agrees with project_detail, tasks,
+                    // and the client portal.
+                    $resolved_estimate = resolveTaskEstimateHours($task, $subtasks);
+                    $inherit_active = $task['parent_task_id'] === null
+                        && !empty($task['inherit_subtask_hours'])
+                        && count($subtasks) > 0;
+                    $has_positive_child_estimates = false;
+                    foreach ($subtasks as $_sub) {
+                        if ($_sub['estimated_hours'] !== null && (float)$_sub['estimated_hours'] > 0) {
+                            $has_positive_child_estimates = true; break;
+                        }
+                    }
+                    unset($_sub);
+                    ?>
+                    <?php if ($resolved_estimate !== null): ?>
                         <div class="detail-item">
                             <label>Total Task Time:</label>
-                            <span><?= e(formatTaskEstimate($task['estimated_hours'])) ?></span>
+                            <span>
+                                <?= e(formatTaskEstimate($resolved_estimate)) ?>
+                                <?php if ($inherit_active): ?>
+                                    <i class="fas fa-link inherit-indicator"
+                                       title="Auto-calculated from sub-tasks"
+                                       aria-label="Auto-calculated from sub-tasks"></i>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($inherit_active && !$has_positive_child_estimates): ?>
+                        <div class="alert alert-warning inherit-warning" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Inherit mode is on but none of the sub-tasks have an estimate.
+                            The parent's completion will use the equal-average fallback.
                         </div>
                     <?php endif; ?>
                     

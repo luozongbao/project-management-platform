@@ -74,6 +74,12 @@ function client_translations() {
             'dash.contact_pm'        => 'Have a question? Please contact your project manager.',
             'dash.task_due'          => 'Due',
             'dash.task_completed'    => 'Completed',
+            // Total Task Time — issue-011 client display (number only, no icon
+            // differentiation per spec: the read-only client view must match
+            // the internal console number without surfacing the inherit mode).
+            'dash.task_total_time'   => 'Total task time',
+            'dash.task_total_calc'   => 'Calculated from sub-tasks',
+            'dash.task_total_manual' => 'Set manually',
 
             // Sub-tasks toggle (issue-010)
             'dash.subtasks_show_all' => 'Show all sub-tasks',
@@ -135,6 +141,10 @@ function client_translations() {
             'dash.contact_pm'        => '如有疑问,请联系您的项目经理。',
             'dash.task_due'          => '截止',
             'dash.task_completed'    => '已完成',
+            // Total Task Time — issue-011 client display
+            'dash.task_total_time'   => '总任务工时',
+            'dash.task_total_calc'   => '由子任务自动计算',
+            'dash.task_total_manual' => '手动设置',
 
             // Sub-tasks toggle (issue-010)
             'dash.subtasks_show_all' => '显示所有子任务',

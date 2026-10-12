@@ -93,7 +93,8 @@ if ($error) {
 // a tree on the client without recursive SQL.
 $flat_tasks = $db->fetchAll(
     "SELECT t.id, t.parent_task_id, t.name, t.description, t.status,
-            t.completion_percentage, t.estimated_hours, t.expected_completion_date, t.completion_date,
+            t.completion_percentage, t.estimated_hours, t.inherit_subtask_hours,
+            t.expected_completion_date, t.completion_date,
             u.name AS responsible_name,
             (SELECT COUNT(*) FROM tasks st WHERE st.parent_task_id = t.id) AS subtask_count
      FROM tasks t
@@ -117,6 +118,10 @@ foreach ($flat_tasks as $t) {
 }
 function render_task_tree($tasks, $by_parent, $level = 0) {
     foreach ($tasks as $task) {
+        $child_rows = $by_parent[$task['id']] ?? [];
+        // Issue-011: resolve the parent's Total Task Time via the shared helper
+        // so the client portal agrees with the internal console (issue-011).
+        $resolved_total = resolveTaskEstimateHours($task, $child_rows);
         echo '<li class="task-item status-' . e($task['status']) . '" data-level="' . (int)$level . '">';
         echo '<div class="task-line">';
         if ($level > 0) {
@@ -140,6 +145,9 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         if (!empty($task['completion_date'])) {
             echo '<span><i class="fas fa-calendar-check"></i> ' . e(t('dash.task_completed')) . ' ' . e(formatDateTime($task['completion_date'], 'M j, Y')) . '</span>';
         }
+        if ($resolved_total !== null) {
+            echo '<span><i class="fas fa-clock"></i> ' . e(formatTaskEstimate($resolved_total)) . '</span>';
+        }
         echo '</div>';
         echo '<div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' . e(number_format((float)$task['completion_percentage'], 1)) . '%"></div></div>';
         echo '<span class="progress-text">' . e(number_format((float)$task['completion_percentage'], 1)) . '%</span></div>';
@@ -147,10 +155,9 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         echo '</div>';
 
         // Recurse into subtasks.
-        $children = $by_parent[$task['id']] ?? [];
-        if (!empty($children)) {
+        if (!empty($child_rows)) {
             echo '<ul class="task-tree">';
-            render_task_tree($children, $by_parent, $level + 1);
+            render_task_tree($child_rows, $by_parent, $level + 1);
             echo '</ul>';
         }
         echo '</li>';
