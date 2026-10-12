@@ -390,6 +390,196 @@ body {
     color: #adb5bd;
 }
 
+/* Derived / Inherit indicators (issue-011, issue-012) */
+.derived-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6c757d;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.derived-pill i {
+    font-size: 0.7rem;
+}
+
+.inherit-indicator {
+    color: #6f42c1;
+    font-size: 0.85em;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.inherit-indicator[title] {
+    cursor: help;
+}
+
+.inherit-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.9rem;
+    margin: 12px 0;
+}
+
+.inherit-warning i {
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.inherit-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* Inline forms (e.g. On Hold / Resume buttons under page-actions) */
+.inline-form {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+.inline-form button {
+    margin: 0;
+}
+
+/* Issue-013: 2-column form grid used by task_edit.php and any future
+ * edit form. Sections stack into a single column below 768px. The
+ * `.form-section.full-row` modifier lets a single section (e.g. "Dates")
+ * span both columns of the grid. */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 28px;
+    align-items: start;
+}
+
+.form-grid .form-section {
+    min-width: 0;
+}
+
+.form-grid .form-section.full-row {
+    grid-column: 1 / -1;
+}
+
+.form-grid .form-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1rem;
+    color: #333;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 8px;
+    font-weight: 600;
+}
+
+/* Issue-013: estimate input is a horizontal row on wide screens
+ * (number input + unit selector side by side) and stacks vertically
+ * below 768px. */
+.estimate-input {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.estimate-input input[type="number"] {
+    min-width: 0;
+    flex: 1;
+}
+
+.estimate-input select {
+    width: auto;
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
+/* Issue-013 (revised): page header is a two-column flex row so the
+ * page-title (breadcrumb + <h1>) sits on the left and the
+ * page-actions (Put on Hold / Edit / Add Subtask / Complete Task)
+ * sit on the right. Without this rule the inline-form inside
+ * .page-actions collapses the actions onto their own line, which
+ * was the original tester bug. min-width: 0 on .page-title is the
+ * standard flex-overflow guard against a long task name. */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.page-header .page-title {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.page-header .page-actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* A standalone .page-actions row (not nested inside .page-header)
+ * still needs the flex layout so the children line up horizontally. */
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+/* Issue-013 (revised): checkbox-label is a flex row so the
+ * <input type="checkbox"> and its text label render on the same
+ * line, vertically centered. Used by the issue-011 "Use sum of
+ * sub-task hours" checkbox (and any future checkbox row). The
+ * native <label> already makes the whole row clickable; the
+ * cursor: pointer is a visual hint. */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #333;
+    line-height: 1.4;
+}
+
+.checkbox-label input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.checkbox-label > span {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Status-specific tints for the Auto pill, kept subtle so the badge remains primary. */
+.derived-pill .fa-magic {
+    color: #845ef7;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .navbar {
@@ -412,7 +602,42 @@ body {
         grid-template-columns: 1fr;
         gap: 0;
     }
-    
+
+    /* Issue-013: collapse the 2-column form grid into a single column
+     * on phones and stack the estimate input vertically. */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .estimate-input {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .estimate-input select {
+        width: 100%;
+    }
+
+    /* Issue-013 (revised): on phones the page-header stacks the
+     * title above the actions row, and the buttons inside
+     * .page-actions share the row width equally. Pairs with the
+     * existing .btn { width: 100% } rule above to give full-width
+     * stacked buttons. */
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-header .page-actions {
+        justify-content: stretch;
+    }
+
+    .page-header .page-actions .btn,
+    .page-header .page-actions .inline-form {
+        flex: 1 1 auto;
+    }
+
     .btn {
         width: 100%;
         margin-bottom: 10px;

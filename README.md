@@ -4,7 +4,40 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.2.1 (2026-10-06) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.5.1 (2026-10-13) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.5.1** ships two small UI-layout fixes against the v1.5.0
+> `task_edit.php` / `task_detail.php` surface (issue-013, revised
+> 2026-10-12): the "Put on Hold" button on `task_detail.php` now
+> sits on the same row as "Edit Task" / "+ Add Subtask" (a new
+> `.page-actions` flex rule in `assets/css/style.css`), and the
+> "Use sum of sub-task hours" checkbox on `task_edit.php` now
+> renders on one line with its text label (a new
+> `.checkbox-label` flex rule with an 18x18 touch target).
+> Three earlier structural items from the original spec
+> (`.form-grid` two-column layout, `$effective_inherit`
+> initialisation, Hold / Resume form position) are confirmed
+> already in place. A new mobile breakpoint collapses
+> `.page-header` to a column at <768px. No DB / schema / JS /
+> translation changes. Pull and reload — no restart required.
+>
+> **v1.5.0** ships the parent-task model upgrade: a parent task with
+> sub-tasks can now opt into a **sum-of-sub-task-hours** inherit mode for
+> its effort estimate (issue-011), and its **status** is now derived from
+> its sub-tasks' statuses (issue-012). Both changes share the same
+> parent surface (`task_edit.php` / `task_detail.php`) and were released
+> together as a single coordinated change. The status change is the more
+> user-visible of the two: the task detail page now shows an **"Auto"**
+> pill next to a parent's status, the status dropdown is read-only for
+> parents with sub-tasks, and a new **"On Hold"** / **"Resume"** action
+> under *Page actions* is the only legitimate path to change a parent's
+> status. One small additive migration. No breaking API changes.
+>
+> **v1.4.1 (issue-010)** ships a purely client-side sub-tasks toggle on the
+> public client dashboard: a one-click control that collapses or expands
+> the nested sub-trees under each top-level workstream. State is persisted
+> per device via `localStorage` under `client_dash.subtasks_visible.<share_code>`.
+> No backend / schema change.
 >
 > **Bundled together (release tag: v1.2.1):** The planned v1.3 / v1.3.1 / v1.4
 > work-items were packaged into one release — **v1.2.1** — because they all
@@ -14,6 +47,189 @@ portal** that lets stakeholders view read-only progress without logging in.
 > (tester-note-001). Originally planned as v1.4: missing `company` /
 > `position` / `address` columns on `contacts` (issue-009) plus surfacing
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
+
+---
+
+## What's new in v1.5.1
+
+### v1.5.1 — UI layout fixes on the v1.5.0 task edit / detail surface (issue-013, revised scope)
+
+- **`task_detail.php` "Put on Hold" / "Resume" button falls onto
+  its own row — fixed.** `.page-actions` had no rule in
+  `assets/css/style.css`, so it defaulted to `display: block`
+  and the Hold / Resume `<form class="inline-form">` (which is
+  correctly nested inside `<div class="page-actions">`) wrapped
+  below the other action buttons. A new `.page-actions` rule
+  (`display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  justify-content: flex-end; margin-bottom: 20px;`) puts every
+  action control back on one row. A new `.page-header` flex rule
+  (with `justify-content: space-between`) lays out the page
+  title and the action row on the same baseline.
+- **`task_edit.php` "Use sum of sub-task hours" checkbox and its
+  text label render on separate lines — fixed.** `.checkbox-label`
+  had no rule in `assets/css/style.css`, so the default block-flow
+  put the input and the `<span>` on two separate lines. A new
+  `.checkbox-label` rule (`display: flex; align-items: center;
+  gap: 8px; cursor: pointer; font-weight: 500; color: #333; line-height: 1.4;`)
+  puts them back on one line, and the inner
+  `.checkbox-label input[type="checkbox"]` rule pins the touch
+  target to `18px × 18px` (WCAG 2.5.5 target size, sufficient).
+- **Mobile breakpoint extended.** The existing
+  `@media (max-width: 768px)` block now also collapses
+  `.page-header` to a column (`flex-direction: column;
+  align-items: stretch;`) and stretches the action buttons to
+  full width, so the action row stays reachable with a thumb
+  on a phone.
+- **Background (unchanged from the original 2026-10-12 spec).**
+  The 2-column `.form-grid` layout in `task_edit.php` is
+  defined in `assets/css/style.css` with the Dates section
+  marked `class="form-section full-row"`; the
+  `$effective_inherit` PHP warning on a brand-new task is
+  silenced by a top-level initialisation; the Hold / Resume
+  `<form class="inline-form">` in `task_detail.php` is rendered
+  inside the `<div class="page-actions">` row (the v1.5.1 fix
+  is the new `.page-actions` flex rule above).
+- **Regression test:** `database/task_layout_issue013_test.php`
+  (new) — a structural source-grep test that asserts the
+  `.form-grid`, `.page-header`, `.page-actions`,
+  `.checkbox-label` (with 18x18 checkbox), and mobile
+  breakpoint rules are in `style.css`; the
+  `$effective_inherit` initialisation appears before the form
+  HTML in `task_edit.php`; the `class="form-section full-row"`
+  is present on the Dates section; the Hold / Resume form is
+  positioned inside `<div class="page-actions">` in
+  `task_detail.php`; and both modified PHP files lint cleanly.
+  Verified the test catches a regression by temporarily
+  removing the `.checkbox-label` rule body (test fails) and
+  restoring it (test passes).
+
+## What's new in v1.5.0
+
+### v1.5.0 — Parent effort inherit mode + parent status derived from sub-tasks (issues 011 + 012)
+
+- **Parent effort inherit mode (issue-011).** A parent task that has
+  sub-tasks can now opt into a sum-of-sub-task-hours mode for its
+  effort estimate. A new nullable `tasks.inherit_subtask_hours
+  TINYINT(1)` column records the choice. A new shared helper
+  `resolveTaskEstimateHours()` in `includes/functions.php` is the
+  single source of truth for the displayed number, consumed by
+  `task_detail.php`, `tasks.php`, `project_detail.php`, and
+  `client/dashboard.php`. The task edit form renders a new
+  **"Use sum of sub-task hours as total task time"** checkbox
+  (only when editing a task that already has sub-tasks, to
+  preserve the parent-must-be-created-first invariant). When
+  ticked, the `Total Task Time` input is disabled and the live
+  sum is shown next to it. A server-side defence forces
+  `estimated_hours = NULL` on save when the flag is set, and a
+  validation rule rejects an empty / zero manual `Total Task
+  Time` for a parent that has sub-tasks and is not in inherit
+  mode. The project detail page now shows a `Total Time` cell
+  in the task table (previously missing entirely).
+  Migration: `database/migrations/20261012_add_task_inherit_subtask_hours.sql`
+  (idempotent, `information_schema` guard). Regression test:
+  `database/task_inherit_subtask_hours_test.php`.
+- **Parent status derived from sub-tasks (issue-012).** A parent
+  task's `status` is now derived from its sub-tasks' statuses.
+  The shared helper `deriveParentStatus()` (in
+  `includes/functions.php`) implements the rule from the issue
+  brief: any child `in_progress` → `in_progress`; otherwise
+  any child `completed` → `completed`; otherwise `not_started`;
+  `on_hold` is sticky (a held parent stays held across sub-task
+  changes; only an explicit *Resume* brings it back). The
+  helper is consumed by both the extended
+  `syncProjectTaskCompletions()` and the new
+  `ajax/parent_hold.php` endpoint, which is the **only**
+  legitimate path that mutates a parent's status while it has
+  children. The task detail page shows an **"Auto"** pill
+  (`fa-magic`, `.derived-pill`) next to the status badge for
+  any task that has sub-tasks. The task edit page renders the
+  status field as a read-only badge for parents with sub-tasks
+  (the submitted value is ignored on the server). New *On
+  Hold* / *Resume* buttons on the task detail page POST to
+  `ajax/parent_hold.php` with `action=hold` or `action=resume`;
+  both paths call `syncProjectTaskCompletions()` at the end so
+  the project rollup, the task list, and the client portal stay
+  in sync. `ajax/complete_task.php` calls the helper directly
+  in both branches now (the local `updateParentTaskCompletion`
+  wrapper was removed in the same change to keep a single
+  source of truth). `completion_date` is set on transition to
+  `completed` and cleared on demotion from `completed`, with a
+  `WHERE completion_percentage <> ? OR status <> ?` guard to
+  keep `updated_at` honest on no-op syncs. Regression test:
+  `database/task_parent_status_derived_test.php`.
+
+- **Tester follow-up fixes (issue-010 + issue-011).** All bugs
+  reported by QA against the v1.4.1 / v1.5.0 surface are fixed:
+  - *Issue-011 bug 1* — when a parent is in inherit mode and
+    **all** sub-task estimates are `NULL` / `0` / negative, all
+    four display surfaces (`task_detail.php`, `tasks.php`,
+    `project_detail.php`, `client/dashboard.php`) now render the
+    literal "Not estimated (no sub-task estimates)" label in
+    place of the previously hidden / mismatched copy. The
+    client portal uses the new translation key
+    `dash.not_estimated_parent` (EN + ZH). The
+    `database/task_inherit_subtask_hours_test.php` regression
+    test now source-greps all four surfaces, asserts the
+    translation key in both dictionaries, and live-renders the
+    unauthenticated client dashboard to confirm the translated
+    string reaches the served HTML.
+  - *Issue-010 bug 1* (a11y) — `client/dashboard.php` selector
+    was scoped to `ul.task-tree:not(.root)` so the root
+    workstream list is never hidden from screen readers in the
+    default "top-level only" state.
+  - *Issue-010 bug 2* — `client/toggle_subtasks_test.php` now
+    asserts the scoped selector literally, locking the fix in.
+  - *Issue-010 bug 3* — removed the dead `shell_exec('mariadb …')`
+    trigger restore from the test cleanup (silent no-op on
+    this image; triggers are also unused by the app since
+    parent-completion moved to PHP). Replaced with a `SELECT 1`
+    DB connectivity sanity check.
+
+## What's new in v1.4.1
+
+### v1.4.1 — Sub-tasks toggle on the client dashboard (issue-010)
+
+- New "Show all sub-tasks" / "Show top-level only" toggle rendered inline
+  with the "Tasks & Progress" heading on `client/dashboard.php`. Click
+  flips between collapsed and expanded views of the task hierarchy.
+- The toggle only appears when the project has at least one sub-task
+  (i.e. at least one task row with `subtask_count > 0`); projects with
+  no sub-tasks still render the flat list as before, with no extra
+  control to misread.
+- **Default state is "top-level only"** for the first visit and for
+  every project that has sub-tasks. Returning visitors who chose
+  "expanded" see the full tree on first paint with no flash of
+  collapsed content (the inline script runs at the end of `<body>`,
+  before the browser commits the first frame).
+- The choice is persisted in `localStorage` under the per-project key
+  `client_dash.subtasks_visible.<share_code>`. Each project has its
+  own key, so a stakeholder who manages two projects keeps both
+  preferences.
+- When `localStorage` is unavailable (private mode, sandboxed
+  iframe, JS disabled), the page still defaults to "top-level only"
+  and the toggle remains visible but its click is a safe no-op.
+- Accessibility: the control is a real `<button type="button">` with
+  `aria-pressed`, `aria-controls="tasks-progress"`, and an
+  `aria-label`; nested `<ul class="task-tree">` carry
+  `aria-hidden="true"` while collapsed so screen readers skip the
+  subtree. The icon flips between `fa-eye` and `fa-eye-slash` to
+  make the current state obvious without relying on color.
+- Purely client-side: no new DB columns, no new SQL, no new
+  endpoints. The existing `render_task_tree()` is untouched; only
+  the wrapper section's id, the new button, the localised labels,
+  the inline script, and one scoped CSS rule are added.
+- Localized: three new keys in `client/lang.php`
+  (`dash.subtasks_show_all`, `dash.subtasks_show_top`,
+  `dash.subtasks_toggle_aria`) for both English and Simplified
+  Chinese.
+- Regression test: `client/toggle_subtasks_test.php` exercises the
+  server-rendered DOM contract (toggle button + section ids + script
+  + CSS rule + per-project localStorage key isolation) for projects
+  **with** and **without** sub-tasks, plus a project with no tasks
+  at all, and re-implements the click flip in PHP to assert the
+  state machine parity. Self-contained: drops and re-creates the
+  `CalculateTaskCompletion` triggers around the test so the test is
+  not coupled to MariaDB's recursive-trigger guard.
 
 ---
 
@@ -256,6 +472,12 @@ docker compose exec db \
 docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261006_add_contacts_company_position_address.sql
+
+# v1.5.0 — Parent effort inherit mode (issue-011) + parent status derived
+# from sub-tasks (issue-012)
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261012_add_task_inherit_subtask_hours.sql
 ```
 
 The included migrations are idempotent — safe to re-run.
@@ -280,7 +502,7 @@ The included migrations are idempotent — safe to re-run.
 
 ```
 .
-├── ajax/                  AJAX endpoints (progress, status, contact lookup, …)
+├── ajax/                  AJAX endpoints (progress, status, contact lookup, parent hold, …)
 ├── assets/
 │   ├── css/               Internal stylesheet
 │   ├── js/                Internal JS
@@ -452,6 +674,22 @@ $rows = $db->fetchAll("SELECT … WHERE id = ?", [$id]);
 $row  = $db->fetchOne("SELECT … WHERE id = ?", [$id]);
 $db->execute("UPDATE … WHERE id = ?", [$id]);
 ```
+
+Regression tests live in `database/` and `client/`. Each is a single
+self-contained PHP script that connects via the same `config.php` +
+`includes/` chain the app uses, exercises the behavior, and cleans up
+after itself. Run with:
+
+```bash
+docker compose exec app php database/task_completion_test.php
+docker compose exec app php database/task_inherit_subtask_hours_test.php    # v1.5.0
+docker compose exec app php database/task_parent_status_derived_test.php    # v1.5.0
+docker compose exec app php database/contacts_columns_test.php
+docker compose exec app php database/project_start_date_test.php
+docker compose exec app php client/toggle_subtasks_test.php
+```
+
+All tests should print a single `… passed.` line and exit 0.
 
 ---
 - The auto-subtask trigger (`database/subtask_functions.sql`) is not

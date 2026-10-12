@@ -81,6 +81,64 @@ function formatTaskEstimate($estimatedHours) {
     return $formatted . ' ' . (abs($hours - 1) < 0.00005 ? 'hour' : 'hours');
 }
 
+/**
+ * Resolve the effective estimated hours for a task, honouring the
+ * inherit-from-subtasks flag (issue-011). Returns:
+ *   - float|int  if a usable estimate exists
+ *   - null       if there is no usable estimate
+ *
+ * The function reads a snapshot of the task's children and respects
+ * the same "all siblings must have positive estimates" rule used by
+ * the effort-weighted completion rollup (issue-007), so the parent's
+ * *displayed* estimate agrees with the *computed* completion.
+ *
+ * Cross-reference: docs/issues/issue-011.md, docs/issues/issue-007.md.
+ */
+function resolveTaskEstimateHours(array $task, array $childTasks): ?float {
+    if (!empty($task['inherit_subtask_hours'])) {
+        $sum = 0.0;
+        $hasPositive = false;
+        foreach ($childTasks as $child) {
+            $h = $child['estimated_hours'] ?? null;
+            if ($h !== null && is_numeric($h) && (float)$h > 0) {
+                $sum += (float)$h;
+                $hasPositive = true;
+            }
+        }
+        return $hasPositive ? round($sum, 4) : null;
+    }
+    $h = $task['estimated_hours'] ?? null;
+    if ($h === null || !is_numeric($h) || (float)$h <= 0) {
+        return null;
+    }
+    return round((float)$h, 4);
+}
+
+/**
+ * Derive a parent task's status from its sub-task statuses (issue-012).
+ * Pure, deterministic, unit-testable.
+ *
+ * Rule:
+ *   - `on_hold` (parent) is sticky manual: it wins regardless of children.
+ *   - Otherwise `in_progress` if any child is `in_progress`.
+ *   - Otherwise `completed` if any child is `completed`.
+ *   - Otherwise `not_started`.
+ *
+ * Cross-reference: docs/issues/issue-012.md.
+ */
+function deriveParentStatus(?string $currentStatus, array $childStatuses): string {
+    if ($currentStatus === 'on_hold') {
+        return 'on_hold';
+    }
+    foreach ($childStatuses as $s) {
+        if ($s === 'in_progress') return 'in_progress';
+    }
+    foreach ($childStatuses as $s) {
+        if ($s === 'completed') return 'completed';
+    }
+    return 'not_started';
+}
+
 function calculateTaskGroupCompletion($tasks) {
     if (empty($tasks)) {
         return 0.0;
@@ -183,29 +241,50 @@ function getProjectTaskCompletionMap($db, $projectId) {
 
 function syncProjectTaskCompletions($db, $projectId) {
     $tasks = $db->fetchAll(
-        "SELECT id, parent_task_id, estimated_hours, completion_percentage
+        "SELECT id, parent_task_id, status, estimated_hours, completion_percentage
          FROM tasks WHERE project_id = ?",
         [$projectId]
     );
     $completionMap = calculateTaskCompletionMap($tasks);
     $parentIds = [];
+    $subtaskStatuses = [];
 
     foreach ($tasks as $task) {
         if ($task['parent_task_id'] !== null) {
             $parentIds[(int)$task['parent_task_id']] = true;
+            $subtaskStatuses[(int)$task['parent_task_id']][] = $task['status'] ?? 'not_started';
         }
     }
 
     foreach (array_keys($parentIds) as $parentId) {
         $storedCompletion = round($completionMap['task_completion'][$parentId], 2);
+
+        // Issue-012: derive the parent's status from its sub-task statuses.
+        // Leaves the row untouched if no children (defensive, but we already
+        // filtered by $parentIds so this only fires for parents with sub-tasks).
+        $currentStatus = $db->fetchOne(
+            "SELECT status FROM tasks WHERE id = ?",
+            [$parentId]
+        )['status'] ?? null;
+        $newStatus = deriveParentStatus($currentStatus, $subtaskStatuses[$parentId] ?? []);
+
+        // Issue-012: align completion_date with the derived status.
+        // - new status 'completed' and no prior completion_date: set to NOW.
+        // - new status != 'completed' and a prior completion_date exists: clear it.
+        $setCompletionDate = '';
+        $params = [$storedCompletion, $newStatus, $parentId, $storedCompletion, $newStatus];
+        if ($newStatus === 'completed') {
+            $setCompletionDate = ', completion_date = COALESCE(completion_date, NOW())';
+        } elseif ($currentStatus === 'completed' && $newStatus !== 'completed') {
+            $setCompletionDate = ', completion_date = NULL';
+        }
+
         $db->execute(
-            "UPDATE tasks SET completion_percentage = ?, updated_at = NOW()
-             WHERE id = ? AND completion_percentage <> ?",
-            [
-                $storedCompletion,
-                $parentId,
-                $storedCompletion,
-            ]
+            "UPDATE tasks SET completion_percentage = ?, status = ?, updated_at = NOW()
+                 $setCompletionDate
+             WHERE id = ?
+               AND (completion_percentage <> ? OR status <> ?)",
+            $params
         );
     }
 
