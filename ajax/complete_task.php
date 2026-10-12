@@ -10,38 +10,6 @@ require_once dirname(__DIR__) . '/includes/functions.php';
 header('Content-Type: application/json');
 requireLogin();
 
-/**
- * Update parent task completion percentage based on subtasks
- */
-function updateParentTaskCompletion($db, $parent_task_id, $project_id) {
-    $completionMap = syncProjectTaskCompletions($db, $project_id);
-    if (!isset($completionMap['task_completion'][(int)$parent_task_id])) {
-        return;
-    }
-
-    $completion = $completionMap['task_completion'][(int)$parent_task_id];
-    $parent_status = 'not_started';
-    if ($completion > 0 && $completion < 100) {
-        $parent_status = 'in_progress';
-    } elseif ($completion >= 100) {
-        $parent_status = 'completed';
-    }
-
-    $completion_date_sql = '';
-    if ($parent_status === 'completed') {
-        $completion_date_sql = ', completion_date = NOW()';
-    }
-
-    $db->execute(
-        "UPDATE tasks SET 
-         status = ?,
-         updated_at = NOW()
-         {$completion_date_sql}
-         WHERE id = ?",
-        [$parent_status, $parent_task_id]
-    );
-}
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -112,8 +80,10 @@ try {
     );
     
     // If this is a subtask, update parent task completion percentage
+    // (issue-012: the extended syncProjectTaskCompletions() also derives
+    // the parent's status from its sub-tasks and aligns completion_date.)
     if ($task['parent_task_id']) {
-        updateParentTaskCompletion($db, $task['parent_task_id'], $task['project_id']);
+        syncProjectTaskCompletions($db, $task['project_id']);
     } else {
         syncProjectTaskCompletions($db, $task['project_id']);
     }

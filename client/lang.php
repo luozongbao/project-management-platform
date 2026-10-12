@@ -74,6 +74,20 @@ function client_translations() {
             'dash.contact_pm'        => 'Have a question? Please contact your project manager.',
             'dash.task_due'          => 'Due',
             'dash.task_completed'    => 'Completed',
+            // Total Task Time — issue-011 client display (number only, no icon
+            // differentiation per spec: the read-only client view must match
+            // the internal console number without surfacing the inherit mode).
+            'dash.task_total_time'   => 'Total task time',
+            'dash.task_total_calc'   => 'Calculated from sub-tasks',
+            'dash.task_total_manual' => 'Set manually',
+            // Not-estimated placeholder when inherit=on but all child
+            // estimates are NULL/0/negative (issue-011 tester-note-001).
+            'dash.not_estimated_parent' => 'Not estimated (no sub-task estimates)',
+
+            // Sub-tasks toggle (issue-010)
+            'dash.subtasks_show_all' => 'Show all sub-tasks',
+            'dash.subtasks_show_top' => 'Show top-level only',
+            'dash.subtasks_toggle_aria' => 'Toggle sub-tasks visibility',
 
             // Statuses
             'status.not_started'     => 'Not started',
@@ -130,6 +144,17 @@ function client_translations() {
             'dash.contact_pm'        => '如有疑问,请联系您的项目经理。',
             'dash.task_due'          => '截止',
             'dash.task_completed'    => '已完成',
+            // Total Task Time — issue-011 client display
+            'dash.task_total_time'   => '总任务工时',
+            'dash.task_total_calc'   => '由子任务自动计算',
+            'dash.task_total_manual' => '手动设置',
+            // Not-estimated placeholder (issue-011 tester-note-001).
+            'dash.not_estimated_parent' => '暂未估算(子任务均未填写工时)',
+
+            // Sub-tasks toggle (issue-010)
+            'dash.subtasks_show_all' => '显示所有子任务',
+            'dash.subtasks_show_top' => '仅显示顶级任务',
+            'dash.subtasks_toggle_aria' => '切换子任务显示',
 
             // Statuses
             'status.not_started'     => '未开始',
