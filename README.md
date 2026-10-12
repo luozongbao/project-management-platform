@@ -4,7 +4,18 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.5.0 (2026-10-12) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.5.1 (2026-10-13) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.5.1** ships a small UI-regression fix against the v1.5.0
+> `task_edit.php` / `task_detail.php` surface (issue-013): the
+> two-column form grid is now defined in the project-wide
+> `assets/css/style.css` (with a mobile collapse at <768px and
+> a `full-row` modifier for the Dates section), the
+> `$effective_inherit` PHP warning on a brand-new task is
+> silenced by a top-level initialisation, and a new
+> `database/task_layout_issue013_test.php` locks the changes in.
+> No DB / schema / JS / translation changes. Pull and reload —
+> no restart required.
 >
 > **v1.5.0** ships the parent-task model upgrade: a parent task with
 > sub-tasks can now opt into a **sum-of-sub-task-hours** inherit mode for
@@ -34,6 +45,51 @@ portal** that lets stakeholders view read-only progress without logging in.
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
 
 ---
+
+## What's new in v1.5.1
+
+### v1.5.1 — UI regression fixes against the v1.5.0 task edit / detail surface (issue-013)
+
+- **`task_edit.php` form grid layout is back to two columns.**
+  The 2-column form grid (Basic Information / Status & Progress
+  / Effort Estimate / Assignment / Dates) is now defined in the
+  project-wide `assets/css/style.css` (`.form-grid` with
+  `grid-template-columns: 1fr 1fr`, 20px / 28px gap, `min-width: 0`
+  on child sections, mobile collapse to one column below 768px).
+  The Dates section is marked `class="form-section full-row"` so
+  it spans both columns of the grid instead of being squeezed
+  into the left column. A matching `.estimate-input` rule
+  documents the flex row layout for the `Total Task Time` input
+  + unit selector.
+- **`task_edit.php` no longer emits a PHP warning on a brand-new
+  task.** The `$effective_inherit` flag was previously only
+  assigned inside the `if ($is_editing && $subtask_count > 0)`
+  branch, but was unconditionally read further down to decide
+  whether to disable the `Total Task Time` field. A brand-new
+  task has no sub-tasks yet, so the branch never executed and
+  the read produced a PHP "Undefined variable" warning every
+  time the form was rendered. The flag is now initialised to
+  `false` at the top of the page init block, and re-derived
+  inside the editing branch from the saved DB value (with a
+  fallback to the live POST value on validation failure, so a
+  failed save still preserves the user's last choice).
+- **`task_detail.php` "Put on Hold" / "Resume" button position.**
+  The form is rendered inside the `<div class="page-actions">`
+  row alongside "Edit Task" and "+ Add Subtask", with the
+  `.inline-form` rules from `style.css` keeping it inline. The
+  issue-011 / issue-012 work had already moved the button into
+  the right place; this change is structural confirmation, not
+  a DOM move.
+- **Regression test:** `database/task_layout_issue013_test.php`
+  (new) — a structural source-grep test that asserts the new
+  CSS rules are in `style.css`, the `$effective_inherit`
+  initialisation appears before the form HTML in
+  `task_edit.php`, the `class="form-section full-row"` is present
+  on the Dates section, the Hold / Resume form is positioned
+  inside `<div class="page-actions">` in `task_detail.php`, and
+  both modified PHP files lint cleanly. Verified the test
+  catches a regression by temporarily removing the init line
+  (test fails) and restoring it (test passes).
 
 ## What's new in v1.5.0
 

@@ -1,5 +1,79 @@
 # Release Notes
 
+## v1.5.1 — 2026-10-13
+
+UI regression fixes against the v1.5.0 `task_edit.php` /
+`task_detail.php` surface, tracked as `docs/issues/issue-013.md`.
+No DB / schema / JS / translation changes. Three structural
+fixes:
+
+- **`task_edit.php` form-grid layout collapsed to one column.**
+  The two-column grid (Basic Information / Status & Progress /
+  Effort Estimate / Assignment / Dates) is now defined in the
+  project-wide `assets/css/style.css` (`.form-grid` with
+  `grid-template-columns: 1fr 1fr`, 20px / 28px gap,
+  `align-items: start`, `min-width: 0` on child sections). Below
+  768px the grid collapses to a single column, matching the
+  existing mobile breakpoint in the stylesheet. The "Dates"
+  section is marked `class="form-section full-row"` so it spans
+  both columns of the grid instead of being squeezed into the
+  left column.
+- **`task_edit.php` "Total Task Time" field no longer emits a
+  PHP warning on a brand-new task.** The `$effective_inherit`
+  flag was previously only assigned inside the
+  `if ($is_editing && $subtask_count > 0)` branch, but was
+  unconditionally read further down to decide whether to disable
+  the field — which meant a brand-new task (which has no
+  sub-tasks yet, so the branch never executes) produced a PHP
+  "Undefined variable" warning every time the form was
+  rendered. The flag is now initialised to `false` at the top of
+  the page init block, and re-derived inside the editing branch
+  from the saved DB value (with a fallback to the live POST
+  value on validation failure, so a failed save still
+  preserves the user's last choice).
+- **`task_detail.php` "Put on Hold" / "Resume" button position.**
+  The form is rendered inside the `<div class="page-actions">`
+  row alongside "Edit Task" and "+ Add Subtask", with the
+  `.inline-form` rules from `style.css` keeping it inline. (The
+  tester report described it as positioned above the actions
+  row; inspection showed the issue-011 / issue-012 work had
+  already moved it into the right place, so this fix is
+  structural confirmation rather than a DOM move.)
+
+### Regression coverage
+
+- `database/task_layout_issue013_test.php` (new) — a structural
+  regression test that source-greps the new CSS rules in
+  `assets/css/style.css`, asserts that the `$effective_inherit`
+  initialisation appears before the form HTML in
+  `task_edit.php`, asserts the `class="form-section full-row"`
+  is present on the Dates section, asserts the Hold / Resume
+  form is positioned inside `<div class="page-actions">` in
+  `task_detail.php`, and lints both modified PHP files.
+  Includes a self-check that the test catches a regression by
+  re-introducing the bug (the init line is stripped, the test
+  fails, the init line is restored, the test passes again).
+
+### Files changed
+
+- `assets/css/style.css` — added `.form-grid`,
+  `.form-grid .form-section`, `.form-grid .form-section.full-row`,
+  `.form-grid .form-section h3`, `.estimate-input` rules plus
+  the matching mobile breakpoint.
+- `task_edit.php` — top-level `$effective_inherit = false`
+  initialisation, re-derivation inside the editing branch,
+  `class="form-section full-row"` on the Dates section.
+- `database/task_layout_issue013_test.php` — new regression
+  test.
+
+### Upgrade notes
+
+- Pure markup / CSS change. No database migration. No JS file
+  change. Pull the latest code and reload the page; no restart
+  required.
+
+---
+
 ## v1.5.0 — 2026-10-12
 
 Parent-task model upgrade. Adds an **inherit mode** for a parent

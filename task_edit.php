@@ -73,6 +73,12 @@ if ($project_id) {
 $subtask_count = 0;
 $subtask_estimates = [];
 $inherit_from_post = null;
+// Issue-013: initialise the effective inherit flag up-front so the
+// "Total Task Time" disable check on a brand-new task (where the
+// inherit checkbox is never rendered) does not produce a PHP
+// "Undefined variable" warning. Reassigned inside the editing
+// branch below once the user has sub-tasks to inherit from.
+$effective_inherit = false;
 if ($is_editing) {
     $subtask_rows = $db->fetchAll(
         "SELECT id, estimated_hours FROM tasks WHERE parent_task_id = ?",
@@ -83,6 +89,11 @@ if ($is_editing) {
         $subtask_estimates[] = (float)$row['estimated_hours'];
     }
     $inherit_from_post = $task['inherit_subtask_hours'] ?? null;
+    if ($subtask_count > 0) {
+        $effective_inherit = $inherit_from_post !== null
+            ? ((int)$inherit_from_post === 1)
+            : !empty($task['inherit_subtask_hours']);
+    }
 }
 
 // Handle form submission
@@ -560,7 +571,7 @@ $show_nav = true;
                 </div>
 
                 <!-- Dates -->
-                <div class="form-section">
+                <div class="form-section full-row">
                     <h3>Dates</h3>
                     
                     <div class="form-group">
