@@ -90,6 +90,33 @@ portal** that lets stakeholders view read-only progress without logging in.
   keep `updated_at` honest on no-op syncs. Regression test:
   `database/task_parent_status_derived_test.php`.
 
+- **Tester follow-up fixes (issue-010 + issue-011).** All bugs
+  reported by QA against the v1.4.1 / v1.5.0 surface are fixed:
+  - *Issue-011 bug 1* — when a parent is in inherit mode and
+    **all** sub-task estimates are `NULL` / `0` / negative, all
+    four display surfaces (`task_detail.php`, `tasks.php`,
+    `project_detail.php`, `client/dashboard.php`) now render the
+    literal "Not estimated (no sub-task estimates)" label in
+    place of the previously hidden / mismatched copy. The
+    client portal uses the new translation key
+    `dash.not_estimated_parent` (EN + ZH). The
+    `database/task_inherit_subtask_hours_test.php` regression
+    test now source-greps all four surfaces, asserts the
+    translation key in both dictionaries, and live-renders the
+    unauthenticated client dashboard to confirm the translated
+    string reaches the served HTML.
+  - *Issue-010 bug 1* (a11y) — `client/dashboard.php` selector
+    was scoped to `ul.task-tree:not(.root)` so the root
+    workstream list is never hidden from screen readers in the
+    default "top-level only" state.
+  - *Issue-010 bug 2* — `client/toggle_subtasks_test.php` now
+    asserts the scoped selector literally, locking the fix in.
+  - *Issue-010 bug 3* — removed the dead `shell_exec('mariadb …')`
+    trigger restore from the test cleanup (silent no-op on
+    this image; triggers are also unused by the app since
+    parent-completion moved to PHP). Replaced with a `SELECT 1`
+    DB connectivity sanity check.
+
 ## What's new in v1.4.1
 
 ### v1.4.1 — Sub-tasks toggle on the client dashboard (issue-010)

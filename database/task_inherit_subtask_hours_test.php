@@ -19,6 +19,15 @@
  *      project_detail.php / client/dashboard.php — the form must still
  *      bind the new field, and every display surface must consume the
  *      shared helper.
+ *   4b. "Not estimated (no sub-task estimates)" copy must be emitted by
+ *      all four display surfaces when a parent is in inherit mode and
+ *      has zero positive child estimates. Internal surfaces use the
+ *      hardcoded English literal; client/dashboard.php uses the
+ *      translated `dash.not_estimated_parent` key. Locked in by
+ *      issue-011 tester-note-001 bug 1.
+ *   4c. Live render of the unauthenticated client dashboard to confirm
+ *      the translated "Not estimated" string actually makes it into the
+ *      served HTML.
  *
  * Mirrors the pattern in contacts_columns_test.php.
  */
@@ -312,9 +321,143 @@ if (strpos($schema, 'inherit_subtask_hours') === false) {
 }
 
 // ---------------------------------------------------------------------------
+// 4b. "Not estimated (no sub-task estimates)" copy must be emitted by all
+//     four display surfaces when a parent is in inherit mode and has zero
+//     positive child estimates. Locked in by issue-011 tester-note-001.
+// ---------------------------------------------------------------------------
+$not_estimated_literal = 'Not estimated (no sub-task estimates)';
+
+// task_detail.php, tasks.php, project_detail.php: hardcoded English literal
+// per spec ("use the English strings verbatim in the internal app").
+$internal_surfaces = [
+    __DIR__ . '/../task_detail.php'      => 'task_detail.php',
+    __DIR__ . '/../tasks.php'            => 'tasks.php',
+    __DIR__ . '/../project_detail.php'   => 'project_detail.php',
+];
+foreach ($internal_surfaces as $path => $label) {
+    $src = file_get_contents($path);
+    if (strpos($src, $not_estimated_literal) === false) {
+        $failures[] = "$label does not contain the literal 'Not estimated (no sub-task estimates)' for inherit-on with no positive child estimates (issue-011 tester-note-001 bug 1)";
+    }
+    // Defence in depth: confirm the elseif branch is also keyed on
+    // inherit_subtask_hours, otherwise the copy could be rendered in
+    // unrelated contexts (e.g. a manual-mode parent with no children).
+    if (strpos($src, 'inherit_active') === false
+        && strpos($src, "inherit_subtask_hours") === false) {
+        $failures[] = "$label does not gate the 'Not estimated' copy on inherit mode";
+    }
+}
+
+// client/dashboard.php: uses the t() translation key (per spec) instead of
+// the English literal. Verify both that the call exists and that the key
+// resolves to the right string in both EN and ZH.
+$dash_src = file_get_contents(__DIR__ . '/../client/dashboard.php');
+if (strpos($dash_src, "t('dash.not_estimated_parent')") === false) {
+    $failures[] = "client/dashboard.php does not call t('dash.not_estimated_parent') — should render the translated string, not a hardcoded English literal (issue-011 tester-note-001 bug 1)";
+}
+
+$lang_src = file_get_contents(__DIR__ . '/../client/lang.php');
+foreach (['en', 'zh'] as $loc) {
+    // The catalog is a nested array literal; extract the per-locale
+    // substring up to the next locale or end of array.
+    $pattern = "/'$loc'\\s*=>\\s*\\[(.*?)\\]/s";
+    if (!preg_match($pattern, $lang_src, $m)) {
+        $failures[] = "client/lang.php: could not locate $loc dictionary";
+        continue;
+    }
+    $block = $m[1];
+    if (strpos($block, "'dash.not_estimated_parent'") === false) {
+        $failures[] = "client/lang.php: $loc dictionary is missing 'dash.not_estimated_parent' key (issue-011 tester-note-001 bug 1)";
+    }
+    // And the English catalog must contain the spec's literal (so the
+    // client portal's default-locale render agrees with the internal
+    // app's hardcoded string).
+    if ($loc === 'en' && strpos($block, $not_estimated_literal) === false) {
+        $failures[] = "client/lang.php: EN 'dash.not_estimated_parent' value is not the spec literal '$not_estimated_literal'";
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 4c. Live render of the unauthenticated client dashboard, to confirm
+//     the "Not estimated" copy actually makes it into the rendered HTML
+//     (not just the source). The internal pages require a login session
+//     so we don't try to render those here; the source-grep above is
+//     sufficient for them.
+// ---------------------------------------------------------------------------
+$not_estimated_username = 'issue011_notest_user_' . bin2hex(random_bytes(4));
+$db->execute(
+    "INSERT INTO users (name, username, email, password) VALUES (?, ?, ?, 'x')",
+    [$not_estimated_username, $not_estimated_username, $not_estimated_username . '@example.test']
+);
+$ne_user_id = (int)$db->lastInsertId();
+
+$ne_share_code = generateShareCode();
+$db->execute(
+    "INSERT INTO projects (name, share_code, responsible_person_id, created_at)
+     VALUES (?, ?, ?, NOW())",
+    ['Issue011 NotEst Project ' . bin2hex(random_bytes(3)), $ne_share_code, $ne_user_id]
+);
+$ne_project_id = (int)$db->lastInsertId();
+
+// Parent in inherit mode, with one sub-task whose estimate is NULL.
+$db->execute(
+    "INSERT INTO tasks (project_id, name, responsible_person_id, estimated_hours, inherit_subtask_hours, completion_percentage, status, created_at)
+     VALUES (?, 'issue011 notest parent', ?, NULL, 1, 0, 'not_started', NOW())",
+    [$ne_project_id, $ne_user_id]
+);
+$ne_parent_id = (int)$db->lastInsertId();
+$db->execute(
+    "INSERT INTO tasks (project_id, parent_task_id, name, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
+     VALUES (?, ?, 'issue011 notest child', ?, NULL, 0, 'not_started', NOW())",
+    [$ne_project_id, $ne_parent_id, $ne_user_id]
+);
+$ne_child_id = (int)$db->lastInsertId();
+
+// Render the client dashboard via a CLI proxy. Pattern mirrors
+// client/toggle_subtasks_test.php::renderDashboard() — use an absolute
+// path inside the proxy so the chdir to client/ doesn't break the
+// require() lookup.
+$dash_script = realpath(__DIR__ . '/../client/dashboard.php');
+$proxy = <<<PHP
+<?php
+\$_GET = ['code' => '$ne_share_code', 'lang' => 'en'];
+\$_SERVER['HTTP_ACCEPT_LANGUAGE'] = 'en';
+\$_COOKIE = [];
+chdir(__DIR__);
+require '$dash_script';
+PHP;
+$proxy_file = __DIR__ . '/../client/_issue011_render_' . bin2hex(random_bytes(4)) . '.php';
+file_put_contents($proxy_file, $proxy);
+$rendered = shell_exec('php ' . escapeshellarg($proxy_file) . ' 2>&1');
+@unlink($proxy_file);
+if (!is_string($rendered) || $rendered === '') {
+    $failures[] = 'client/dashboard.php failed to render via CLI proxy (empty output)';
+} elseif (strpos($rendered, $not_estimated_literal) === false) {
+    // Fall back: maybe the t() resolved to the key because the EN
+    // dict didn't have it; report the actual snippet for debug.
+    $snippet = '';
+    if (preg_match('#.{0,80}not.estimated.{0,80}#i', $rendered, $sm)) {
+        $snippet = ' (found: ' . $sm[0] . ')';
+    }
+    $failures[] = "rendered client/dashboard.php HTML does not contain '$not_estimated_literal' for inherit-on parent with NULL child estimates" . $snippet;
+}
+
+// ---------------------------------------------------------------------------
 // 5. Cleanup. Run LAST regardless of failures.
 // ---------------------------------------------------------------------------
 try {
+    if (isset($ne_child_id)) {
+        $db->execute('DELETE FROM tasks WHERE id = ?', [$ne_child_id]);
+    }
+    if (isset($ne_parent_id)) {
+        $db->execute('DELETE FROM tasks WHERE id = ?', [$ne_parent_id]);
+    }
+    if (isset($ne_project_id)) {
+        $db->execute('DELETE FROM projects WHERE id = ?', [$ne_project_id]);
+    }
+    if (isset($ne_user_id)) {
+        $db->execute('DELETE FROM users WHERE id = ?', [$ne_user_id]);
+    }
     if (isset($sub_c_id)) {
         $db->execute('DELETE FROM tasks WHERE id = ?', [$sub_c_id]);
     }

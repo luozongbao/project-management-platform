@@ -147,6 +147,13 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         }
         if ($resolved_total !== null) {
             echo '<span><i class="fas fa-clock"></i> ' . e(formatTaskEstimate($resolved_total)) . '</span>';
+        } elseif (!empty($task['inherit_subtask_hours']) && (int)($task['subtask_count'] ?? 0) > 0) {
+            // Spec issue-011 § "Validation edge cases": inherit-on with no
+            // positive child estimates must render the literal "Not
+            // estimated" copy on the client portal too
+            // (issue-011 tester-note-001). The internal app uses an English
+            // string by spec; the client portal uses a translated key.
+            echo '<span class="not-estimated"><i class="fas fa-clock"></i> ' . e(t('dash.not_estimated_parent')) . '</span>';
         }
         echo '</div>';
         echo '<div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' . e(number_format((float)$task['completion_percentage'], 1)) . '%"></div></div>';
@@ -333,8 +340,13 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
             iconEl.className = visible ? 'fas fa-eye-slash' : 'fas fa-eye';
         }
         // Reflect on nested <ul class="task-tree"> nodes so screen readers
-        // can skip the subtree when collapsed.
-        var subs = section.querySelectorAll('ul.task-tree');
+        // can skip the subtree when collapsed. We must scope the selector
+        // with :not(.root) to match the CSS rule — the root
+        // <ul class="task-tree root"> is intentionally always visible,
+        // so flipping its aria-hidden to "true" hides the top-level
+        // workstream names from screen readers (issue-010 tester-note-001
+        // bug 1).
+        var subs = section.querySelectorAll('ul.task-tree:not(.root)');
         for (var i = 0; i < subs.length; i++) {
             subs[i].setAttribute('aria-hidden', visible ? 'false' : 'true');
         }

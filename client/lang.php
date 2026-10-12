@@ -80,6 +80,9 @@ function client_translations() {
             'dash.task_total_time'   => 'Total task time',
             'dash.task_total_calc'   => 'Calculated from sub-tasks',
             'dash.task_total_manual' => 'Set manually',
+            // Not-estimated placeholder when inherit=on but all child
+            // estimates are NULL/0/negative (issue-011 tester-note-001).
+            'dash.not_estimated_parent' => 'Not estimated (no sub-task estimates)',
 
             // Sub-tasks toggle (issue-010)
             'dash.subtasks_show_all' => 'Show all sub-tasks',
@@ -145,6 +148,8 @@ function client_translations() {
             'dash.task_total_time'   => '总任务工时',
             'dash.task_total_calc'   => '由子任务自动计算',
             'dash.task_total_manual' => '手动设置',
+            // Not-estimated placeholder (issue-011 tester-note-001).
+            'dash.not_estimated_parent' => '暂未估算(子任务均未填写工时)',
 
             // Sub-tasks toggle (issue-010)
             'dash.subtasks_show_all' => '显示所有子任务',

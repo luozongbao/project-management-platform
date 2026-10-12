@@ -351,12 +351,14 @@ $show_nav = true;
                                 <?php endif; ?>
                             </span>
                         </div>
-                    <?php endif; ?>
-                    <?php if ($inherit_active && !$has_positive_child_estimates): ?>
-                        <div class="alert alert-warning inherit-warning" role="alert">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Inherit mode is on but none of the sub-tasks have an estimate.
-                            The parent's completion will use the equal-average fallback.
+                    <?php elseif ($inherit_active): ?>
+                        <?php // Spec issue-011 § "Validation edge cases": inherit-on with
+                              // no positive child estimates must render the literal
+                              // "Not estimated (no sub-task estimates)" copy on all
+                              // four display surfaces (issue-011 tester-note-001). ?>
+                        <div class="detail-item">
+                            <label>Total Task Time:</label>
+                            <span class="not-estimated">Not estimated (no sub-task estimates)</span>
                         </div>
                     <?php endif; ?>
                     

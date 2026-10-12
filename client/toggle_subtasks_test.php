@@ -41,11 +41,25 @@
  *      - The share code is JSON-encoded into the inline script (not
  *        raw interpolation) so a future change to the share-code
  *        character set cannot break the page.
+ *      - The JS selector that sets `aria-hidden` is scoped with
+ *        `ul.task-tree:not(.root)` so the root workstream list is
+ *        never hidden from screen readers (issue-010
+ *        tester-note-001 bug 1; previously the test only checked
+ *        for the literal string `aria-hidden` and silently
+ *        accepted the buggy selector).
  *   4. State machine: re-implements the visible/hidden transition in
  *      PHP exactly as the inline script does, and asserts the
  *      resulting label / icon / aria-pressed values match what the
  *      markup + lang catalog say they should be.
- *   5. Cleanup: deletes every row it inserts.
+ *   5. Cleanup: deletes every row it inserts, and verifies the DB
+ *      connection is still healthy at the end (the old code
+ *      attempted to restore the `subtask_functions.sql` triggers
+ *      via `shell_exec('mariadb …')`, but the pmp-app container has
+ *      no `mariadb` binary, so that was a silent no-op — the
+ *      triggers are also no longer used by the app since
+ *      parent-completion moved to PHP via
+ *      `calculateTaskCompletionMap()`, so the test no longer
+ *      tries to restore them).
  *
  * Run with:  docker compose exec app php client/toggle_subtasks_test.php
  */
@@ -207,6 +221,16 @@ if (strpos($with_subs_html, "data-subtasks") === false) {
     $failures[] = 'with-subs dashboard script does not toggle the data-subtasks attribute';
 }
 
+// The selector that sets aria-hidden MUST scope to nested sub-trees only,
+// mirroring the CSS rule `#tasks-progress[data-subtasks="hidden"] ul.task-tree:not(.root)`.
+// The previous version of this test only checked for the literal string
+// "aria-hidden" and silently accepted a buggy selector that also matched
+// the root <ul class="task-tree root">, hiding the top-level workstream
+// names from screen readers (issue-010 tester-note-001 bug 1).
+if (strpos($with_subs_html, 'ul.task-tree:not(.root)') === false) {
+    $failures[] = "with-subs dashboard script selector does not scope to nested sub-trees; it would set aria-hidden on the root <ul class='task-tree root'> too";
+}
+
 // The Tasks & Progress count and the root task-tree are still rendered.
 if (!preg_match('/\(3 total\)/', $with_subs_html)) {
     $failures[] = "with-subs dashboard should still print '(3 total)' next to the heading (1 top-level + 2 subs = 3 flat tasks)";
@@ -339,6 +363,16 @@ if (strpos($with_subs_html, $no_subs_code) !== false) {
 // ---------------------------------------------------------------------------
 // 7. Cleanup. Run LAST regardless of failures so the test does not
 //    pollute the user's DB even when assertions fail.
+//
+// Note: an earlier version of this section attempted to restore the
+// `subtask_functions.sql` triggers via `shell_exec('mariadb … < $tmp')`,
+// but the pmp-app container has no mariadb/mysql client installed, so
+// the call was a silent no-op. The triggers are also no longer used by
+// the application — parent-completion is now computed in PHP via
+// `calculateTaskCompletionMap()` in includes/functions.php — so
+// dropping the dead restore and just verifying the DB connection is
+// still healthy post-cleanup is the correct fix
+// (issue-010 tester-note-001 bug 3).
 // ---------------------------------------------------------------------------
 try {
     foreach ($created_ids as $pid) {
@@ -351,76 +385,14 @@ try {
     fwrite(STDERR, "Cleanup warning: " . $e->getMessage() . "\n");
 }
 
-// Restore the triggers we dropped above, so the rest of the app continues
-// to maintain parent completion % as before. The DDL below is a verbatim
-// copy of the trigger bodies in database/subtask_functions.sql, intentionally
-// duplicated so the test stays self-contained even if the .sql file moves.
-$create_trigger_sql = <<<'SQL'
-
-DELIMITER //
-CREATE TRIGGER UpdateParentTaskCompletion
-AFTER UPDATE ON tasks
-FOR EACH ROW
-BEGIN
-    DECLARE parent_id INT;
-    DECLARE new_completion DECIMAL(5,2);
-    SET parent_id = NEW.parent_task_id;
-    IF parent_id IS NOT NULL THEN
-        SET new_completion = CalculateTaskCompletion(parent_id);
-        UPDATE tasks
-        SET completion_percentage = new_completion, updated_at = NOW()
-        WHERE id = parent_id;
-    END IF;
-END//
-CREATE TRIGGER UpdateParentTaskCompletionInsert
-AFTER INSERT ON tasks
-FOR EACH ROW
-BEGIN
-    DECLARE parent_id INT;
-    DECLARE new_completion DECIMAL(5,2);
-    SET parent_id = NEW.parent_task_id;
-    IF parent_id IS NOT NULL THEN
-        SET new_completion = CalculateTaskCompletion(parent_id);
-        UPDATE tasks
-        SET completion_percentage = new_completion, updated_at = NOW()
-        WHERE id = parent_id;
-    END IF;
-END//
-CREATE TRIGGER UpdateParentTaskCompletionDelete
-AFTER DELETE ON tasks
-FOR EACH ROW
-BEGIN
-    DECLARE parent_id INT;
-    DECLARE new_completion DECIMAL(5,2);
-    SET parent_id = OLD.parent_task_id;
-    IF parent_id IS NOT NULL THEN
-        SET new_completion = CalculateTaskCompletion(parent_id);
-        UPDATE tasks
-        SET completion_percentage = new_completion, updated_at = NOW()
-        WHERE id = parent_id;
-    END IF;
-END//
-DELIMITER ;
-SQL;
-
-// Use the CLI to execute multi-statement trigger DDL. mariadb's --execute
-// doesn't grok DELIMITER, so write it to a file and pipe it in.
-$tmp = tempnam(sys_get_temp_dir(), 'issue010_restore_');
-file_put_contents($tmp, $create_trigger_sql);
-$db_host = defined('DB_HOST') ? DB_HOST : 'db';
-$db_name = defined('DB_NAME') ? DB_NAME : 'dbname';
-$db_user = defined('DB_USER') ? DB_USER : 'dbuser';
-$db_pass = defined('DB_PASS') ? DB_PASS : 'dbuserP@ssw0rd';
-$cmd = sprintf(
-    'mariadb -h%s -u%s -p%s %s < %s 2>&1',
-    escapeshellarg($db_host),
-    escapeshellarg($db_user),
-    escapeshellarg($db_pass),
-    escapeshellarg($db_name),
-    escapeshellarg($tmp)
-);
-shell_exec($cmd);
-@unlink($tmp);
+// Sanity check: the DB connection must still work after cleanup so a
+// future regression in the Database class surfaces here, not in some
+// unrelated test that runs after us.
+try {
+    $db->fetchOne('SELECT 1 AS ok');
+} catch (Exception $e) {
+    $failures[] = 'DB connection is not healthy after cleanup: ' . $e->getMessage();
+}
 
 // ---------------------------------------------------------------------------
 // Report.

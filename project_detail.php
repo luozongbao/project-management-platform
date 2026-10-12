@@ -306,6 +306,16 @@ $show_nav = true;
                                                    aria-label="Auto-calculated from sub-tasks"></i>
                                             <?php endif; ?>
                                         </span>
+                                    <?php elseif ($inherit_active): ?>
+                                        <?php // Spec issue-011 § "Validation edge cases":
+                                              // inherit-on with no positive child estimates
+                                              // must render the literal "Not estimated
+                                              // (no sub-task estimates)" copy
+                                              // (issue-011 tester-note-001). ?>
+                                        <span class="task-estimate not-estimated">
+                                            <i class="fas fa-clock"></i>
+                                            Total Time: Not estimated (no sub-task estimates)
+                                        </span>
                                     <?php endif; ?>
                                 </div>
                                 <?php if ($task['subtask_count'] > 0): ?>

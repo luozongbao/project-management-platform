@@ -13,6 +13,67 @@ the validation rules and the display wiring land in a single
 coordinated change. One small additive migration. No breaking API
 changes.
 
+### v1.5.0 — Tester follow-ups (added 2026-10-12)
+
+Two tester rounds (issue-010 and issue-011) returned with bug
+reports against the v1.4.1 / v1.5.0 surface. All reported bugs are
+fixed in this release; the fixes do not change the public
+behaviour of the inherited mode, but they do tighten the
+display contract so the user always sees a meaningful label
+rather than an empty cell.
+
+- **Issue-011 tester-note-001 bug 1 — "Not estimated (no sub-task
+  estimates)" copy on all four display surfaces.** When a parent
+  is in inherit mode and **all** of its sub-task estimates are
+  `NULL` / `0` / negative, all four display surfaces now render
+  the literal "Not estimated (no sub-task estimates)" label in
+  place of the previously hidden / mismatched copy:
+  - `task_detail.php` (parent block): the previous yellow
+    warning banner that conflated "no estimate" with
+    "completion will use equal-average fallback" has been
+    removed; the same span is now reused with the spec
+    literal.
+  - `tasks.php` and `project_detail.php`: the previously
+    hidden `Total Time` row now renders the spec literal in
+    the same `<span class="task-estimate">` element so the
+    row's column alignment is preserved.
+  - `client/dashboard.php` (read-only public surface): the
+    spec literal is rendered via the new translation key
+    `dash.not_estimated_parent`, defined in both EN and ZH
+    in `client/lang.php`. EN value matches the internal-app
+    literal verbatim; ZH value: "暂未估算(子任务均未填写工时)".
+  - Regression test extension: `database/task_inherit_subtask_hours_test.php`
+    now source-greps all four surfaces for the spec literal /
+    the `t('dash.not_estimated_parent')` call, source-greps
+    `client/lang.php` for the new key in both EN and ZH
+    dictionaries, and live-renders the unauthenticated client
+    dashboard to confirm the translated string reaches the
+    served HTML.
+- **Issue-010 tester-note-001 — three small bugs in the sub-tasks
+  toggle.** All three were fixed against the v1.4.1 surface and
+  are listed here so the v1.5.0 changelog captures them.
+  - **Bug 1 (a11y):** `client/dashboard.php` `applyState()`
+    selector was `section.querySelectorAll('ul.task-tree')`,
+    which matched the root `<ul class="task-tree root">` and
+    flipped its `aria-hidden`, hiding the top-level workstream
+    names from screen readers in the default "hidden" state.
+    Selector scoped to `ul.task-tree:not(.root)` to mirror the
+    CSS rule.
+  - **Bug 2 (test coverage):** `client/toggle_subtasks_test.php`
+    only asserted the literal `aria-hidden` substring and
+    silently accepted the buggy selector. New assertion
+    `strpos($with_subs_html, 'ul.task-tree:not(.root)')` locks
+    the fix in.
+  - **Bug 3 (dead code):** the test's cleanup section
+    attempted to restore the old `subtask_functions.sql`
+    triggers via `shell_exec('mariadb … < $tmp')`. The
+    `pmp-app` container has no `mariadb` client, so the call
+    was a silent no-op. The triggers are also no longer used
+    by the app (parent completion is now computed in PHP via
+    `calculateTaskCompletionMap()`), so the entire restore
+    block was removed and replaced with a `SELECT 1` DB
+    connectivity sanity check.
+
 ### Highlights
 
 - **Parent effort inherit mode (issue-011)**
