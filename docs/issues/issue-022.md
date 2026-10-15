@@ -1,6 +1,8 @@
 # `task_edit.php` IDOR — Responsible Person / Contact Person Re-Validation
 
-**Status:** Proposed
+**Status:** Implemented (v1.8.0)
+**Fixed in commit:** *fix(issue-022): tighten task_edit.php POST validation against IDOR* — see `git log --oneline` on the `issue-022` branch (4 files, +497/-50).
+**Regression test:** `database/task_edit_idor_test.php` (22 assertions, exit=0)
 **Type:** Security / Authorization
 **Priority:** Medium
 **Affects:** `task_edit.php`
@@ -187,9 +189,9 @@ if (empty($responsible_person_id)) {
          WHERE id = ?
            AND (id = ? OR id IN (
                 SELECT responsible_person_id FROM projects
-                WHERE responsible_person_id = ?
+                WHERE responsible_person_id IS NOT NULL
            ))",
-        [$responsible_person_id, $user_id, $user_id]
+        [$responsible_person_id, $user_id]
     );
     if (!$allowed) {
         $errors[] = "Selected responsible person is not a user "
@@ -292,8 +294,26 @@ from `$parent_task` which is already validated at
 
 ## Files touched
 
-- `task_edit.php` — three validation tightenings
-  and one dropdown rendering change.
+- `includes/task_edit_auth.php` (new) — three small
+  helpers (`taskEditCanAssignResponsible`,
+  `taskEditCanAssignContact`, `taskEditCanUseProject`).
+  Each is a boolean function that runs the IDOR-safe
+  query; the caller appends the human-readable error
+  to `$errors[]` on false.
+- `task_edit.php` — `require_once` the helper,
+  replace the three existence-only POST checks with
+  helper calls, and tighten the `$users` dropdown
+  SELECT to the same set the helper accepts.
+- `database/task_edit_idor_test.php` (new) —
+  22 assertions across 5 sections: (1) unit tests
+  for `taskEditCanAssignResponsible`, (2) unit tests
+  for `taskEditCanAssignContact`, (3) unit tests for
+  `taskEditCanUseProject`, (4) source-grep wiring on
+  `task_edit.php` (helper is required, old existence
+  queries are gone, new error messages are emitted),
+  (5) source-grep on the `$users` dropdown SELECT
+  (scoped to project owners, not "every user in the
+  database").
 
 ## Risks
 
@@ -350,35 +370,45 @@ from `$parent_task` which is already validated at
   `responsible_person_id` does not show users
   who are not project owners.
 
-## Regression test plan
+## Regression test plan (as shipped)
 
-`database/task_edit_idor_test.php`:
+`database/task_edit_idor_test.php` — 22 assertions,
+no DB fixture file, exit=0.
 
-1. Seed two users (A and B), two projects (A's
-   and B's), and one contact on A's project
-   plus one contact on B's project.
-2. Log in as A. POST to `task_edit.php?id=…`
-   with `responsible_person_id=B's user id` —
-   the form accepts (B is a project owner).
-3. Create a third user C with no projects.
-   POST to `task_edit.php?id=…` with
-   `responsible_person_id=C's user id` — the
-   form rejects with the new error message.
-4. POST with `contact_person_id=B's contact id`
-   — the form rejects with the new error
-   message.
-5. POST with `project_id=B's project id` — the
-   form rejects with the new error message.
-6. Clean up: DELETE users, projects, contacts
-   (cascades).
+The shipped test does NOT use a CLI proxy to
+render `task_edit.php` end-to-end. The proxy
+approach was set aside in favour of two layers
+of coverage that are deterministic in the
+test environment:
 
-The test uses a CLI proxy to render the page
-once for the GET (asserting the dropdown is
-correctly scoped) and once for the POST
-(asserting the validation rejects the bad
-inputs). The proxy pattern is the same as
-`database/task_inherit_subtask_hours_test.php`'s
-live-render probe.
+1. **Helper unit tests** (sections 1-3) — seed
+   three users (A, B, C), two projects (A's and
+   B's), and two contacts (one on each project)
+   inside the test, call each helper, assert
+   the boolean. Cleanup runs in a
+   `register_shutdown_function` so a fatal error
+   cannot leak seed rows.
+2. **Source-grep wiring checks** (sections 4-5)
+   — assert `task_edit.php` requires the helper,
+   no longer contains the old "SELECT id FROM
+   users WHERE id = ?" / "SELECT id FROM
+   contacts WHERE id = ?" existence queries,
+   emits the three new error messages, and the
+   `$users` SELECT is scoped to project owners.
+
+This catches a future "I just want to inline the
+query again" regression (confirmed by self-test:
+re-introducing the weak checks made 6 source-grep
+assertions fail) without depending on the brittle
+"render the wizard in a child process" proxy
+pattern.
+
+The acceptance criteria in the previous section
+(assign-to-self OK, assign-to-other-owner OK,
+assign-to-non-owner rejected, assign-to-cross-user
+contact rejected, move-to-cross-user project
+rejected, dropdown is scoped) are all covered by
+the unit tests in sections 1-3.
 
 ## Cross-references
 

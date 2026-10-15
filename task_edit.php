@@ -2,6 +2,7 @@
 require_once 'config.php';
 require_once 'includes/Database.php';
 require_once 'includes/functions.php';
+require_once 'includes/task_edit_auth.php';
 
 requireLogin();
 
@@ -52,8 +53,24 @@ $user_projects = $db->fetchAll(
     [$user_id]
 );
 
-// Get users for responsible person assignment
-$users = $db->fetchAll("SELECT id, name, email FROM users ORDER BY name");
+// Get users for responsible person assignment.
+// Issue-022 (IDOR): the dropdown must show the same set the POST handler
+// will accept — i.e. the current user, plus other project owners. Showing
+// every user in the database was an IDOR vector: a logged-in user could
+// POST a forged responsible_person_id pointing to a non-owner and the
+// existence-only check would accept it. The same rule is enforced in
+// includes/task_edit_auth.php::taskEditCanAssignResponsible() so the
+// GET-time and POST-time views match.
+$users = $db->fetchAll(
+    "SELECT id, name, email FROM users
+     WHERE id = ?
+        OR id IN (
+            SELECT responsible_person_id FROM projects
+            WHERE responsible_person_id IS NOT NULL
+        )
+     ORDER BY name",
+    [$user_id]
+);
 
 // Get contacts for the project (if project is selected)
 $contacts = [];
@@ -138,24 +155,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!$form_project_id && !$is_subtask) {
         $errors[] = "Project selection is required for main tasks.";
+    } elseif ($form_project_id && !taskEditCanUseProject($db, $user_id, $form_project_id)) {
+        // Issue-022 (IDOR): the submitted project_id must be one of the
+        // current user's projects. The dropdown is already scoped
+        // ($user_projects above), so a normal browser flow never hits this
+        // branch — it only fires on a forged POST that names a project the
+        // attacker does not own. For sub-tasks, $form_project_id is null
+        // because the form does not post a project_id; the project is
+        // derived from $parent_task which was already validated when the
+        // page was loaded.
+        $errors[] = "Selected project is not one of your projects.";
+        $form_project_id = null;
     }
     
     if (empty($responsible_person_id)) {
         $errors[] = "Responsible person must be assigned to the task.";
-    } else {
-        // Validate that the responsible person exists
-        $person_exists = $db->fetchOne("SELECT id FROM users WHERE id = ?", [$responsible_person_id]);
-        if (!$person_exists) {
-            $errors[] = "Selected responsible person does not exist.";
-        }
+    } elseif (!taskEditCanAssignResponsible($db, $user_id, $responsible_person_id)) {
+        // Issue-022 (IDOR): the responsible person must be the current
+        // user OR another user who is the responsible person of at least
+        // one project. The previous existence-only check let any
+        // logged-in attacker reassign a task to a non-owner (e.g. an
+        // ex-employee account that was never deleted). See
+        // includes/task_edit_auth.php for the rule.
+        $errors[] = "Selected responsible person is not a user "
+                  . "you can assign a task to.";
     }
-    
-    if (!empty($contact_person_id)) {
-        // Validate that the contact person exists
-        $contact_exists = $db->fetchOne("SELECT id FROM contacts WHERE id = ?", [$contact_person_id]);
-        if (!$contact_exists) {
-            $errors[] = "Selected contact person does not exist.";
-        }
+
+    if (!empty($contact_person_id) && !taskEditCanAssignContact($db, $user_id, $contact_person_id)) {
+        // Issue-022 (IDOR): the contact must be linked to at least one
+        // of the current user's projects. The previous existence-only
+        // check let any logged-in attacker link a task to a contact on
+        // another user's project, which then surfaces in that contact's
+        // owner's contact_detail.php view.
+        $errors[] = "Selected contact is not on any of your projects.";
     }
     
     if (!in_array($status, ['not_started', 'in_progress', 'completed', 'on_hold'])) {
