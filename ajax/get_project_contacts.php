@@ -50,6 +50,9 @@ try {
     
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    // Issue-016: log the underlying error server-side but do NOT
+    // echo it to the client (info disclosure).
+    error_log("Get project contacts failed: " . $e->getMessage());
+    echo json_encode(['error' => 'Failed to load project contacts. Please try again.']);
 }
 ?>

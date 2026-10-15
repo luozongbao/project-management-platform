@@ -23,8 +23,15 @@ $success_message = '';
 $error_messages = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Issue-016 (CSRF): reject any request that does not carry a valid
+    // CSRF token. The check sits BEFORE the action dispatch so a missing
+    // / invalid token cannot leak DB error messages or partial state.
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        $error_messages[] = 'Your session could not be verified. '
+                          . 'Please reload the page and submit again.';
+    } else {
     $action = $_POST['action'] ?? '';
-    
+
     if ($action === 'update_profile') {
         // Update profile information
         $name = trim($_POST['name'] ?? '');
@@ -86,15 +93,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user['name'] = $name;
                 $user['email'] = $email;
                 $user['username'] = $username;
-                
+
                 $success_message = "Profile updated successfully!";
             } catch (Exception $e) {
-                $errors[] = "Error updating profile: " . $e->getMessage();
+                // Issue-016: log the underlying error server-side but
+                // do NOT echo it to the user (info disclosure).
+                error_log("Profile update failed: " . $e->getMessage());
+                $errors[] = "Failed to update the profile. Please try again. "
+                          . "If the problem persists, contact your administrator.";
             }
         }
-        
+
         $error_messages = $errors;
-        
+
     } elseif ($action === 'change_password') {
         // Change password
         $current_password = $_POST['current_password'] ?? '';
@@ -136,12 +147,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success_message = "Password changed successfully!";
             } catch (Exception $e) {
-                $errors[] = "Error changing password: " . $e->getMessage();
+                // Issue-016: log the underlying error server-side but
+                // do NOT echo it to the user (info disclosure).
+                error_log("Password change failed: " . $e->getMessage());
+                $errors[] = "Failed to change the password. Please try again. "
+                          . "If the problem persists, contact your administrator.";
             }
         }
-        
+
         $error_messages = $errors;
     }
+    } // end else (!validateCsrfToken failed)
 }
 
 // Get user statistics
@@ -245,7 +261,8 @@ include 'includes/header.php';
             <div class="card-body">
                 <form method="POST" action="">
                     <input type="hidden" name="action" value="update_profile">
-                    
+                    <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+
                     <div class="form-group">
                         <label for="name">Full Name</label>
                         <input type="text" id="name" name="name" 
@@ -290,7 +307,8 @@ include 'includes/header.php';
             <div class="card-body">
                 <form method="POST" action="">
                     <input type="hidden" name="action" value="change_password">
-                    
+                    <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+
                     <div class="form-group">
                         <label for="current_password">Current Password</label>
                         <input type="password" id="current_password" name="current_password" required>

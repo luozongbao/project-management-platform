@@ -98,6 +98,13 @@ if ($is_editing) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Issue-016 (CSRF): reject any request that does not carry a valid
+    // CSRF token. The check sits BEFORE any input read so a missing /
+    // invalid token cannot leak DB error messages or partial state.
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Your session could not be verified. '
+                  . 'Please reload the page and submit again.';
+    } else {
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $status = $_POST['status'] ?? 'not_started';
@@ -287,9 +294,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
             }
         } catch (Exception $e) {
-            $errors[] = "Error saving task: " . $e->getMessage();
+            // Issue-016: log the underlying PDO message server-side but
+            // do NOT echo it to the user (info disclosure).
+            error_log("Task save failed: " . $e->getMessage());
+            $errors[] = "Failed to save the task. Please try again. "
+                      . "If the problem persists, contact your administrator.";
         }
     }
+    } // end else (!validateCsrfToken failed)
 }
 
 $title = $is_editing ? "Edit Task" : ($is_subtask ? "New Subtask" : "New Task");
@@ -342,6 +354,7 @@ $show_nav = true;
 
     <div class="form-layout">
         <form method="POST" class="task-form">
+            <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
             <div class="form-grid">
                 <!-- Basic Information -->
                 <div class="form-section">
