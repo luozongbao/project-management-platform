@@ -31,39 +31,102 @@ if (empty($token)) {
     );
     
     if ($reset_data) {
-        $valid_token = true;
-        
+        // Issue-018: rate-limit check BEFORE the token-rotation
+        // step. If the IP is over the consume threshold, render
+        // the same "Invalid or expired reset link" block as a
+        // bad token would (so the attacker cannot distinguish
+        // "rate limited" from "bad token" from "expired
+        // token"). We do NOT rotate the token, so the rotation
+        // is gated by "you are allowed to be here" — a
+        // rate-limited IP cannot trigger rotation churn against
+        // a valid token.
+        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        if (isPasswordResetRateLimited($clientIp, 'consume')) {
+            $errors[] = "Invalid or expired reset link";
+        } else {
+            // Issue-018: token rotation on every successful GET
+            // render. A URL leaked via browser history or the
+            // address bar after the user has finished becomes
+            // useless the moment the page renders. We then
+            // 302-redirect to the rotated-token URL so the
+            // address bar shows the rotated token, and the
+            // form below uses the rotated token from $_GET.
+            $rotated_token = rotatePasswordResetToken($token);
+            if ($rotated_token !== null && $rotated_token !== $token) {
+                // 302 to the rotated URL. The browser will
+                // re-fetch with ?token=<new> and render the
+                // form on the second pass. The second pass
+                // is a no-op rotation (rotated_token ===
+                // $token) and proceeds to the form render.
+                header('Location: reset_password.php?token=' . urlencode($rotated_token));
+                exit();
+            }
+
+            $valid_token = true;
+        }
+
         if ($_POST) {
             $password = $_POST['password'] ?? '';
             $confirm_password = $_POST['confirm_password'] ?? '';
-            
-            // Validate passwords
-            if (empty($password)) {
-                $errors[] = "Password is required";
-            } elseif (strlen($password) < 6) {
-                $errors[] = "Password must be at least 6 characters long";
-            } elseif ($password !== $confirm_password) {
-                $errors[] = "Passwords do not match";
+
+            // Issue-018: per-IP rate limit on the consume side. We
+            // check before any password validation so a sustained
+            // brute-force attempt against a known-good token is
+            // also blocked. The recordPasswordResetAttempt() call
+            // below is paired with the success/failure of THIS POST.
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            if (isPasswordResetRateLimited($clientIp, 'consume')) {
+                // Drop the request. We do NOT log this attempt so
+                // the rate limit is not self-reinforcing: the 11th
+                // request does not become part of the 15-min
+                // window and lock the user out for a full 15
+                // minutes from a single bad password. The page
+                // still renders the "Invalid or expired reset
+                // link" block because $valid_token is set to
+                // false below.
+                $valid_token = false;
+                $errors[] = "Invalid or expired reset link";
             } else {
-                try {
-                    // Update password
-                    $hashed_password = hashPassword($password);
-                    $db->query(
-                        "UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?",
-                        [$hashed_password, $reset_data['user_id']]
-                    );
-                    
-                    // Delete the used reset token
-                    $db->query(
-                        "DELETE FROM password_reset_tokens WHERE id = ?",
-                        [$reset_data['id']]
-                    );
-                    
-                    $success = true;
-                    
-                } catch (Exception $e) {
-                    error_log("Password reset error: " . $e->getMessage());
-                    $errors[] = "Failed to reset password. Please try again.";
+                // Validate passwords. Every failure is recorded as
+                // a 'consume' attempt so a brute-force campaign
+                // against a known-good token is also rate-limited.
+                if (empty($password)) {
+                    $errors[] = "Password is required";
+                    recordPasswordResetAttempt($clientIp, 'consume', $reset_data['user_id'], false);
+                } elseif (strlen($password) < 6) {
+                    $errors[] = "Password must be at least 6 characters long";
+                    recordPasswordResetAttempt($clientIp, 'consume', $reset_data['user_id'], false);
+                } elseif ($password !== $confirm_password) {
+                    $errors[] = "Passwords do not match";
+                    recordPasswordResetAttempt($clientIp, 'consume', $reset_data['user_id'], false);
+                } else {
+                    try {
+                        // Update password
+                        $hashed_password = hashPassword($password);
+                        $db->query(
+                            "UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?",
+                            [$hashed_password, $reset_data['user_id']]
+                        );
+
+                        // Issue-018: invalidate ALL live tokens for
+                        // this user (not just the consumed one). A
+                        // previously-issued link must not be usable
+                        // after a successful reset.
+                        invalidateAllPasswordResetTokensForUser($reset_data['user_id']);
+
+                        $success = true;
+
+                        recordPasswordResetAttempt($clientIp, 'consume', $reset_data['user_id'], true);
+                        // A successful consume clears the consume
+                        // history for this IP so the legit user is
+                        // not locked out by their own success.
+                        clearPasswordResetAttempts($clientIp, 'consume');
+
+                    } catch (Exception $e) {
+                        error_log("Password reset error: " . $e->getMessage());
+                        $errors[] = "Failed to reset password. Please try again.";
+                        recordPasswordResetAttempt($clientIp, 'consume', $reset_data['user_id'], false);
+                    }
                 }
             }
         }

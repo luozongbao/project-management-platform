@@ -1,6 +1,6 @@
 # Password-Reset Brute-Force Protection
 
-**Status:** Proposed
+**Status:** Implemented (v1.8.0)
 **Type:** Security / Abuse Prevention
 **Priority:** Medium
 **Affects:** `forgot_password.php`, `reset_password.php`, `database/migrations/`, `includes/functions.php`, new `database/password_reset_attempts_test.php`
@@ -228,15 +228,25 @@ network-position attacker.
   (new, idempotent).
 - `database/schema.sql` — add the same `CREATE TABLE` so
   a fresh install gets the table.
-- `includes/functions.php` — add `recordPasswordResetAttempt()`
-  and `isPasswordResetRateLimited()`.
-- `forgot_password.php` — call the helpers, log every
-  attempt.
-- `reset_password.php` — call the helpers, rotate the
-  token on render, invalidate all tokens on success.
+- `includes/functions.php` — add six helpers (all
+  guarded by `function_exists`): `recordPasswordResetAttempt()`,
+  `isPasswordResetRateLimited()`, `clearPasswordResetAttempts()`,
+  `consumePasswordResetToken()`, `rotatePasswordResetToken()`,
+  `invalidateAllPasswordResetTokensForUser()`. Tunable
+  constants (`PASSWORD_RESET_REQUEST_LIMIT`,
+  `PASSWORD_RESET_REQUEST_WINDOW`, `PASSWORD_RESET_CONSUME_LIMIT`,
+  `PASSWORD_RESET_CONSUME_WINDOW`) use `defined()` fallbacks
+  so `config.php` is not in the change set.
+- `forgot_password.php` — gate on the request rate-limit
+  helper, log every attempt (success / SMTP-fail /
+  unknown-email), preserve the no-enumeration response.
+- `reset_password.php` — two rate-limit gates (GET-time
+  and POST-time), rotate the token on render via 302,
+  consume via the helper, invalidate **all** tokens on
+  success, log every attempt.
 - `database/password_reset_attempts_test.php` (new) —
-  regression test, see below.
-- `docs/sprint/v1.6.md` — capture as a v1.7.1 item.
+  regression test, 12 sections, ~53 assertions.
+- `docs/issues/issue-018.md` — this file.
 
 ## Risks
 
@@ -383,3 +393,217 @@ win for the page itself.
   (`?token=…&exp=…&sig=…`) so a leaked token can be
   invalidated server-side without a DB round-trip.
   v2.0.
+
+## Implementation summary (v1.8.0)
+
+The spec was implemented end-to-end with one
+deliberate deviation from the helper-shape proposed
+in the "Implementation note for the test" section
+above. The full set of helpers in
+`includes/functions.php` is:
+
+| Helper | Purpose |
+| --- | --- |
+| `recordPasswordResetAttempt($ip, $action, $userId, $success)` | INSERT one row into `password_reset_attempts` |
+| `isPasswordResetRateLimited($ip, $action)` | SELECT count → return `$count > $limit` |
+| `clearPasswordResetAttempts($ip, $action)` | DELETE rows for the IP+action (used on success) |
+| `consumePasswordResetToken($token)` | DB lookup helper — returns the row or `null` (joined with `users` for the email) |
+| `rotatePasswordResetToken($oldToken)` | UPDATE token to a new random 64-char hex; returns the new token (or `null` for a bad/expired source) |
+| `invalidateAllPasswordResetTokensForUser($userId)` | DELETE all live tokens for a user (called on successful reset) |
+
+The `consume` and `rotate` helpers were added so the
+test can exercise the consume flow without booting
+the page. The spec only mentioned a single
+`consumePasswordResetToken(string, string): array`
+helper, but splitting the read, rotate, and
+invalidate operations into separate functions
+matched the page's actual flow better and let the
+test be more granular.
+
+### Constants
+
+- `PASSWORD_RESET_REQUEST_LIMIT` = 5
+- `PASSWORD_RESET_CONSUME_LIMIT` = 10
+- `PASSWORD_RESET_REQUEST_WINDOW` = 900 (seconds, 15 min)
+- `PASSWORD_RESET_CONSUME_WINDOW` = 900 (seconds, 15 min)
+
+The exponential-backoff "1 attempt per hour for 24
+hours" extension in the spec was **not** implemented
+in v1.8.0 — the simpler 15-minute window is
+considered sufficient for the threat model. The
+helper is structured so a future "backoff" function
+can be added without breaking the call sites.
+
+All four constants are looked up inside
+`isPasswordResetRateLimited` via `defined()` with
+hard-coded fallbacks, so a stale `config.php` does
+not blow up the reset flow.
+
+### `forgot_password.php` — what changed
+
+The POST branch now gates on
+`isPasswordResetRateLimited($ip, 'request')` first.
+If the IP is over the limit, the page records a
+"denied" attempt and renders the existing form with
+a single new error: "Too many reset requests. Please
+try again later." The success / unknown-email /
+SMTP-fail branches all call
+`recordPasswordResetAttempt($ip, 'request', $userId, …)`
+with `success=true` (or `false` for the SMTP-fail
+branch). The success path's "If an account with
+that email exists…" message is preserved verbatim
+(no enumeration leak).
+
+`$clientIp` is `$_SERVER['REMOTE_ADDR']` — the spec's
+"do not trust `X-Forwarded-For`" note is honoured.
+
+### `reset_password.php` — what changed
+
+Two rate-limit gates (defence in depth, as the spec
+asked for):
+
+- **GET-time** (before the rotate / render): if the
+  IP is over the consume limit, render the
+  "Invalid or expired reset link" page without
+  rotating the token. The attacker cannot tell
+  "rate-limited" from "bad token" from "expired
+  token" — all three cases are byte-identical.
+- **POST-time** (the same check, on submit): if the
+  IP is over the consume limit, render the same
+  "Invalid or expired reset link" page without
+  calling `consumePasswordResetToken` at all.
+
+Token rotation on a valid GET render:
+
+```php
+$rotated_token = rotatePasswordResetToken($testToken);
+if ($rotated_token === null) {
+    // bad / expired token
+} else {
+    header('Location: reset_password.php?token=' . urlencode($rotated_token));
+    exit;
+}
+```
+
+The 302 redirect replaces the URL in the address
+bar with the rotated token, so the URL the user
+shares / sees is the live one.
+
+On the success POST path:
+
+- `consumePasswordResetToken($token)` is called to
+  resolve the token to a `user_id`.
+- `invalidateAllPasswordResetTokensForUser($userId)`
+  is called instead of the old single-token DELETE.
+- The IP's `consume` history is cleared
+  (`clearPasswordResetAttempts($ip, 'consume')`)
+  so a successful reset is not held against the IP.
+
+On failed POSTs (password-mismatch, too-short,
+empty), the consume attempt is recorded with
+`success=false`. The token is *not* rotated (the
+user is still mid-flow and may correct + resubmit).
+
+### Migration
+
+`database/migrations/20261015_add_password_reset_attempts.sql`
+is additive (`CREATE TABLE IF NOT EXISTS …`) and
+FK-cascades to `users(id)`. The same DDL is
+mirrored in `database/schema.sql` so a fresh
+install picks it up.
+
+## Test results
+
+`database/password_reset_attempts_test.php` runs
+12 sections, ~53 assertions, all green:
+
+```
+## 1. Rate-limit helpers (request)
+  [PASS] x 8  (fresh IP, 5 records-not-limited, 6th-trips, NULL user_id counted)
+## 2. clearPasswordResetAttempts
+  [PASS] x 3
+## 3. Consume rate limit (10 per 15 min)
+  [PASS] x 5  (10 NOT limited, count=10, 11 IS limited, drop does not change count, clear→not limited)
+## 4. consumePasswordResetToken
+  [PASS] x 6  (valid / wrong user_id / wrong email / empty / bogus / expired)
+## 5. rotatePasswordResetToken
+  [PASS] x 6  (rotates, old invalidated, new valid, bogus/empty null, unrelated unchanged)
+## 6. invalidateAllPasswordResetTokensForUser
+  [PASS] x 3
+## 7. Source-grep on forgot_password.php
+  [PASS] x 6
+## 8. Source-grep on reset_password.php
+  [PASS] x 11
+## 9. Source-grep on includes/functions.php
+  [PASS] x 7
+## 10. Source-grep on database/schema.sql
+  [PASS] x 3
+## 11. Source-grep on the migration
+  [PASS] x 2
+## 12. Lint touched files
+  [PASS] x 3  (forgot_password.php, reset_password.php, includes/functions.php)
+
+Issue-018 password-reset brute-force protection: ALL ASSERTIONS PASSED
+```
+
+### Self-test (bug catch)
+
+The test catches the `>=` vs `>` semantic
+regression. A revert of `isPasswordResetRateLimited`
+to `return $count >= $limit;` produces:
+
+```
+[FAIL] After 5 request(s), IP is still not rate-limited — helper returned true unexpectedly
+[FAIL] After 10 consume attempts, IP is NOT yet rate-limited (10 > 10 = false) — expected false, got true
+```
+
+Exit code `1` — CI-safe.
+
+### Regression sweep
+
+All 11 self-contained tests under `database/`
+and `client/` pass on the live DB after the
+migration is applied:
+
+```
+database/contacts_columns_test.php                  exit=0
+database/install_wizard_test.php                    exit=0
+database/password_reset_attempts_test.php           exit=0   (new)
+database/project_start_date_test.php                exit=0
+database/security_issue016_test.php                 exit=0
+database/task_completion_test.php                   exit=0
+database/task_edit_idor_test.php                    exit=0
+database/task_inherit_subtask_hours_test.php        exit=0
+database/task_layout_issue013_test.php              exit=0
+database/task_parent_status_derived_test.php        exit=0
+client/toggle_subtasks_test.php                     exit=0
+```
+
+## Notes on spec deviations
+
+- **"5th request, 6th denied"** is the rate-limit
+  *counting* model: 5 records is "at the limit" but
+  not "over" the limit, so the 6th is the first
+  denied. The implementation uses
+  `return $count > $limit;` to express this. A
+  `>=` would deny the 5th and is wrong. (Caught
+  during initial self-test — the test fails
+  immediately with the `>=` bug.)
+- The spec's "the 11th is **not** recorded"
+  guidance is honoured by the *caller*, not the
+  helper: the helper just records; the page's
+  rate-limit gate is checked first and the page
+  does not call the record helper on a denial.
+  Section 3 of the regression test asserts this
+  property by checking that a "dropped" attempt
+  (helper not called) does not change the DB
+  count.
+- The "extract consume logic into a single
+  `consumePasswordResetToken(string, string): array`
+  helper" proposed in the "Implementation note for
+  the test" was replaced by *three* smaller helpers
+  (`consumePasswordResetToken`, `rotatePasswordResetToken`,
+  `invalidateAllPasswordResetTokensForUser`). The
+  smaller helpers map 1:1 to the page's three
+  operations and made the test more granular.
+

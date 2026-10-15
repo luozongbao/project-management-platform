@@ -28,6 +28,21 @@ CREATE TABLE password_reset_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Password reset attempts table (issue-018: rate-limit / brute-force protection)
+-- Records every password-reset attempt (by client IP, action, user_id, outcome)
+-- so the application can enforce per-IP request/consume thresholds.
+CREATE TABLE password_reset_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,        -- IPv6-safe
+    action ENUM('request', 'consume') NOT NULL,
+    user_id INT NULL,                       -- NULL for unknown emails
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pra_ip_action_time (ip_address, action, attempted_at),
+    INDEX idx_pra_user_time (user_id, attempted_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Projects table
 CREATE TABLE projects (
     id INT PRIMARY KEY AUTO_INCREMENT,

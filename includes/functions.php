@@ -485,4 +485,211 @@ function formatMoney($amount, $currency) {
     $decimals = (strtoupper($currency) === 'JPY') ? 0 : 2;
     return $symbol . number_format((float)$amount, $decimals) . ' ' . strtoupper($currency);
 }
+
+// ============================================================================
+// Password-reset rate-limit / brute-force protection (issue-018)
+//
+// Three small helpers used by forgot_password.php and reset_password.php.
+// The policy is per-IP and recorded in the password_reset_attempts table
+// (see database/migrations/20261015_add_password_reset_attempts.sql).
+//
+// Constants (overridable in config.php; defaults are 5 request attempts per
+// 15 minutes and 10 consume attempts per 15 minutes):
+//   PASSWORD_RESET_REQUEST_LIMIT  (default 5)
+//   PASSWORD_RESET_REQUEST_WINDOW (default 900 seconds = 15 min)
+//   PASSWORD_RESET_CONSUME_LIMIT  (default 10)
+//   PASSWORD_RESET_CONSUME_WINDOW (default 900 seconds = 15 min)
+// ============================================================================
+
+if (!function_exists('recordPasswordResetAttempt')) {
+    /**
+     * Record a single password-reset attempt.
+     *
+     * @param string $ip      The client IP (use $_SERVER['REMOTE_ADDR']; not
+     *                        X-Forwarded-For, since this app is not behind
+     *                        a load balancer that sets the header).
+     * @param string $action  'request' (forgot_password.php POST) or
+     *                        'consume' (reset_password.php POST).
+     * @param int|null $userId  The user id if known, or null for unknown
+     *                        emails (forgot_password.php) and rate-limited
+     *                        dropped requests.
+     * @param bool $success   True if the attempt succeeded (the request was
+     *                        processed normally), false if it failed (bad
+     *                        credentials, rate-limited drop, etc.).
+     */
+    function recordPasswordResetAttempt($ip, $action, $userId, $success) {
+        $ip = (string)$ip;
+        $action = ($action === 'consume') ? 'consume' : 'request';
+        $successFlag = $success ? 1 : 0;
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO password_reset_attempts (ip_address, action, user_id, success)
+             VALUES (?, ?, ?, ?)",
+            [$ip, $action, $userId, $successFlag]
+        );
+    }
+}
+
+if (!function_exists('isPasswordResetRateLimited')) {
+    /**
+     * Check whether a given IP is currently rate-limited for a given action.
+     *
+     * The policy:
+     *   - 'request' (forgot_password.php): at most
+     *     PASSWORD_RESET_REQUEST_LIMIT attempts (default 5) within
+     *     PASSWORD_RESET_REQUEST_WINDOW seconds (default 15 min). A
+     *     *successful* request counts as a request too (it sent an
+     *     email and consumed SMTP quota), so a real user who hammers
+     *     the button can also trip the limit. The 15-min cooldown
+     *     is short enough that this is rarely a UX problem.
+     *   - 'consume' (reset_password.php): at most
+     *     PASSWORD_RESET_CONSUME_LIMIT attempts (default 10) within
+     *     PASSWORD_RESET_CONSUME_WINDOW seconds (default 15 min).
+     *     Successful consumes DO count — but a successful consume
+     *     also clears the consume history for that IP via
+     *     clearPasswordResetAttempts() so the user is not locked
+     *     out by their own success.
+     *
+     * The function does NOT mutate the database; the caller is
+     * responsible for calling recordPasswordResetAttempt() to
+     * record the current attempt.
+     *
+     * @return bool True if the IP is over the threshold.
+     */
+    function isPasswordResetRateLimited($ip, $action) {
+        $ip = (string)$ip;
+        $action = ($action === 'consume') ? 'consume' : 'request';
+
+        if ($action === 'consume') {
+            $limit  = defined('PASSWORD_RESET_CONSUME_LIMIT')  ? PASSWORD_RESET_CONSUME_LIMIT  : 10;
+            $window = defined('PASSWORD_RESET_CONSUME_WINDOW') ? PASSWORD_RESET_CONSUME_WINDOW : 900;
+        } else {
+            $limit  = defined('PASSWORD_RESET_REQUEST_LIMIT')  ? PASSWORD_RESET_REQUEST_LIMIT  : 5;
+            $window = defined('PASSWORD_RESET_REQUEST_WINDOW') ? PASSWORD_RESET_REQUEST_WINDOW : 900;
+        }
+
+        $db = Database::getInstance();
+        $count = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM password_reset_attempts
+             WHERE ip_address = ? AND action = ?
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $action, $window]
+        )['c'];
+
+        // The limit is the MAXIMUM allowed. After `$limit` records
+        // the IP is still allowed (the `$limit`-th request was the
+        // last one that fit). The `$limit + 1`-th request is the
+        // first to be denied. So use `>` not `>=`.
+        return $count > $limit;
+    }
+}
+
+if (!function_exists('clearPasswordResetAttempts')) {
+    /**
+     * Clear the rate-limit history for a given IP + action.
+     *
+     * Called after a successful 'consume' so the legitimate user
+     * is not locked out by their own success. Not called after
+     * a successful 'request' — a user who successfully requested
+     * a reset should not immediately be able to request another
+     * one without the cooldown.
+     */
+    function clearPasswordResetAttempts($ip, $action) {
+        $ip = (string)$ip;
+        $action = ($action === 'consume') ? 'consume' : 'request';
+        $db = Database::getInstance();
+        $db->execute(
+            "DELETE FROM password_reset_attempts WHERE ip_address = ? AND action = ?",
+            [$ip, $action]
+        );
+    }
+}
+
+if (!function_exists('consumePasswordResetToken')) {
+    /**
+     * Look up a valid (non-expired) password-reset token and return the
+     * associated user info. Does NOT consume (delete) the token — the
+     * caller is responsible for marking it consumed after a successful
+     * password update.
+     *
+     * The reason this is factored out of reset_password.php is twofold:
+     *   1. The test suite needs to call it from a CLI proxy without
+     *      booting the whole page (the page has session / isLoggedIn()
+     *      / header() calls that make a CLI render brittle).
+     *   2. It is a clean separation: the page is responsible for the
+     *      user-facing flow; this helper is responsible for the DB
+     *      lookup.
+     *
+     * @return array|null The token row + joined user name/email, or null
+     *                    if the token is missing, unknown, or expired.
+     */
+    function consumePasswordResetToken($token) {
+        $token = (string)$token;
+        if ($token === '') {
+            return null;
+        }
+        $db = Database::getInstance();
+        $row = $db->fetchOne(
+            "SELECT rt.id, rt.user_id, rt.token, rt.expires_at, u.name, u.email
+             FROM password_reset_tokens rt
+             JOIN users u ON rt.user_id = u.id
+             WHERE rt.token = ? AND rt.expires_at > NOW()",
+            [$token]
+        );
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('rotatePasswordResetToken')) {
+    /**
+     * Replace a password-reset token with a fresh one. Returns the new
+     * token string, or null if the original token was not found.
+     *
+     * The expiry is bumped to NOW() + PASSWORD_RESET_EXPIRY (1 hour by
+     * default) so the rotation extends the validity window for the
+     * currently-valid user. A future hardening could leave the expiry
+     * alone, but extending is the user-friendly default and matches
+     * the spec's "rotates on every form render" intent.
+     */
+    function rotatePasswordResetToken($oldToken) {
+        $oldToken = (string)$oldToken;
+        if ($oldToken === '') {
+            return null;
+        }
+        $db = Database::getInstance();
+        $row = $db->fetchOne(
+            "SELECT id FROM password_reset_tokens WHERE token = ?",
+            [$oldToken]
+        );
+        if (!$row) {
+            return null;
+        }
+        $newToken = generateToken();
+        $newExpires = date('Y-m-d H:i:s', time() + PASSWORD_RESET_EXPIRY);
+        $db->execute(
+            "UPDATE password_reset_tokens SET token = ?, expires_at = ? WHERE id = ?",
+            [$newToken, $newExpires, $row['id']]
+        );
+        return $newToken;
+    }
+}
+
+if (!function_exists('invalidateAllPasswordResetTokensForUser')) {
+    /**
+     * Delete ALL password-reset tokens for a given user. Called on
+     * successful password change so a previously-issued link cannot
+     * be reused after the user has successfully reset.
+     */
+    function invalidateAllPasswordResetTokensForUser($userId) {
+        $uid = (int)$userId;
+        if ($uid <= 0) {
+            return;
+        }
+        $db = Database::getInstance();
+        $db->execute(
+            "DELETE FROM password_reset_tokens WHERE user_id = ?",
+            [$uid]
+        );
+    }
+}
 ?>
