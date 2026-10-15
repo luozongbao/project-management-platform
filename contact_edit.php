@@ -47,6 +47,13 @@ if ($is_editing) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Issue-016 (CSRF): reject any request that does not carry a valid
+    // CSRF token. The check sits BEFORE any input read so a missing /
+    // invalid token cannot leak DB error messages or partial state.
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Your session could not be verified. '
+                  . 'Please reload the page and submit again.';
+    } else {
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -152,9 +159,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (Exception $e) {
-            $errors[] = "Error saving contact: " . $e->getMessage();
+            // Issue-016: log the underlying PDO message server-side but
+            // do NOT echo it to the user (info disclosure).
+            error_log("Contact save failed: " . $e->getMessage());
+            $errors[] = "Failed to save the contact. Please try again. "
+                      . "If the problem persists, contact your administrator.";
         }
     }
+    } // end CSRF-validated POST branch
 }
 
 $title = $is_editing ? "Edit Contact" : "New Contact";
@@ -210,6 +222,7 @@ $show_nav = true;
 
     <div class="form-layout">
         <form method="POST" class="contact-form">
+            <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
             <div class="form-grid">
                 <!-- Basic Information -->
                 <div class="form-section">
