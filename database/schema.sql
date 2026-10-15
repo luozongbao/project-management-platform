@@ -1,4 +1,10 @@
 -- Project Management System Database Schema
+--
+-- Parent-task completion rollups (and, as of v1.5.0, parent-task status
+-- derivation) are computed in PHP via `calculateTaskCompletionMap()`
+-- and `resolveTaskEstimateHours()` in `includes/functions.php`. The
+-- earlier MariaDB trigger-based approach is intentionally not used;
+-- `subtask_functions.sql.disabled` is kept as historical reference only.
 
 -- Users table
 CREATE TABLE users (

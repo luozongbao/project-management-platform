@@ -369,6 +369,20 @@ $csrf_token = getCsrfToken();
 <?php endif; ?>
 
 <style>
+/* Per-page CSS for project_edit.php.
+ *
+ * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
+ * provide the baseline (page-container, breadcrumb, form-grid,
+ * form-group, btn, alert, and the @media (max-width: 768px) collapse).
+ * All rules below are EITHER page-unique to the project edit surface
+ * (delete-project modal + project-form variant of .form-actions) OR
+ * explicit per-page overrides of a global rule (the divergence is
+ * intentional; comments tag them).
+ */
+
+/* Per-page override of .page-container in style.css: this edit form is
+ * narrower (800px) than the global default (1000px) because the project
+ * surface has fewer fields. */
 .page-container {
     max-width: 800px;
     margin: 0 auto;
@@ -379,6 +393,10 @@ $csrf_token = getCsrfToken();
     margin-top: 0;
 }
 
+/* Per-page override of .form-actions in style.css: the project form
+ * uses a left-aligned flex row (gap: 15px, no justify-between) instead
+ * of the global split-left/right two-cluster row. The global
+ * .form-actions-left / .form-actions-right helpers are not used here. */
 .form-actions {
     display: flex;
     gap: 15px;
@@ -445,7 +463,7 @@ $csrf_token = getCsrfToken();
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .form-actions .btn {
         width: 100%;
         margin-left: 0 !important;

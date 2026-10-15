@@ -1,5 +1,110 @@
 # Release Notes
 
+## v1.6.0 — TBD
+
+Tech-debt release. Removes `database/subtask_functions.sql` from
+the deployment, collapses per-page CSS duplication, and tames the
+`shell_exec('php …')` test pattern in the regression tests. **No
+new features, no schema changes, no JS / translation / AJAX
+changes.** Pull, rebuild the `db` container
+(`docker compose up -d --build db`), and reload — no app restart
+required.
+
+### Removed
+- **`database/subtask_functions.sql` → `.disabled`.** The 117-line
+  file defined a recursive `CalculateTaskCompletion` stored
+  function and three `UpdateParentTaskCompletion*` triggers.
+  MariaDB ≥ 10.5 rejects recursive stored functions, and the app's
+  parent rollup is computed in PHP via
+  `calculateTaskCompletionMap()` in `includes/functions.php`. The
+  file is renamed to `database/subtask_functions.sql.disabled`
+  with a header explaining why, so future readers have the
+  history.
+- **`docker-compose.yml` `db` volume mount.** The
+  `./database/subtask_functions.sql:/docker-entrypoint-initdb.d/02-subtask.sql:ro`
+  bind mount was removed. A new comment in the file points the
+  next reader at `database/schema.sql` and the disabled file.
+  A fresh `docker compose down -v && docker compose up -d --build`
+  on a clean checkout now produces a database with zero triggers
+  (`SHOW TRIGGERS;` is empty).
+
+### Consolidated CSS
+- **Per-page `<style>` blocks in `task_edit.php`,
+  `task_detail.php`, `contact_edit.php`, `project_edit.php` were
+  audited against `assets/css/style.css`.** Pure duplicates of
+  global rules were removed. Per-page overrides (rules that
+  intentionally differ from the global rule) are kept inline and
+  tagged `/* per-page override of .X in style.css */` so the
+  divergence is explicit. Per-page CSS total dropped from 933
+  lines to 803 lines. Shared page-layout helpers
+  (`.page-container`, `.breadcrumb`, `.form-layout`,
+  `.field-help`, `.form-actions`, `.form-actions-left/right`,
+  `.form-actions .btn`, `.alert ul`, `.alert li`) were promoted
+  into the global stylesheet so the per-page blocks only carry
+  page-unique or per-page-override rules.
+- No visual change intended; the test
+  `database/task_layout_issue013_test.php` continues to pass
+  unchanged.
+
+### Hardened regression tests
+- **Two render-via-CLI-proxy tests** —
+  `database/task_inherit_subtask_hours_test.php` and
+  `client/toggle_subtasks_test.php::renderDashboard()` — now
+  register a `register_shutdown_function()` closure that
+  guarantees the proxy file is deleted even if the test exits
+  early via a fatal error or `exit(1)`. The original code only
+  `@unlink()`'d on the happy path.
+- **`client/toggle_subtasks_test.php`** dropped a dead
+  `tempnam(sys_get_temp_dir(), 'issue010_dash_')` call that
+  assigned to `$tmp` and was never used.
+- **New `database/README.md` and `client/README.md`** document
+  the regression-test pattern (DB-backed vs source-grep vs
+  CLI-proxy-render) and warn the next dev that the `pmp-app`
+  container has no `mariadb` / `mysql` CLI client — any future
+  test that needs to seed the DB **must** go through
+  `Database::execute()`.
+
+### Documentation
+- **New `docs/sprint/v1.6.md`** captures the goal, dependency
+  graph, effort estimate, and risk register for this release so
+  the next sprint has a place to land.
+- **`docs/issues/issue-014.md`** is unchanged — it already
+  specifies this work.
+
+### Files changed
+- `docker-compose.yml` — remove the `02-subtask.sql` mount;
+  add an explanatory comment.
+- `database/subtask_functions.sql` → `subtask_functions.sql.disabled`.
+- `database/schema.sql` — header note explaining that parent
+  rollups are PHP-side.
+- `task_edit.php`, `task_detail.php`, `contact_edit.php`,
+  `project_edit.php` — strip duplicate per-page CSS; add
+  comment headers documenting what is page-unique vs override.
+- `assets/css/style.css` — add the shared page-layout helpers
+  promoted out of the per-page blocks.
+- `database/task_inherit_subtask_hours_test.php`,
+  `client/toggle_subtasks_test.php` — `register_shutdown_function`
+  cleanup; drop dead `tempnam()`.
+- `database/README.md` (new), `client/README.md` (new) — test
+  pattern docs and `shell_exec` warnings.
+- `docs/sprint/v1.6.md` (new) — sprint plan.
+
+### Upgrade notes
+- **Pre-v1.6.0 installs that somehow have the triggers loaded:**
+  run `DROP TRIGGER IF EXISTS UpdateParentTaskCompletion;` (and
+  the `*Insert`, `*Delete` variants) once, then pull. The live
+  DB has zero triggers today, so this is a no-op for the current
+  install.
+- **Otherwise:** pull the latest code, rebuild the `db`
+  container (`docker compose up -d --build db`), reload the
+  browser. No app restart required, no schema migration to run.
+
+### Reference
+- [docs/issues/issue-014.md](docs/issues/issue-014.md) — the spec.
+- [docs/sprint/v1.6.md](docs/sprint/v1.6.md) — the sprint plan.
+
+---
+
 ## v1.5.1 — 2026-10-13
 
 UI layout fixes for the v1.5.0 `task_edit.php` / `task_detail.php`

@@ -171,6 +171,19 @@ unchanged:
 - Adding a new font, icon, or asset. The Font Awesome 6
   bundle already loaded by the page is sufficient.
 
+## Follow-up
+
+- The four pages that picked up the new global rules
+  (`task_edit.php`, `task_detail.php`, `contact_edit.php`,
+  `project_edit.php`) still carry per-page `<style>` blocks
+  that duplicate most of the new rules. The duplication is
+  intentional in this issue (no other page is touched) but
+  is a known liability. The follow-up work to strip the
+  duplicate per-page rules and consolidate everything in
+  `assets/css/style.css` is tracked as
+  [issue-014 §2](./issue-014.md#2-collapse-per-page-css-duplication)
+  in the v1.6 audit.
+
 ## UX
 
 ### `task_detail.php` — page-actions row (desktop ≥ 768 px)

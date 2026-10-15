@@ -360,39 +360,20 @@ $show_nav = true;
 </div>
 
 <style>
-.page-container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-}
+/* Per-page CSS for contact_edit.php.
+ *
+ * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
+ * provide the baseline (page-container, breadcrumb, form-layout,
+ * form-grid, form-section, form-group, btn, alert, checkbox-label,
+ * field-help, form-actions, and the @media (max-width: 768px) collapse).
+ * Rules below are EITHER page-unique to this form OR explicit
+ * per-page overrides of a global rule (the divergence is intentional;
+ * comments tag them).
+ */
 
-.breadcrumb {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 10px;
-}
-
-.breadcrumb a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-.breadcrumb span {
-    margin: 0 8px;
-}
-
-.form-layout {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    padding: 30px;
-    margin-top: 20px;
-}
-
+/* Per-page override of .form-grid in style.css: this form prefers wider
+ * gaps (30px) and an extra bottom margin. The 2-column structure
+ * itself matches the global rule. */
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -400,6 +381,8 @@ $show_nav = true;
     margin-bottom: 30px;
 }
 
+/* Per-page override of .form-grid .form-section h3 in style.css:
+ * heavier border-bottom (2px vs 1px) and larger font (1.2rem vs 1rem). */
 .form-section h3 {
     margin: 0 0 20px 0;
     color: #333;
@@ -408,18 +391,8 @@ $show_nav = true;
     padding-bottom: 10px;
 }
 
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-}
-
+/* Per-page override of .form-group input/select/textarea in style.css:
+ * 1px border (vs global 2px) and a tighter 0.95rem font size. */
 .form-group label.required::after {
     content: ' *';
     color: #dc3545;
@@ -461,6 +434,10 @@ $show_nav = true;
     background: #f8f9fa;
 }
 
+/* Per-page override of .checkbox-label in style.css: adds padding and
+ * hover background. The issue-013 global rule sets display:flex +
+ * align-items:center + gap:8px + cursor:pointer; this one extends
+ * `gap: 10px` and adds interactive feedback. */
 .checkbox-label {
     display: flex;
     align-items: center;
@@ -505,36 +482,8 @@ $show_nav = true;
     text-decoration: underline;
 }
 
-.field-help {
-    font-size: 0.85rem;
-    color: #666;
-    margin: 5px 0 0 0;
-    font-style: italic;
-}
-
-.form-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 20px;
-    border-top: 1px solid #f1f3f4;
-}
-
-.form-actions-left {
-    display: flex;
-    gap: 15px;
-}
-
-.form-actions-right {
-    display: flex;
-    gap: 15px;
-}
-
-.form-actions .btn {
-    padding: 12px 24px;
-    font-weight: 500;
-}
-
+/* Per-page override of .alert / .alert-danger in style.css: this form
+ * uses an all-around 1px border (vs the global 4px border-left). */
 .alert {
     padding: 15px;
     border-radius: 8px;
@@ -547,48 +496,38 @@ $show_nav = true;
     color: #721c24;
 }
 
-.alert ul {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.alert li {
-    margin-bottom: 5px;
-}
-
-.alert li:last-child {
-    margin-bottom: 0;
-}
-
 @media (max-width: 768px) {
+    /* Per-page mobile overrides. The baseline mobile collapse for
+     * .form-grid now lives in style.css; only the contact-page-specific
+     * mobile tweaks remain. */
     .page-container {
         padding: 15px;
     }
-    
+
     .form-layout {
         padding: 20px;
     }
-    
+
     .form-grid {
         grid-template-columns: 1fr;
         gap: 20px;
     }
-    
+
     .form-actions {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .form-actions-left,
     .form-actions-right {
         flex-direction: column;
         width: 100%;
     }
-    
+
     .form-actions .btn {
         text-align: center;
     }
-    
+
     .project-checkboxes {
         max-height: 150px;
     }
