@@ -112,19 +112,46 @@ ok(
         && strpos($install_src, 'startSession()') < strpos($install_src, '<!DOCTYPE html>')
 );
 
-echo "\n## 5. Two-stage gate\n";
+echo "\n## 5. Install gate (single-stage, see Deviation 1)\n";
 ok(
     'install.php checks file_exists(config.php)',
     strpos($install_code, "file_exists(__DIR__ . '/config.php')") !== false
         || strpos($install_code, "file_exists('config.php')") !== false
 );
 ok(
-    'install.php probes SHOW TABLES LIKE \'users\'',
-    strpos($install_code, "SHOW TABLES LIKE 'users'") !== false
+    'install.php redirects to index.php when config.php exists',
+    substr_count($install_code, "header('Location: index.php')") >= 1
+);
+
+// As of v1.7.0 the gate is single-stage. The "stage 2" DB probe
+// (SHOW TABLES LIKE 'users') was removed in response to the tester
+// report (Deviation 1): the probe was unreachable because the wizard
+// never loads config.php and the DB_* constants were never defined.
+// Asserting the probe is GONE prevents a future dev from
+// re-introducing the same dead code.
+echo "\n## 5a. No dead-code stage-2 probe (regression net for Deviation 1)\n";
+ok(
+    'install.php does NOT probe SHOW TABLES LIKE \'users\' at the top level',
+    // The probe is gone from the gate block. It must not reappear
+    // unless a real fix (e.g. a marker file) is added to make the
+    // probe reachable — and the spec / spec test would have to be
+    // updated in the same change. Today the absence of the probe is
+    // the contract.
+    strpos($install_code, "SHOW TABLES LIKE 'users'") === false
 );
 ok(
-    'install.php redirects to index.php on either gate hit',
-    substr_count($install_code, "header('Location: index.php')") >= 2
+    'install.php has a comment acknowledging the single-stage design',
+    // A dev reading the gate block should immediately see WHY it is
+    // single-stage. The comment must reference the issue tracker
+    // (tester-report.md) so a future reader can follow up. We
+    // search the ORIGINAL source ($install_src, NOT the comment-
+    // stripped $install_code) because strip_php_comments() would
+    // eat the // line containing the reference. The pattern spans
+    // lines because the comment is multi-line.
+    (bool)preg_match(
+        '~//[^\n]*tester-report\.md[\s\S]{0,200}?Deviation\s*1~i',
+        $install_src
+    )
 );
 
 // ---------------------------------------------------------------------------

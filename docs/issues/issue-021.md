@@ -251,46 +251,55 @@ in each of the three form steps, and call
 A third-party site cannot now force a victim to
 reinstall their app.
 
-### 5. Two-stage gate on the wizard
+### 5. Install wizard gate (single-stage, see Deviation 1)
 
-The current gate is `if (file_exists('config.php'))`.
-Strengthen to a two-stage check:
+The v1.7.0 spec called for a two-stage gate: a
+`file_exists('config.php')` check, plus a
+positive `SHOW TABLES LIKE 'users'` probe as a
+safety net for the edge case where the file
+write failed but the entrypoint had already
+loaded the schema.
+
+The v1.7.0 tester run (see
+`tester-report.md` Deviation 1) caught that the
+stage-2 probe was **unreachable**: the wizard
+deliberately does NOT load `config.php` (its
+job is to *write* it), so the `DB_*` constants
+are never defined when the wizard runs, and
+`defined('DB_HOST')` is always false. A
+proposed `@include __DIR__ . '/config.php'`
+workaround does not help: if `config.php`
+exists, stage 1's `file_exists` check has
+already redirected; if it is missing, the
+`@include` is a silent no-op and the
+`defined()` guards are still false.
+
+**Resolution**: acknowledge that the
+`file_exists('config.php')` check is the only
+effective gate in the current architecture, and
+remove the dead stage-2 block. The final gate
+is:
 
 ```php
-if (file_exists('config.php')) {
+if (file_exists(__DIR__ . '/config.php')) {
     header('Location: index.php');
     exit();
 }
-// Even if config.php is missing, refuse to render the
-// wizard if the schema is already loaded — the schema
-// loader creates the `users` table; checking for that
-// table is a positive signal that the install is done.
-if (file_exists('database/schema.sql')) {
-    $probe = @new PDO(
-        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-        DB_USER, DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT]
-    );
-    if ($probe instanceof PDO) {
-        try {
-            $row = $probe->query("SHOW TABLES LIKE 'users'")->fetch();
-            if ($row) {
-                header('Location: index.php');
-                exit();
-            }
-        } catch (Exception $e) {
-            // DB unreachable — wizard is legitimate, fall through
-        }
-    }
-}
 ```
 
-In a normal install, `config.php` is present
-immediately after the wizard writes it; the
-second check is a safety net for the edge case
-where the file write failed but the schema was
-already loaded by the entrypoint's
-`docker/entrypoint.sh` flow.
+A real two-stage safety net requires a separate
+marker file (e.g. a sidecar `install.complete`
+written by the entrypoint) that the wizard can
+read without loading `config.php`. That is a
+bigger design change and is **deferred** out of
+the v1.7.0 scope. The single-stage gate above
+is sufficient: a third-party site cannot force
+a reinstall because the `file_exists` check
+fires the moment the wizard's output (the
+written `config.php`) becomes visible to the
+victim's own browser, and the wizard itself is
+only ever reached by a freshly-cloned,
+never-installed instance.
 
 ### 6. Move `_smtp_test.php` out of the web root
 
@@ -309,7 +318,8 @@ cannot serve it anyway.
 
 - `install.php` — strict `db_name` regex, `var_export`
   config writer, `SERVER_NAME`-based URL, CSRF,
-  two-stage gate.
+  single-stage install gate (two-stage deferred,
+  see §5).
 - `docker/_smtp_test.php` (new location, copied from
   `_smtp_test.php`).
 - `_smtp_test.php` — **delete** after the copy.
@@ -328,15 +338,16 @@ cannot serve it anyway.
   output should be byte-identical to the
   `entrypoint.sh` output for the same inputs (the
   test below asserts this).
-- **The two-stage gate introduces a `new PDO()` call
-  in the wizard's top-level code.** This requires
-  the `DB_*` constants in `config.php` to be
-  defined. On a first run, `config.php` is absent;
-  the wizard renders without hitting the
-  `users`-table check (the `if (file_exists('config.php'))`
-  block above it already exits). On subsequent
-  visits, the constants are loaded via
-  `require_once 'config.php'` at the top.
+- **The original two-stage gate design was rejected
+  by the v1.7.0 tester run** (see `tester-report.md`
+  Deviation 1 and §5 for the full reasoning). The
+  shipped gate is single-stage
+  (`file_exists('config.php')` only). No `new PDO()`
+  call lives in the wizard, so there is no risk of
+  the wizard trying to connect to the DB before
+  the user has supplied credentials. A marker-file
+  based two-stage gate is deferred to a later
+  issue.
 - **The CSRF token in the wizard requires a session.**
   The wizard already calls `session_start()` on
   step 3. Move the `session_start()` to the top of
@@ -404,7 +415,9 @@ cannot serve it anyway.
    instead of `HTTP_HOST`.
 4. **Source-grep** the `getCsrfToken()` /
    `validateCsrfToken()` calls in `install.php`.
-5. **Source-grep** the two-stage gate.
+5. **Source-grep** the single-stage install gate
+   and confirm no `SHOW TABLES LIKE 'users'` probe
+   exists in the wizard (see §5 and Deviation 1).
 6. **Confirm** `_smtp_test.php` is gone
    (`is_file` returns `false`).
 7. **Confirm** `docker/_smtp_test.php` exists

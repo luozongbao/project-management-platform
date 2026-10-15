@@ -27,34 +27,21 @@ require_once __DIR__ . '/includes/functions.php';
 // three steps and persists across step redirects.
 startSession();
 
-// --- Two-stage gate -------------------------------------------------------
-// Stage 1: config.php exists → wizard is done.
+// --- Gate -----------------------------------------------------------------
+// The wizard's only effective gate is `config.php` existing. A "stage
+// 2" probe against the live DB (e.g. SHOW TABLES LIKE 'users') is
+// unreachable here because the wizard does NOT load config.php — its
+// job is to CREATE config.php — so the DB_* constants are never
+// defined and any DB probe is dead code. An earlier draft of this
+// block wrapped the probe in `if (defined('DB_HOST') && ...)` but
+// that condition is always false on a wizard hit. (See
+// docs/issues/issue-021/tester-report.md Deviation 1 for the
+// reproduction; the spec's stage-2 design is acknowledged as not
+// implementable without a separate marker file, which is out of
+// scope for this issue.)
 if (file_exists(__DIR__ . '/config.php')) {
     header('Location: index.php');
     exit();
-}
-
-// Stage 2: schema has already been loaded (entrypoint / first-run path)
-// → refuse to re-render the wizard even if config.php somehow went
-// missing. We probe via the DB_* constants which must therefore be
-// defined. If the constants are missing, fall through and render.
-if (defined('DB_HOST') && defined('DB_NAME') && defined('DB_USER') && defined('DB_PASS')) {
-    $probe = @new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER, DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT]
-    );
-    if ($probe instanceof PDO) {
-        try {
-            $row = $probe->query("SHOW TABLES LIKE 'users'")->fetch(PDO::FETCH_NUM);
-            if ($row) {
-                header('Location: index.php');
-                exit();
-            }
-        } catch (Exception $e) {
-            // DB unreachable — wizard is legitimate, fall through.
-        }
-    }
 }
 // -------------------------------------------------------------------------
 
