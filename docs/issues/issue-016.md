@@ -1,6 +1,6 @@
 # CSRF on Mutating Endpoints + Raw PDO Error Echo + Email HTML Injection
 
-**Status:** Proposed
+**Status:** implemented
 **Type:** Security / Hardening
 **Priority:** High
 **Affects:** `contact_edit.php`, `task_edit.php`, `profile.php`, `ajax/complete_task.php`, `ajax/update_task_status.php`, `ajax/update_task_progress.php`, `ajax/get_project_contacts.php`, `includes/EmailService.php`

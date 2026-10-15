@@ -1,6 +1,6 @@
 # `install.php` Hardening + `_smtp_test.php` Web-Root Removal
 
-**Status:** Proposed
+**Status:** Implemented
 **Type:** Security / Hardening
 **Priority:** High (on first run)
 **Affects:** `install.php`, `docker/entrypoint.sh`, `docker/nginx.conf`, `_smtp_test.php`

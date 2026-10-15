@@ -2,21 +2,31 @@
 /**
  * _smtp_test.php — diagnostic helper for Hostinger-style shared hosting.
  *
+ * CLI-ONLY. Invoke via:
+ *     docker exec -it pmp-app php /var/www/html/docker/_smtp_test.php you@yourdomain.com
+ *
+ * Issue-021: this file was moved out of the web root (it used to live
+ * at /var/www/html/_smtp_test.php). The Nginx deny regex that used to
+ * block it is no longer needed; the file is simply not web-reachable
+ * because the docker/ directory is not bind-mounted into the document
+ * root.
+ *
  * DELETE THIS FILE after debugging. It:
  *   1. Prints the active SMTP config from config.php (so you can spot
  *      placeholders / wrong port).
  *   2. Attempts a real send() and the SMTP transcript.
  *   3. Forces PHPMailer into verbose debug mode (SMTP::DEBUG_SERVER).
- *
- * Run from CLI:
- *     php _smtp_test.php you@yourdomain.com
- *
- * Or visit in browser (delete the file when done!):
- *     https://yourdomain.com/_smtp_test.php?to=you@yourdomain.com
  */
 
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/vendor/autoload.php';
+// Hard guard: refuse to run under any non-CLI SAPI. The file is now
+// out of the web root, but a defense-in-depth check costs nothing.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit("Forbidden: _smtp_test.php is CLI-only.\n");
+}
+
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
