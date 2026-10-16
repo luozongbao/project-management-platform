@@ -57,8 +57,16 @@ $pure_tests = [
     'in_progress: any in_progress child wins over completed' => [
         null, ['completed', 'in_progress', 'completed'], 'in_progress',
     ],
-    'completed: with not_started → still completed (loose rule: any completed wins over not_started)' => [
-        null, ['completed', 'not_started'], 'completed',
+    'completed: all children completed' => [
+        null, ['completed', 'completed', 'completed'], 'completed',
+    ],
+    'completed: single completed child' => [
+        null, ['completed'], 'completed',
+    ],
+    'not_started: completed + not_started (strict rule: not all completed)' => [
+        // Issue-025: under the strict rule, even one non-completed child
+        // blocks promotion. Was 'completed' under the old loose rule.
+        null, ['completed', 'not_started'], 'not_started',
     ],
     'not_started: all not_started' => [
         null, ['not_started', 'not_started'], 'not_started',
@@ -66,14 +74,18 @@ $pure_tests = [
     'not_started: empty children list' => [
         null, [], 'not_started',
     ],
-    'completed beats not_started when no in_progress (loose rule)' => [
-        null, ['completed', 'not_started', 'not_started'], 'completed',
+    'not_started: completed + completed + not_started (strict rule)' => [
+        // Issue-025: third child is not_started → no promotion.
+        null, ['completed', 'completed', 'not_started'], 'not_started',
     ],
-    'on_hold children do not promote to in_progress' => [
-        // No child is in_progress, one is completed → parent is completed.
-        null, ['completed', 'on_hold'], 'completed',
+    'not_started: completed + on_hold (strict rule: on_hold blocks)' => [
+        // Issue-025: on_hold child is not 'completed' → strict rule fails.
+        null, ['completed', 'on_hold'], 'not_started',
     ],
-    'mixed on_hold + in_progress → in_progress (on_hold is the child, not parent)' => [
+    'not_started: on_hold only (no progress, not all completed)' => [
+        null, ['on_hold'], 'not_started',
+    ],
+    'in_progress: mixed on_hold + in_progress (on_hold is the child, not parent)' => [
         null, ['on_hold', 'in_progress', 'not_started'], 'in_progress',
     ],
 ];
@@ -199,15 +211,16 @@ try {
     // 2f. Resume: derive new status from children.
     $db->execute("UPDATE tasks SET status = 'completed', completion_percentage = 100, completion_date = NOW() WHERE id = ?", [$a1]);
     syncProjectTaskCompletions($db, $project_id);
-    // After re-promoting a1 to completed, all children are completed → resume
-    // should yield 'completed'.
+    // After re-promoting a1 to completed, a1=completed, a2=not_started.
+    // Under the strict rule (issue-025), derive yields 'not_started'
+    // (one child is not yet completed, so strict all-completed fails).
     $child_statuses = array_map(
         fn($r) => $r['status'],
         $db->fetchAll('SELECT status FROM tasks WHERE parent_task_id = ?', [$parent_id])
     );
     $derived = deriveParentStatus(null, $child_statuses);
-    if ($derived !== 'completed') {
-        $failures[] = "2f: resume derive expected 'completed', got '$derived'";
+    if ($derived !== 'not_started') {
+        $failures[] = "2f: resume derive expected 'not_started' (strict rule, a2 still not_started), got '$derived'";
     }
 } catch (Exception $e) {
     $failures[] = 'DB round-trip threw: ' . $e->getMessage();
