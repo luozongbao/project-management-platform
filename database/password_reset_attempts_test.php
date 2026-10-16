@@ -361,9 +361,7 @@ echo "\n## 8. Source-grep on reset_password.php\n";
 $resetRequired = [
     'isPasswordResetRateLimited',
     'recordPasswordResetAttempt',
-    'rotatePasswordResetToken',
     'invalidateAllPasswordResetTokensForUser',
-    "header('Location: reset_password.php?token=' . urlencode(\$rotated_token))",
 ];
 foreach ($resetRequired as $needle) {
     ok("reset_password.php references '$needle'", strpos($resetCode, $needle) !== false);
@@ -377,9 +375,26 @@ ok('functions.php contains the all-tokens DELETE SQL',
 ok('reset_password.php does NOT contain the all-tokens DELETE SQL inline',
     strpos($resetCode, 'DELETE FROM password_reset_tokens WHERE user_id = ?') === false);
 
-// 302 redirect on rotation
-ok('reset_password.php issues a 302 to the rotated-token URL on GET',
-    strpos($resetCode, "header('Location: reset_password.php?token=") !== false);
+// Issue-024: the previous flow rotated the token on every GET
+// render and 302-redirected to the rotated-token URL. That
+// created an infinite redirect loop because
+// rotatePasswordResetToken() always returns a fresh token, so
+// $rotated_token !== $token was always true. The fix removes
+// the rotation-on-render AND the 302 redirect. The new flow
+// renders the form on GET and only invalidates the token on
+// successful POST (via the existing invalidateAllPasswordResetTokensForUser
+// helper, which deletes ALL of the user's tokens — stronger than
+// per-link rotation).
+//
+// Regression net: assert the broken code is GONE.
+ok('reset_password.php does NOT call rotatePasswordResetToken on GET render (issue-024 fix)',
+    strpos($resetCode, 'rotatePasswordResetToken($token)') === false);
+ok('reset_password.php does NOT issue a 302 to the rotated-token URL on GET (issue-024 fix)',
+    strpos($resetCode, "header('Location: reset_password.php?token=") === false);
+ok('reset_password.php does NOT redirect-loop on render (issue-024 fix)',
+    strpos($resetCode, "urlencode(\$rotated_token)") === false);
+ok('reset_password.php still defines a $valid_token flag (issue-024 fix preserves the form-render gate)',
+    strpos($resetCode, '$valid_token = true') !== false);
 
 // Rate-limit error string is the SAME as the bad-token string (so an
 // attacker cannot distinguish). Verify the spec language.

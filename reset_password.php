@@ -31,37 +31,39 @@ if (empty($token)) {
     );
     
     if ($reset_data) {
-        // Issue-018: rate-limit check BEFORE the token-rotation
-        // step. If the IP is over the consume threshold, render
-        // the same "Invalid or expired reset link" block as a
-        // bad token would (so the attacker cannot distinguish
-        // "rate limited" from "bad token" from "expired
-        // token"). We do NOT rotate the token, so the rotation
-        // is gated by "you are allowed to be here" — a
-        // rate-limited IP cannot trigger rotation churn against
-        // a valid token.
+        // Issue-024: the previous flow rotated the token on every
+        // GET render and 302-redirected to the new URL. The intent
+        // was to invalidate a URL leaked via browser history the
+        // moment the user opens the page, but the implementation
+        // created an infinite redirect loop: rotatePasswordResetToken()
+        // ALWAYS returns a fresh token (it generates a new one via
+        // generateToken() on every call), so `$rotated_token !==
+        // $token` was always true, the 302 fired on every request,
+        // the browser followed the next request, the page rotated
+        // again, and so on until the browser gave up. The user saw
+        // either a "Too many redirects" error or, on some browsers,
+        // the cached error page from a later request that had
+        // already lost track of the original token. Symptom:
+        // "clicked the link immediately and got 'Invalid Reset
+        // Link'".
+        //
+        // The fix: do NOT rotate on render and do NOT redirect.
+        // The token in the URL stays valid for the whole form
+        // session. Rotation happens ONLY on successful POST (the
+        // existing code at line ~116 invalidates ALL of the user's
+        // tokens on success, which is stronger than per-link
+        // rotation).
+        //
+        // The rate-limit check stays in place — it is the right
+        // defense against a brute-force campaign against a known
+        // good token. The "Invalid or expired reset link" string is
+        // reused for the rate-limited case so an attacker cannot
+        // distinguish "rate limited" from "bad token" from
+        // "expired token".
         $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
         if (isPasswordResetRateLimited($clientIp, 'consume')) {
             $errors[] = "Invalid or expired reset link";
         } else {
-            // Issue-018: token rotation on every successful GET
-            // render. A URL leaked via browser history or the
-            // address bar after the user has finished becomes
-            // useless the moment the page renders. We then
-            // 302-redirect to the rotated-token URL so the
-            // address bar shows the rotated token, and the
-            // form below uses the rotated token from $_GET.
-            $rotated_token = rotatePasswordResetToken($token);
-            if ($rotated_token !== null && $rotated_token !== $token) {
-                // 302 to the rotated URL. The browser will
-                // re-fetch with ?token=<new> and render the
-                // form on the second pass. The second pass
-                // is a no-op rotation (rotated_token ===
-                // $token) and proceeds to the form render.
-                header('Location: reset_password.php?token=' . urlencode($rotated_token));
-                exit();
-            }
-
             $valid_token = true;
         }
 
