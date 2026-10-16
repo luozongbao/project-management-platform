@@ -4,7 +4,37 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.5.1 (2026-10-13) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.0 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.0** is a security + bugfix bundle. It closes the v1.6.0
+> security audit ([issue-015](docs/issues/issue-015.md) — umbrella;
+> split into [issue-016](docs/issues/issue-016.md) through
+> [issue-023](docs/issues/issue-023.md)) and the password-reset
+> redirect loop ([issue-024](docs/issues/issue-024.md)). Highlights:
+> CSRF on every mutating internal endpoint
+> (`contact_edit.php`, `task_edit.php`, `profile.php`); raw PDO
+> error messages no longer echo to the user; `install.php`
+> hardened against `addslashes`-style config injection and
+> `$_SERVER['HTTP_HOST']` header injection; `_smtp_test.php`
+> moved out of the web root; `task_edit.php` POST handler
+> re-validates `responsible_person_id` / `contact_person_id` /
+> `project_id` against the current user's project set (closes
+> the IDOR); new per-IP rate limits on login, registration,
+> password reset, and the public client share portal; response
+> security headers (CSP, `X-Frame-Options: DENY`,
+> `X-Content-Type-Options: nosniff`, `Referrer-Policy`,
+> `Permissions-Policy`); session cookies pinned to
+> `HttpOnly; SameSite=Lax`; `session_regenerate_id(true)` on
+> every successful login and password-reset POST; and the
+> broken rotate-on-render redirect loop in
+> `reset_password.php` is removed. Four additive
+> migrations (`password_reset_attempts`, `login_attempts`,
+> `client_share_code_attempts`, and a `share_code_rotated_at`
+> column on `projects`) ship in this release; all are
+> idempotent and apply on first DB access. No new features.
+> Pull, rebuild the `app` container
+> (`docker compose up -d --build app`), reload. No DB rebuild
+> required.
 >
 > **v1.5.1** ships two small UI-layout fixes against the v1.5.0
 > `task_edit.php` / `task_detail.php` surface (issue-013, revised
@@ -478,6 +508,25 @@ docker compose exec db \
 docker compose exec db \
     mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
     < database/migrations/20261012_add_task_inherit_subtask_hours.sql
+
+# v1.7.0 — Security + bugfix bundle (issues 015–024). Four additive
+# migrations, all idempotent via CREATE TABLE IF NOT EXISTS / the
+# information_schema guard on the projects column add. Apply in date
+# order; order is not load-bearing for correctness but matches the
+# release manifest. The backfill UPDATE in the rotated_at migration
+# is a no-op on a re-run.
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261015_add_password_reset_attempts.sql
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261015_add_login_attempts.sql
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261016_add_client_share_code_attempts.sql
+docker compose exec db \
+    mariadb -udbuser -p"$(grep DB_PASSWORD .env | cut -d= -f2)" dbname \
+    < database/migrations/20261016_add_projects_share_code_rotated_at.sql
 ```
 
 The included migrations are idempotent — safe to re-run.
@@ -647,6 +696,38 @@ schema additions:
   `contacts.address TEXT NULL` — the columns the contact write/search
   code has been using all along; missing from the original schema and
   fixed in the same release.
+- v1.7.0 (security + bugfix bundle, issues 015–024). Four additive
+  migrations; all are guarded (`CREATE TABLE IF NOT EXISTS` /
+  `information_schema`) and re-applicable. Mirror these in
+  `schema.sql` so a fresh install picks them up automatically.
+  - `password_reset_attempts` (issue-018) — per-IP + per-user attempt
+    log for the forgot/reset password flow. Columns: `id`,
+    `ip_address VARCHAR(45)`, `action ENUM('request','consume')`,
+    `user_id INT NULL` (FK to `users`, ON DELETE CASCADE),
+    `success TINYINT(1)`, `attempted_at TIMESTAMP`. Indexed on
+    `(ip_address, action, attempted_at)` and `(user_id, attempted_at)`.
+  - `login_attempts` (issue-019) — per-(IP, username) attempt log for
+    the login flow. Columns: `id`, `ip_address VARCHAR(45)`,
+    `username_attempted VARCHAR(255)` (the *submitted* value, not a
+    `users` FK — this is the field that records a credential-stuffing
+    attack rotating usernames), `success TINYINT(1)`,
+    `attempted_at TIMESTAMP`. Indexed on
+    `(username_attempted, attempted_at)` and `(ip_address, attempted_at)`.
+  - `client_share_code_attempts` (issue-023) — per-IP attempt log for
+    the public client portal share-code lookups. Columns: `id`,
+    `ip_address VARCHAR(45)`, `code_attempted VARCHAR(20)` (the
+    submitted value, not a `projects` FK), `project_id INT NULL` (NULL
+    for unknown / malformed codes; no `ON DELETE CASCADE` — attempts
+    against a deleted project are useful forensic data), `success
+    TINYINT(1)`, `attempted_at TIMESTAMP`. Indexed on
+    `(ip_address, attempted_at)` and `(project_id, attempted_at)`.
+  - `projects.share_code_rotated_at TIMESTAMP NULL DEFAULT NULL`
+    (issue-023) — wall-clock time the project's current share code
+    was last rotated. Backfilled to `NOW()` for every existing row
+    that has a non-null `share_code`. The migration is
+    `information_schema`-guarded; the backfill `UPDATE` is
+    idempotent (a re-run is a no-op because the `WHERE share_code
+    _rotated_at IS NULL` clause matches nothing on the second pass).
 
 ---
 

@@ -2,6 +2,7 @@
 require_once 'config.php';
 require_once 'includes/Database.php';
 require_once 'includes/functions.php';
+require_once 'includes/task_edit_auth.php';
 
 requireLogin();
 
@@ -52,8 +53,24 @@ $user_projects = $db->fetchAll(
     [$user_id]
 );
 
-// Get users for responsible person assignment
-$users = $db->fetchAll("SELECT id, name, email FROM users ORDER BY name");
+// Get users for responsible person assignment.
+// Issue-022 (IDOR): the dropdown must show the same set the POST handler
+// will accept — i.e. the current user, plus other project owners. Showing
+// every user in the database was an IDOR vector: a logged-in user could
+// POST a forged responsible_person_id pointing to a non-owner and the
+// existence-only check would accept it. The same rule is enforced in
+// includes/task_edit_auth.php::taskEditCanAssignResponsible() so the
+// GET-time and POST-time views match.
+$users = $db->fetchAll(
+    "SELECT id, name, email FROM users
+     WHERE id = ?
+        OR id IN (
+            SELECT responsible_person_id FROM projects
+            WHERE responsible_person_id IS NOT NULL
+        )
+     ORDER BY name",
+    [$user_id]
+);
 
 // Get contacts for the project (if project is selected)
 $contacts = [];
@@ -98,6 +115,13 @@ if ($is_editing) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Issue-016 (CSRF): reject any request that does not carry a valid
+    // CSRF token. The check sits BEFORE any input read so a missing /
+    // invalid token cannot leak DB error messages or partial state.
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Your session could not be verified. '
+                  . 'Please reload the page and submit again.';
+    } else {
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $status = $_POST['status'] ?? 'not_started';
@@ -131,24 +155,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!$form_project_id && !$is_subtask) {
         $errors[] = "Project selection is required for main tasks.";
+    } elseif ($form_project_id && !taskEditCanUseProject($db, $user_id, $form_project_id)) {
+        // Issue-022 (IDOR): the submitted project_id must be one of the
+        // current user's projects. The dropdown is already scoped
+        // ($user_projects above), so a normal browser flow never hits this
+        // branch — it only fires on a forged POST that names a project the
+        // attacker does not own. For sub-tasks, $form_project_id is null
+        // because the form does not post a project_id; the project is
+        // derived from $parent_task which was already validated when the
+        // page was loaded.
+        $errors[] = "Selected project is not one of your projects.";
+        $form_project_id = null;
     }
     
     if (empty($responsible_person_id)) {
         $errors[] = "Responsible person must be assigned to the task.";
-    } else {
-        // Validate that the responsible person exists
-        $person_exists = $db->fetchOne("SELECT id FROM users WHERE id = ?", [$responsible_person_id]);
-        if (!$person_exists) {
-            $errors[] = "Selected responsible person does not exist.";
-        }
+    } elseif (!taskEditCanAssignResponsible($db, $user_id, $responsible_person_id)) {
+        // Issue-022 (IDOR): the responsible person must be the current
+        // user OR another user who is the responsible person of at least
+        // one project. The previous existence-only check let any
+        // logged-in attacker reassign a task to a non-owner (e.g. an
+        // ex-employee account that was never deleted). See
+        // includes/task_edit_auth.php for the rule.
+        $errors[] = "Selected responsible person is not a user "
+                  . "you can assign a task to.";
     }
-    
-    if (!empty($contact_person_id)) {
-        // Validate that the contact person exists
-        $contact_exists = $db->fetchOne("SELECT id FROM contacts WHERE id = ?", [$contact_person_id]);
-        if (!$contact_exists) {
-            $errors[] = "Selected contact person does not exist.";
-        }
+
+    if (!empty($contact_person_id) && !taskEditCanAssignContact($db, $user_id, $contact_person_id)) {
+        // Issue-022 (IDOR): the contact must be linked to at least one
+        // of the current user's projects. The previous existence-only
+        // check let any logged-in attacker link a task to a contact on
+        // another user's project, which then surfaces in that contact's
+        // owner's contact_detail.php view.
+        $errors[] = "Selected contact is not on any of your projects.";
     }
     
     if (!in_array($status, ['not_started', 'in_progress', 'completed', 'on_hold'])) {
@@ -287,9 +326,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
             }
         } catch (Exception $e) {
-            $errors[] = "Error saving task: " . $e->getMessage();
+            // Issue-016: log the underlying PDO message server-side but
+            // do NOT echo it to the user (info disclosure).
+            error_log("Task save failed: " . $e->getMessage());
+            $errors[] = "Failed to save the task. Please try again. "
+                      . "If the problem persists, contact your administrator.";
         }
     }
+    } // end else (!validateCsrfToken failed)
 }
 
 $title = $is_editing ? "Edit Task" : ($is_subtask ? "New Subtask" : "New Task");
@@ -342,6 +386,7 @@ $show_nav = true;
 
     <div class="form-layout">
         <form method="POST" class="task-form">
+            <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
             <div class="form-grid">
                 <!-- Basic Information -->
                 <div class="form-section">
@@ -711,39 +756,21 @@ function loadProjectContacts(projectId) {
 </script>
 
 <style>
-.page-container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-}
+/* Per-page CSS for task_edit.php.
+ *
+ * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
+ * provide the baseline (page-container, breadcrumb, form-layout,
+ * form-grid, form-section, form-group, btn, alert, page-header,
+ * page-actions, checkbox-label, estimate-input, field-help,
+ * form-actions, form-actions-left/right, and the @media (max-width:
+ * 768px) collapse). Rules below are EITHER page-unique to this form
+ * OR explicit per-page overrides of a global rule (the divergence is
+ * intentional; comments tag them).
+ */
 
-.breadcrumb {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 10px;
-}
-
-.breadcrumb a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-.breadcrumb span {
-    margin: 0 8px;
-}
-
-.form-layout {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    padding: 30px;
-    margin-top: 20px;
-}
-
+/* Per-page override of .form-grid in style.css: this form prefers
+ * wider gaps (30px) and an extra bottom margin to separate sections
+ * visually. The 2-column structure itself matches the global rule. */
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -751,6 +778,8 @@ function loadProjectContacts(projectId) {
     margin-bottom: 30px;
 }
 
+/* Per-page override of .form-grid .form-section h3 in style.css:
+ * heavier border-bottom (2px vs 1px) and larger font (1.2rem vs 1rem). */
 .form-section h3 {
     margin: 0 0 20px 0;
     color: #333;
@@ -759,18 +788,8 @@ function loadProjectContacts(projectId) {
     padding-bottom: 10px;
 }
 
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-}
-
+/* Per-page override of .form-group in style.css: this form keeps a
+ * tighter 1px input border (vs the global 2px) and a 0.95rem font size. */
 .form-group label.required::after {
     content: ' *';
     color: #dc3545;
@@ -832,6 +851,9 @@ function loadProjectContacts(projectId) {
     font-weight: 500;
 }
 
+/* Per-page override of .estimate-input in style.css: identical layout
+ * but this file ships the rule inline so the form renders correctly
+ * even if a future change to style.css drops it. */
 .estimate-input {
     display: flex;
     gap: 10px;
@@ -847,36 +869,8 @@ function loadProjectContacts(projectId) {
     min-width: 120px;
 }
 
-.field-help {
-    font-size: 0.85rem;
-    color: #666;
-    margin: 5px 0 0 0;
-    font-style: italic;
-}
-
-.form-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 20px;
-    border-top: 1px solid #f1f3f4;
-}
-
-.form-actions-left {
-    display: flex;
-    gap: 15px;
-}
-
-.form-actions-right {
-    display: flex;
-    gap: 15px;
-}
-
-.form-actions .btn {
-    padding: 12px 24px;
-    font-weight: 500;
-}
-
+/* Per-page override of .alert / .alert-danger in style.css: this form
+ * uses an all-around 1px border (vs the global 4px border-left). */
 .alert {
     padding: 15px;
     border-radius: 8px;
@@ -889,62 +883,44 @@ function loadProjectContacts(projectId) {
     color: #721c24;
 }
 
-.alert ul {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.alert li {
-    margin-bottom: 5px;
-}
-
-.alert li:last-child {
-    margin-bottom: 0;
-}
-
 @media (max-width: 768px) {
+    /* Per-page mobile overrides. The baseline mobile collapse for
+     * .form-grid and .estimate-input now lives in style.css; only the
+     * page-specific mobile tweaks remain here. */
     .page-container {
         padding: 15px;
     }
-    
+
     .form-layout {
         padding: 20px;
     }
-    
+
     .form-grid {
         grid-template-columns: 1fr;
         gap: 20px;
     }
-    
+
     .form-actions {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .form-actions-left,
     .form-actions-right {
         flex-direction: column;
         width: 100%;
     }
-    
+
     .form-actions .btn {
         text-align: center;
     }
-    
+
     .percentage-input {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .percentage-input input[type="number"] {
-        width: 100%;
-    }
-
-    .estimate-input {
-        flex-direction: column;
-    }
-
-    .estimate-input select {
         width: 100%;
     }
 }

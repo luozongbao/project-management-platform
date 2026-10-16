@@ -66,7 +66,9 @@ services:
     volumes:
       - pmp-db-data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./database/subtask_functions.sql:/docker-entrypoint-initdb.d/02-subtask.sql:ro
+      # NOTE (v1.6.0): the historical `02-subtask.sql` mount was removed.
+      # Parent rollups are computed in PHP via calculateTaskCompletionMap();
+      # see database/schema.sql header and subtask_functions.sql.disabled.
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s

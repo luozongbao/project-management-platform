@@ -1,4 +1,10 @@
 -- Project Management System Database Schema
+--
+-- Parent-task completion rollups (and, as of v1.5.0, parent-task status
+-- derivation) are computed in PHP via `calculateTaskCompletionMap()`
+-- and `resolveTaskEstimateHours()` in `includes/functions.php`. The
+-- earlier MariaDB trigger-based approach is intentionally not used;
+-- `subtask_functions.sql.disabled` is kept as historical reference only.
 
 -- Users table
 CREATE TABLE users (
@@ -22,6 +28,54 @@ CREATE TABLE password_reset_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Password reset attempts table (issue-018: rate-limit / brute-force protection)
+-- Records every password-reset attempt (by client IP, action, user_id, outcome)
+-- so the application can enforce per-IP request/consume thresholds.
+CREATE TABLE password_reset_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,        -- IPv6-safe
+    action ENUM('request', 'consume') NOT NULL,
+    user_id INT NULL,                       -- NULL for unknown emails
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pra_ip_action_time (ip_address, action, attempted_at),
+    INDEX idx_pra_user_time (user_id, attempted_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Login attempts table (issue-019: login / register brute-force & enumeration protection)
+-- Records every login attempt (by client IP, submitted username/email, outcome) so the
+-- application can enforce per-(IP, username) and per-IP rate limits. The
+-- `username_attempted` column is the SUBMITTED value (not a users FK) so a credential
+-- stuffing attack that rotates usernames is fully recorded — and a successful login for
+-- one user does not clear the failure count for another user from the same IP.
+CREATE TABLE login_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,         -- IPv6-safe
+    username_attempted VARCHAR(255) NOT NULL,
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_la_user_time (username_attempted, attempted_at),
+    INDEX idx_la_ip_time (ip_address, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Client share-code attempts table (issue-023: client share-code brute-force protection)
+-- Records every public client-portal code attempt by client IP, the submitted code,
+-- the matched project (NULL for unknown / malformed codes), and the outcome. The
+-- application uses the history to enforce a per-IP attempt cap (20 in 5 min) and a
+-- per-IP distinct-codes cap (5 distinct failed codes in 5 min) on both
+-- `client/dashboard.php` GETs and the `index.php` "Find by Code" POST.
+CREATE TABLE client_share_code_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,         -- IPv6-safe
+    code_attempted VARCHAR(20) NOT NULL,     -- the submitted code, not a FK
+    project_id INT NULL,                     -- NULL for unknown / malformed codes
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_csca_ip_time (ip_address, attempted_at),
+    INDEX idx_csca_project_time (project_id, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Projects table
 CREATE TABLE projects (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -31,6 +85,7 @@ CREATE TABLE projects (
     budget_amount DECIMAL(15,2) NULL,                 -- Project budget in user-defined currency
     currency CHAR(3) NULL,                            -- THB, USD, CNY, JPY, SGD, EUR
     share_code CHAR(17) NULL,                         -- Public client share code, format AAAA0-AAAA0-AAAA0 (e.g. AX498-99ZB2-92C3J)
+    share_code_rotated_at TIMESTAMP NULL DEFAULT NULL, -- issue-023: when the current share_code was last generated/rotated
     responsible_person_id INT NOT NULL,
     expected_completion_date DATE,
     start_date DATE,                                -- User-settable Project Start Date (issue-008); NULL means "not recorded"

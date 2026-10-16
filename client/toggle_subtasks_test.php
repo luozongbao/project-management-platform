@@ -154,7 +154,7 @@ foreach ([
 function renderDashboard($code) {
     $script = __DIR__ . '/dashboard.php';
     // Build a one-shot PHP file that proxies $_GET and includes dashboard.php.
-    $tmp = tempnam(sys_get_temp_dir(), 'issue010_dash_');
+    // Save to a real .php file in the same dir so __DIR__/lang.php is resolvable.
     $proxy = <<<PHP
 <?php
 \$_GET = ['code' => '$code', 'lang' => 'en'];
@@ -163,9 +163,18 @@ function renderDashboard($code) {
 chdir(__DIR__);
 require '$script';
 PHP;
-    // Save to a real .php file in the same dir so __DIR__/lang.php is resolvable.
     $tmpfile = __DIR__ . '/_issue010_render_' . bin2hex(random_bytes(4)) . '.php';
     file_put_contents($tmpfile, $proxy);
+    // register_shutdown_function guarantees the proxy file is deleted
+    // even if renderDashboard() throws or the test exits early via
+    // $failures. The @unlink below is the fast path; the shutdown
+    // handler is the safety net. (v1.6.0 hardening — see
+    // docs/issues/issue-014.md §3.)
+    register_shutdown_function(static function () use ($tmpfile) {
+        if (is_file($tmpfile)) {
+            @unlink($tmpfile);
+        }
+    });
     $cmd = 'php ' . escapeshellarg($tmpfile) . ' 2>&1';
     $html = shell_exec($cmd);
     @unlink($tmpfile);

@@ -1,3 +1,14 @@
+<?php
+// Issue-020: send security response headers (CSP, X-Frame-Options,
+// X-Content-Type-Options, Referrer-Policy, Permissions-Policy).
+// Safe to call from multiple include points — has a static $sent guard.
+// The output buffer is opened in startSession() (called earlier by every
+// page) so header() can run even though the calling page has already
+// echoed a closing PHP tag and a blank line by the time header.php is
+// included.
+require_once __DIR__ . '/security_headers.php';
+sendSecurityHeaders();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

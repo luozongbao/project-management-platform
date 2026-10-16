@@ -1,3 +1,19 @@
+-- ============================================================================
+-- THIS FILE IS INTENTIONALLY DISABLED AS OF v1.6.0 (issue-014).
+--
+-- It defines a recursive `CalculateTaskCompletion` stored function and
+-- three `UpdateParentTaskCompletion*` triggers. MariaDB >= 10.5 rejects
+-- recursive stored functions (errno 1424), and the app's parent rollup
+-- is computed in PHP via `calculateTaskCompletionMap()` in
+-- `includes/functions.php`. The live database has zero triggers
+-- (`SHOW TRIGGERS;` returns an empty result set).
+--
+-- The volume mount that bind-copied this file to
+-- /docker-entrypoint-initdb.d/02-subtask.sql was removed from
+-- docker-compose.yml as part of v1.6.0. This file is preserved here for
+-- historical reference only.
+-- ============================================================================
+
 -- Function to calculate task completion percentage based on subtasks
 DELIMITER //
 

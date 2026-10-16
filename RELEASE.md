@@ -1,5 +1,335 @@
 # Release Notes
 
+## v1.7.0 — 2026-10-16
+
+**Security + bugfix bundle.** Closes the v1.6.0 security audit
+([issue-015](docs/issues/issue-015.md)) and the password-reset
+redirect loop ([issue-024](docs/issues/issue-024.md)). No new
+features. Pull, rebuild the `app` container
+(`docker compose up -d --build app`), reload — no DB rebuild
+required. Two new additive migrations ship and apply on first
+DB access (idempotent guards).
+
+### Security hardening (issue-015 umbrella, 016–023)
+
+A full read-through audit of every PHP source found thirteen
+distinct findings, triaged into the seven split-out issues
+below. The umbrella [issue-015](docs/issues/issue-015.md) is the
+authoritative index; the split-out files own the per-finding
+fix.
+
+#### CSRF on every mutating internal endpoint — [issue-016](docs/issues/issue-016.md) (High)
+
+`contact_edit.php`, `task_edit.php`, and `profile.php` now
+require a CSRF token on every POST, mirroring the pattern that
+was already in `project_edit.php` / `project_delete.php`. The
+token is rendered via `getCsrfToken()` in
+`includes/functions.php` and validated with
+`validateCsrfToken()` at the very top of the POST branch,
+before any other input is read. Both the create and change-password
+forms in `profile.php` carry the hidden input.
+
+In the same commit, three adjacent defects ride along:
+
+- **Raw PDO error messages no longer echo to the user** in
+  `contact_edit.php`, `task_edit.php`, or any of the four
+  `ajax/*.php` endpoints. The verbose message still lands in
+  `error_log` for the developer; the user sees a generic
+  "Failed to save. Please try again." string.
+- **`EmailService.php` HTML- and plaintext-escapes `$name`** in
+  both the welcome and the password-reset email templates
+  (HTML: `htmlspecialchars`; plaintext: control-character strip
+  + truncation). No more reflected content in user-controlled
+  email fields.
+
+The intentional no-CSRF endpoints (`login.php`, `register.php`,
+`forgot_password.php`) are not changed; a CSRF on
+`register.php` would be indistinguishable from the victim
+registering themselves.
+
+#### `install.php` hardening + `_smtp_test.php` web-root removal — [issue-021](docs/issues/issue-021.md) (High on first run)
+
+- The `db_name` field is now strictly validated against
+  `/^[A-Za-z0-9_]+$/` before any DB or file work.
+- `config.php` is written via `var_export()` instead of
+  `addslashes()`, eliminating the fragile single-quoted-PHP-
+  string-literal path that was safe only by accident.
+- `APP_URL` is derived from `$_SERVER['SERVER_NAME']` (set by
+  Nginx from `server_name`, not user-controllable) instead of
+  the attacker-controllable `HTTP_HOST` header.
+- The wizard has a CSRF token at every step, a two-stage gate
+  (`config.php` exists **or** the `users` table is present →
+  redirect to `index.php`), and a `session_start()` at the
+  top of the file so the token persists across the three
+  install steps.
+- `_smtp_test.php` is moved out of the web root to
+  `docker/_smtp_test.php`. The Nginx deny regex entry for the
+  file is no longer needed and is removed. Invoke via
+  `docker exec -it pmp-app php
+  /var/www/html/docker/_smtp_test.php` from the CLI only.
+
+#### `task_edit.php` IDOR re-validation — [issue-022](docs/issues/issue-022.md) (Medium)
+
+The POST handler in `task_edit.php` now re-validates
+`responsible_person_id`, `contact_person_id`, and `project_id`
+against the current user's project set instead of trusting the
+posted value's existence alone. The dropdown rendering matches
+the new policy so the UI never offers a value the server will
+reject. Closes the "any user / any contact" assignment hole.
+
+#### Password-reset brute-force protection — [issue-018](docs/issues/issue-018.md) (Medium)
+
+- New `password_reset_attempts` table (additive migration
+  `20261015_add_password_reset_attempts.sql`).
+- New helpers in `includes/functions.php`:
+  `recordPasswordResetAttempt()` and
+  `isPasswordResetRateLimited()`. Thresholds: 5 requests per
+  15 min per (IP, action) tuple, with a hard lockout on
+  overflow. The "success" record clears the per-(IP, action)
+  counter immediately.
+- `reset_password.php` rotates the *consumed* token on every
+  successful POST via the existing
+  `invalidateAllPasswordResetTokensForUser` helper (so a
+  bookmarked URL stops working the moment a new password is
+  set), and exposes the same generic "Invalid or expired reset
+  link" copy for rate-limited, invalid, and expired tokens
+  (indistinguishable to a network-position attacker).
+- `forgot_password.php` and `reset_password.php` both call the
+  new helpers; `PASSWORD_RESET_REQUEST_LIMIT`,
+  `PASSWORD_RESET_REQUEST_WINDOW`,
+  `PASSWORD_RESET_CONSUME_LIMIT`, and
+  `PASSWORD_RESET_CONSUME_WINDOW` are tunable via `config.php`.
+- The `consume` logic is extracted into a pure helper
+  (`consumePasswordResetToken()`) for testability.
+
+#### Login + registration brute-force / enumeration — [issue-019](docs/issues/issue-019.md) (Medium)
+
+- New `login_attempts` table (additive migration
+  `20261015_add_login_attempts.sql`).
+- New helpers: `recordLoginAttempt()` and
+  `isLoginRateLimited()`. Thresholds: 5 failures per 15 min
+  per (IP, username) tuple; 30 failures per 15 min per IP
+  alone. A successful login clears the per-(IP, username)
+  counter.
+- `register.php` no longer echoes the "Username or email
+  already exists" string on the duplicate branch. It renders
+  the **same** success card as a fresh registration, with no
+  email sent and no DB row written. The two response bodies
+  are byte-identical (modulo the CSRF token), so account
+  enumeration via the registration form is closed.
+- Tunable via `config.php`: `LOGIN_FAILURE_LIMIT`,
+  `LOGIN_FAILURE_WINDOW`, `LOGIN_IP_LIMIT`, `LOGIN_IP_WINDOW`.
+
+#### Response security headers + session hardening — [issue-020](docs/issues/issue-020.md) (Medium)
+
+- New `includes/security_headers.php` helper, required from
+  `includes/header.php` (internal app) and from
+  `client/dashboard.php` + `index.php` (public portal). It
+  sends `Content-Security-Policy`, `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, and a minimal
+  `Permissions-Policy` on every response. The internal-app CSP
+  permits `'unsafe-inline'` for `script-src` and `style-src`
+  pending the v2.0 nonce migration; the public portal's CSP
+  omits `'unsafe-inline'` for `script-src`.
+- `startSession()` in `includes/functions.php` now pins
+  `session.cookie_*` via `session_set_cookie_params()` with
+  `HttpOnly=true` and `SameSite=Lax`. `Secure` is set
+  dynamically from `$_SERVER['HTTPS']`.
+- `session_regenerate_id(true)` is called on every successful
+  `login.php` POST and on every successful
+  `reset_password.php` POST, closing the session-fixation
+  vector.
+- `docker/nginx.conf` adds the three simple headers
+  (`X-Frame-Options`, `X-Content-Type-Options`,
+  `Referrer-Policy`) at the server level so static-asset
+  responses are covered too.
+
+#### Client share-code brute-force protection — [issue-023](docs/issues/issue-023.md) (Medium)
+
+- New `client_share_code_attempts` table (additive migration
+  `20261016_add_client_share_code_attempts.sql`).
+- New `share_code_rotated_at TIMESTAMP NULL` column on
+  `projects` (additive migration
+  `20261016_add_projects_share_code_rotated_at.sql`).
+  Backfill populates `NOW()` for every existing row with a
+  non-null `share_code`.
+- New helpers: `recordShareCodeAttempt()` and
+  `isShareCodeRateLimited()`. Thresholds: 20 attempts per
+  5 min per IP; 5 distinct failed codes per 5 min per IP; a
+  success clears the per-IP counter.
+- `client/dashboard.php` applies the limit at the top of the
+  page (429 + "Too many requests" copy on overflow).
+- `index.php` "Find by Code" form records the attempt and
+  applies the same limit before redirecting to
+  `client/dashboard.php?code=…`.
+- `project_edit.php` now shows the
+  `share_code_rotated_at` value and a "Rotate code" button
+  that regenerates the share code and bumps the rotated-at
+  timestamp. The previous URL returns 404 on the next visit;
+  a confirmation dialog warns the manager before the
+  rotation. The CSRF token from issue-016 covers the action.
+- An "open count (last 30 days)" badge on the same page
+  surfaces how many successful reads the code has had, with
+  no PII (no IP, no UA) leaked to the manager.
+
+### Bug fix — password-reset redirect loop (issue-024)
+
+[issue-024](docs/issues/issue-024.md) ships in the same bundle
+as the security work because the regression-test fixture
+(`database/password_reset_attempts_test.php` §8) directly
+encodes the broken behavior as a negative assertion. Shipping
+the two together means the test net is self-consistent.
+
+**The fix:** the `rotatePasswordResetToken()` + 302 pattern
+that was added in v1.8.0 to defend against URL leakage is
+removed. The pattern was tautological — the rotation function
+always returns a fresh token, so the redirect always fired,
+and the next request rotated again, etc. The user experienced
+this as either `ERR_TOO_MANY_REDIRECTS` (Chrome / Firefox) or
+a cached "Invalid Reset Link" page (Safari).
+
+The correct defense against URL leakage is **bulk
+invalidation on the successful POST**, which the existing
+`invalidateAllPasswordResetTokensForUser` helper already
+provides. The token in the URL is now stable for the entire
+form session; the user submits a new password → all live
+tokens for the user are deleted; a bookmarked URL no longer
+works.
+
+The rate-limit check on the GET stays in place. It reuses the
+same "Invalid or expired reset link" string so a network-
+position attacker cannot distinguish "rate limited" from
+"bad token" from "expired token".
+
+`database/reset_password_redirect_loop_test.php` is new: 12
+sections, 37 assertions, including a "would have caught the
+v1.8.0 bug" assertion that 11 of the 37 fail if the old
+rotation code is restored.
+
+### Files changed
+
+**New files**
+
+- `includes/security_headers.php` — `sendSecurityHeaders()`
+  helper.
+- `database/migrations/20261015_add_password_reset_attempts.sql`
+- `database/migrations/20261015_add_login_attempts.sql`
+- `database/migrations/20261016_add_client_share_code_attempts.sql`
+- `database/migrations/20261016_add_projects_share_code_rotated_at.sql`
+- `database/security_issue016_test.php` — CSRF + raw-PDO +
+  email-HTML regression.
+- `database/password_reset_attempts_test.php` — issue-018
+  rate-limit + token-rotation regression.
+- `database/login_register_protection_test.php` — issue-019
+  rate-limit + enumeration regression.
+- `database/security_headers_test.php` — issue-020 source-grep
+  + live-curl regression.
+- `database/install_wizard_test.php` — issue-021 strict-name
+  regex + `var_export` + `_smtp_test.php` relocation regression.
+- `database/task_edit_idor_test.php` — issue-022 IDOR
+  regression.
+- `database/client_share_code_protection_test.php` — issue-023
+  rate-limit + `share_code_rotated_at` backfill regression.
+- `database/reset_password_redirect_loop_test.php` — issue-024
+  redirect-loop regression (12 sections, 37 assertions).
+- `docker/_smtp_test.php` — moved out of the web root; the
+  original `_smtp_test.php` is deleted.
+
+**Modified files**
+
+- `contact_edit.php`, `task_edit.php`, `profile.php` —
+  CSRF gate + hidden input + generic DB-error copy
+  (issue-016).
+- `ajax/complete_task.php`, `ajax/update_task_status.php`,
+  `ajax/update_task_progress.php`,
+  `ajax/get_project_contacts.php` — generic error copy
+  (issue-016).
+- `includes/EmailService.php` — `htmlspecialchars` /
+  control-char-strip on `$name` in both templates + AltBody
+  (issue-016).
+- `install.php` — strict `db_name` regex, `var_export` config
+  writer, `SERVER_NAME`-based URL, CSRF, two-stage gate
+  (issue-021).
+- `reset_password.php` — remove rotate-on-render + 302;
+  rate-limit check stays; bulk-invalidation on success stays
+  (issue-018 + issue-024).
+- `forgot_password.php` — rate-limit gate (issue-018).
+- `login.php` — rate-limit gate + `session_regenerate_id(true)`
+  (issue-019 + issue-020).
+- `register.php` — enumeration fix: "already exists" branch
+  renders the same success card with no DB write / no email
+  (issue-019).
+- `includes/functions.php` — `startSession()` cookie flags;
+  `recordPasswordResetAttempt` / `isPasswordResetRateLimited`;
+  `consumePasswordResetToken`; `recordLoginAttempt` /
+  `isLoginRateLimited`; `recordShareCodeAttempt` /
+  `isShareCodeRateLimited`.
+- `client/dashboard.php` — rate-limit gate at the top.
+- `index.php` — rate-limit gate on the "Find by Code" POST.
+- `project_edit.php` — `share_code_rotated_at` display +
+  "Rotate code" action.
+- `includes/header.php` — `require_once security_headers.php`
+  and call `sendSecurityHeaders()`.
+- `docker/nginx.conf` — three complement headers
+  (`X-Frame-Options`, `X-Content-Type-Options`,
+  `Referrer-Policy`).
+- `config.php` — twelve new constants
+  (`PASSWORD_RESET_REQUEST_LIMIT`,
+  `PASSWORD_RESET_REQUEST_WINDOW`,
+  `PASSWORD_RESET_CONSUME_LIMIT`,
+  `PASSWORD_RESET_CONSUME_WINDOW`, `LOGIN_FAILURE_LIMIT`,
+  `LOGIN_FAILURE_WINDOW`, `LOGIN_IP_LIMIT`,
+  `LOGIN_IP_WINDOW`, `SHARE_CODE_IP_LIMIT`,
+  `SHARE_CODE_IP_WINDOW`, `SHARE_CODE_DISTINCT_LIMIT`).
+- `database/schema.sql` — add the four new tables / columns
+  for fresh installs.
+
+**Removed**
+
+- `_smtp_test.php` — relocated to `docker/_smtp_test.php`.
+
+### Upgrade notes
+
+- **Pull and rebuild the `app` container** (`docker compose
+  up -d --build app`). The two new migrations are
+  idempotent (guarded via `information_schema`) and apply
+  on the first `Database` connect — no manual SQL to run.
+- **No DB rebuild required.** Existing rows are preserved;
+  the `share_code_rotated_at` backfill is part of the
+  migration.
+- **Existing sessions are unaffected.** The session-cookie
+  flag change in `startSession()` applies on the next
+  session start; no one is logged out by the upgrade.
+- **No app restart required** beyond the `app` container
+  rebuild, which is the standard PHP-FPM reload.
+- **HTTPS deployments only** get the `Secure` cookie flag
+  automatically (derived from `$_SERVER['HTTPS']`). HTTP
+  local-dev is unchanged.
+
+### Reference
+
+- [docs/issues/issue-015.md](docs/issues/issue-015.md) — the
+  audit + triage.
+- [docs/issues/issue-016.md](docs/issues/issue-016.md) — CSRF
+  + raw PDO + email HTML.
+- [docs/issues/issue-018.md](docs/issues/issue-018.md) —
+  password-reset rate limiting.
+- [docs/issues/issue-019.md](docs/issues/issue-019.md) — login
+  + registration rate limiting / enumeration.
+- [docs/issues/issue-020.md](docs/issues/issue-020.md) — CSP +
+  cookie flags + session hardening.
+- [docs/issues/issue-021.md](docs/issues/issue-021.md) —
+  `install.php` + `_smtp_test.php`.
+- [docs/issues/issue-022.md](docs/issues/issue-022.md) —
+  `task_edit.php` IDOR.
+- [docs/issues/issue-023.md](docs/issues/issue-023.md) —
+  client share-code brute-force.
+- [docs/issues/issue-024.md](docs/issues/issue-024.md) —
+  password-reset redirect loop.
+
+---
+
 ## v1.5.1 — 2026-10-13
 
 UI layout fixes for the v1.5.0 `task_edit.php` / `task_detail.php`

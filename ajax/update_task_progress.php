@@ -70,6 +70,9 @@ try {
     
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
+    // Issue-016: log the underlying error server-side but do NOT
+    // echo it to the client (info disclosure).
+    error_log("Task progress update failed: " . $e->getMessage());
+    echo json_encode(['success' => false, 'error' => 'Failed to update the task progress. Please try again.']);
 }
 ?>

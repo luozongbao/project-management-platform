@@ -428,6 +428,15 @@ require '$dash_script';
 PHP;
 $proxy_file = __DIR__ . '/../client/_issue011_render_' . bin2hex(random_bytes(4)) . '.php';
 file_put_contents($proxy_file, $proxy);
+// register_shutdown_function guarantees the proxy file is deleted even
+// if the script exits early via $failures or a fatal error. The @unlink
+// below is a fast path for the happy case; the shutdown handler is the
+// safety net. (v1.6.0 hardening — see docs/issues/issue-014.md §3.)
+register_shutdown_function(static function () use ($proxy_file) {
+    if (is_file($proxy_file)) {
+        @unlink($proxy_file);
+    }
+});
 $rendered = shell_exec('php ' . escapeshellarg($proxy_file) . ' 2>&1');
 @unlink($proxy_file);
 if (!is_string($rendered) || $rendered === '') {
