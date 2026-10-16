@@ -1,5 +1,109 @@
 # Release Notes
 
+## v1.7.1.1 — 2026-10-16
+
+**Align parent status with parent completion percentage.**
+Closes [issue-026](docs/issues/issue-026.md): the parent row
+in `tasks` now derives its `status` from its own computed
+`completion_percentage` rather than from the sub-task
+`status` mix. A new pure helper
+`deriveParentStatusFromCompletion(?string $currentStatus, float $percentage): string`
+lives next to the existing `deriveParentStatus()` in
+`includes/functions.php` and is used by
+`syncProjectTaskCompletions()`. The strict `all-completed`
+rule from [v1.7.1](#v171--2026-10-16) /
+[issue-025](docs/issues/issue-025.md) is preserved at the
+leaf level and at the user-driven resume path in
+`ajax/parent_hold.php` (which still calls
+`deriveParentStatus()`). The two helpers are siblings, not
+replacements.
+
+### Rule
+
+| Current `status` | `completion_percentage` | Derived `status`   |
+| ---------------- | ----------------------- | ------------------ |
+| `on_hold`        | any                     | `on_hold` (sticky) |
+| any other        | `>= 99.5`               | `completed`        |
+| any other        | `> 0` and `< 99.5`      | `in_progress`      |
+| any other        | `0`                     | `not_started`      |
+
+The 99.5 threshold matches the `round(x, 2)` granularity
+`syncProjectTaskCompletions()` uses when persisting the
+parent `completion_percentage`, so a parent stored as
+`100.00` (after rounding) always classifies as `completed`.
+
+### Why a new helper
+
+The old `deriveParentStatus()` consumed the sub-task
+`status` mix and answered the question "should the parent
+be promoted because the children look complete?" The new
+helper consumes the parent `completion_percentage` (the
+same value being written to the row) and answers the
+question "what status should this row carry so that
+`status` and `completion_percentage` agree?" Using the
+same source of truth for both fields prevents the
+UAT2 regression where a parent at 1.6% progress was
+classified as `not_started`.
+
+### Files changed
+
+- `includes/functions.php` — new helper
+  `deriveParentStatusFromCompletion()` with full docblock
+  referencing issue-025 and issue-026; the call site in
+  `syncProjectTaskCompletions()` now passes
+  `(float)$storedCompletion` to the new helper instead
+  of `$subtaskStatuses` to the old one. The
+  `$setCompletionDate` block, the `WHERE … AND
+  (completion_percentage <> ? OR status <> ?)` guard,
+  and the rest of the function body are unchanged.
+- `database/task_parent_status_derived_test.php` — new
+  layer-1b block with the 12 spec fixtures for
+  `deriveParentStatusFromCompletion()` plus explicit
+  boundary stress for `99.49` and `99.50` and an
+  exhaustive `current × percentage` matrix; live-DB
+  sub-test 2a extended to assert
+  `completion_percentage === 0.0`; live-DB sub-test 2g
+  added for the UAT2 regression (parent with 3
+  sub-tasks, one at 5% and `not_started`, two at 0%
+  and `not_started` → parent `in_progress` with
+  percentage `> 0`); live-DB fixtures 2b and 2d
+  updated to give the promoted child a non-zero
+  `completion_percentage` so the parent percentage is
+  also non-zero under the new contract; new layer-4
+  source-grep check that the call site in
+  `syncProjectTaskCompletions()` is exactly
+  `deriveParentStatusFromCompletion($currentStatus, (float)$storedCompletion)`.
+- `ajax/parent_hold.php`, `task_detail.php`,
+  `task_edit.php`, `tasks.php`, `project_detail.php`,
+  `client/dashboard.php` — **unchanged**. They all
+  read `tasks.status` after the rewrite; none derive
+  parent status themselves. The `resume` branch in
+  `ajax/parent_hold.php` keeps calling
+  `deriveParentStatus()` so the strict `all-completed`
+  rule from issue-025 still applies to the user-driven
+  promotion path.
+
+### Upgrade notes
+
+- Pure function-body + 1-line call-site change. No
+  database migration. No JS / CSS / translation change.
+  Pull the latest code and reload the page; no
+  restart required. A parent whose `status` is now
+  re-classified by the helper (e.g. `in_progress` →
+  `not_started` because the recomputed percentage
+  rounded to `0.00`) is updated on the next user
+  interaction that triggers
+  `syncProjectTaskCompletions()` (any sub-task edit,
+  hold, resume, complete, or progress update). No
+  back-fill script is required.
+- The pre-existing 5 regression tests are unchanged
+  in number and still pass; the parent-status test
+  grows by 16 assertions (12 spec fixtures, 2
+  boundary, 2 from the matrix stress) and 1 new
+  live-DB sub-test (2g).
+
+---
+
 ## v1.7.1 — 2026-10-16
 
 **Parent-task status rule tightened.** Closes

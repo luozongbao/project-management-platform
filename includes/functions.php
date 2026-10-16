@@ -178,6 +178,47 @@ function deriveParentStatus(?string $currentStatus, array $childStatuses): strin
     return 'not_started';
 }
 
+/**
+ * Derive a parent task's status from its computed completion
+ * percentage (issue-026).
+ *
+ * This is the v1.7.1.1 successor to deriveParentStatus() for
+ * the parent-derivation path inside syncProjectTaskCompletions().
+ * It is driven by the parent completion_percentage (already
+ * computed by calculateTaskCompletionMap()), so the parent
+ * percentage and the parent status share a single source of
+ * truth.
+ *
+ * Rule:
+ *   - `on_hold` (parent) is sticky manual: it wins
+ *     regardless of percentage.
+ *   - Otherwise `completed` if percentage >= 99.5.
+ *   - Otherwise `in_progress` if percentage > 0.
+ *   - Otherwise `not_started`.
+ *
+ * The 99.5 threshold matches the round(x, 2) granularity
+ * syncProjectTaskCompletions() uses when persisting the parent
+ * completion_percentage, so a parent that is stored as 100.00
+ * (after rounding) always classifies as completed.
+ *
+ * Cross-references: docs/issues/issue-025.md (introduced the
+ * strict all-completed rule, preserved at the leaf level),
+ * docs/issues/issue-026.md (this helper, changes the
+ * derivation source for the parent row only).
+ */
+function deriveParentStatusFromCompletion(?string $currentStatus, float $percentage): string {
+    if ($currentStatus === 'on_hold') {
+        return 'on_hold';
+    }
+    if ($percentage >= 99.5) {
+        return 'completed';
+    }
+    if ($percentage > 0) {
+        return 'in_progress';
+    }
+    return 'not_started';
+}
+
 function calculateTaskGroupCompletion($tasks) {
     if (empty($tasks)) {
         return 0.0;
@@ -298,14 +339,21 @@ function syncProjectTaskCompletions($db, $projectId) {
     foreach (array_keys($parentIds) as $parentId) {
         $storedCompletion = round($completionMap['task_completion'][$parentId], 2);
 
-        // Issue-012: derive the parent's status from its sub-task statuses.
-        // Leaves the row untouched if no children (defensive, but we already
-        // filtered by $parentIds so this only fires for parents with sub-tasks).
+        // Issue-026: derive the parent's status from its computed
+        // completion_percentage. Using the same source of truth for
+        // both fields keeps the parent row internally consistent.
+        // - `on_hold` is sticky (manual user action, never overridden).
+        // - `completed` requires the parent percentage to round to 100.
+        // - Any positive percentage becomes `in_progress`.
+        // - Zero percentage becomes `not_started`.
+        // The strict "all sub-tasks completed" rule (issue-025) is
+        // preserved for the user-driven path; the resume branch in
+        // ajax/parent_hold.php continues to call deriveParentStatus().
         $currentStatus = $db->fetchOne(
             "SELECT status FROM tasks WHERE id = ?",
             [$parentId]
         )['status'] ?? null;
-        $newStatus = deriveParentStatus($currentStatus, $subtaskStatuses[$parentId] ?? []);
+        $newStatus = deriveParentStatusFromCompletion($currentStatus, (float)$storedCompletion);
 
         // Issue-012: align completion_date with the derived status.
         // - new status 'completed' and no prior completion_date: set to NOW.
