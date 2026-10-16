@@ -1,5 +1,74 @@
 # Release Notes
 
+## v1.7.1 — 2026-10-16
+
+**Parent-task status rule tightened.** Closes
+[issue-025](docs/issues/issue-025.md): the
+`deriveParentStatus()` helper in `includes/functions.php` now
+requires **every** sub-task to be `completed` before the parent
+promotes to `completed`. The previous "any sub-task completed"
+rule caused the project overview to mark a parent as done while
+a third of the work was still untouched (e.g. sub-tasks
+`['completed', 'not_started']` previously classified the parent
+as `completed`; it is now `not_started`).
+
+No DB / schema / AJAX / JS / CSS / translation changes. The fix
+is a single PHP function body and a corresponding update to the
+regression-test fixtures in
+`database/task_parent_status_derived_test.php`. A parent that
+was previously classified as `completed` under the loose rule
+and still has at least one `not_started` sub-task is
+re-classified to `not_started` automatically on the next
+`syncProjectTaskCompletions()` call (any sub-task edit, hold,
+resume, complete, or progress update). No back-fill script is
+required.
+
+### Behavioural diff
+
+| Sub-task statuses                        | v1.7.0 (loose) | **v1.7.1 (strict, this release)** |
+| ---------------------------------------- | -------------- | --------------------------------- |
+| `['completed', 'completed']`             | `completed`    | `completed` (unchanged)           |
+| `['completed', 'not_started']`           | `completed`    | **`not_started`** (fixed)         |
+| `['completed', 'on_hold']`               | `completed`    | **`not_started`** (fixed)         |
+| `['completed', 'completed', 'not_started']` | `completed` | **`not_started`** (fixed)         |
+| `['in_progress', 'not_started']`         | `in_progress`  | `in_progress` (unchanged)         |
+| `['in_progress', 'completed']`           | `in_progress`  | `in_progress` (unchanged)         |
+| `['not_started', 'not_started']`         | `not_started`  | `not_started` (unchanged)         |
+| `[]` (no sub-tasks)                      | `not_started`  | `not_started` (unchanged)         |
+| current = `on_hold`, any children         | `on_hold`      | `on_hold` (sticky, unchanged)     |
+
+### Files changed
+
+- `includes/functions.php` — `deriveParentStatus()` body
+  changed from the loose "any child completed" rule to the
+  strict "all children completed" rule. The `on_hold`
+  stickiness, the `in_progress` rule, the empty-children
+  rule, and the valid-enum guarantee are all unchanged.
+  Docblock updated to reference both issue-012 and
+  issue-025.
+- `database/task_parent_status_derived_test.php` — four
+  pure-function fixtures updated to codify the strict rule
+  (including the two new "mixed" cases
+  `['completed', 'on_hold']` and
+  `['completed', 'completed', 'not_started']`); the 2f
+  live-DB assertion updated to expect `'not_started'`
+  instead of `'completed'` when one child remains
+  `not_started`. The exhaustive 4×4 matrix block and the
+  source-grep block are unchanged.
+
+### Upgrade notes
+
+- Pure function-body change. No database migration. No JS /
+  CSS / translation change. Pull the latest code and reload
+  the page; no restart required. A parent that was previously
+  classified as `completed` under the loose rule and still
+  has at least one `not_started` sub-task is automatically
+  re-classified to `not_started` on the next user interaction
+  that triggers `syncProjectTaskCompletions()` (any sub-task
+  edit, hold, resume, complete, or progress update).
+
+---
+
 ## v1.7.0 — 2026-10-16
 
 **Security + bugfix bundle.** Closes the v1.6.0 security audit

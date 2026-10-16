@@ -145,16 +145,19 @@ function resolveTaskEstimateHours(array $task, array $childTasks): ?float {
 }
 
 /**
- * Derive a parent task's status from its sub-task statuses (issue-012).
+ * Derive a parent task's status from its sub-task statuses.
  * Pure, deterministic, unit-testable.
  *
- * Rule:
+ * Rule (issue-012 + issue-025 — strict):
  *   - `on_hold` (parent) is sticky manual: it wins regardless of children.
  *   - Otherwise `in_progress` if any child is `in_progress`.
- *   - Otherwise `completed` if any child is `completed`.
+ *   - Otherwise `completed` if **all** children are `completed` (and the
+ *     list is non-empty).
  *   - Otherwise `not_started`.
  *
- * Cross-reference: docs/issues/issue-012.md.
+ * Cross-references: docs/issues/issue-012.md (introduced the helper),
+ * docs/issues/issue-025.md (tightened the `completed` branch from
+ * "any child completed" to "all children completed").
  */
 function deriveParentStatus(?string $currentStatus, array $childStatuses): string {
     if ($currentStatus === 'on_hold') {
@@ -163,8 +166,14 @@ function deriveParentStatus(?string $currentStatus, array $childStatuses): strin
     foreach ($childStatuses as $s) {
         if ($s === 'in_progress') return 'in_progress';
     }
-    foreach ($childStatuses as $s) {
-        if ($s === 'completed') return 'completed';
+    if (!empty($childStatuses)) {
+        $allCompleted = true;
+        foreach ($childStatuses as $s) {
+            if ($s !== 'completed') { $allCompleted = false; break; }
+        }
+        if ($allCompleted) {
+            return 'completed';
+        }
     }
     return 'not_started';
 }
