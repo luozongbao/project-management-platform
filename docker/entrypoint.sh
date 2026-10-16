@@ -39,6 +39,11 @@ const TIMEZONE = 'UTC';
 const SESSION_LIFETIME      = 3600;
 const PASSWORD_RESET_EXPIRY = 3600;
 const ENCRYPTION_KEY        = '${ENCRYPTION_KEY:-please-change-this-32-char-key}';
+
+const LOGIN_FAILURE_LIMIT   = 5;
+const LOGIN_FAILURE_WINDOW  = 900;
+const LOGIN_IP_LIMIT        = 30;
+const LOGIN_IP_WINDOW       = 900;
 PHP
     echo "[entrypoint] Wrote $CONFIG_FILE from environment"
 fi

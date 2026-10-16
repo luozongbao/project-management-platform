@@ -20,6 +20,11 @@ require_once __DIR__ . '/includes/Database.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/client/lang.php';
 
+// Issue-020: security response headers (tightened CSP — no 'unsafe-inline'
+// for script-src because the client portal has no inline event handlers).
+require_once __DIR__ . '/includes/security_headers.php';
+sendClientPortalSecurityHeaders();
+
 // Persist ?lang= into the cookie so subsequent navigations remember it.
 if (isset($_GET['lang']) && in_array($_GET['lang'], client_supported_langs(), true)) {
     client_set_lang_cookie($_GET['lang']);
@@ -35,6 +40,17 @@ if (function_exists('isLoggedIn') && isLoggedIn()) {
 
 $db = Database::getInstance();
 
+// Issue-023: rate-limit the public client portal by client IP. The
+// same limit applies to BOTH the direct-link branch (?code=… in the
+// URL) AND the form-POST branch. We pull a candidate code from
+// either source and apply the limit BEFORE doing any DB lookup so
+// the limit fires even on malformed / non-existent codes. The IP
+// is REMOTE_ADDR, never X-Forwarded-For.
+$clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+$candidateCode = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? (string)($_POST['code'] ?? '')
+    : (string)($_GET['code'] ?? '');
+
 // Helper: validate format only — don't reveal whether a code exists until
 // we actually look it up. Format = 5-5-5 of A-Z0-9 minus confusing chars.
 function isValidShareCodeFormat($code) {
@@ -45,27 +61,55 @@ function isValidShareCodeFormat($code) {
 $code = $_GET['code'] ?? '';
 if ($code !== '') {
     $code = strtoupper(trim($code));
-    if (isValidShareCodeFormat($code)) {
-        $exists = $db->fetchOne(
-            "SELECT 1 AS x FROM projects WHERE share_code = ?",
-            [$code]
-        );
-        if ($exists) {
-            header('Location: client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
-            exit();
+
+    // Issue-023: per-IP rate limit applies before the format/exists
+    // checks. A 429 records one failure; the redirect target
+    // client/dashboard.php does its own check so the same IP can't
+    // bypass the limit by switching the entry surface.
+    if (isShareCodeRateLimited($clientIp)) {
+        recordShareCodeAttempt($clientIp, $code, null, false);
+        http_response_code(429);
+        $error = t('err.too_many_requests');
+    } else {
+        if (isValidShareCodeFormat($code)) {
+            $exists = $db->fetchOne(
+                "SELECT 1 AS x FROM projects WHERE share_code = ?",
+                [$code]
+            );
+            if ($exists) {
+                // The form-validation succeeded; the redirect target
+                // does the heavy lifting (and will record the actual
+                // success/failure against the project row).
+                recordShareCodeAttempt($clientIp, $code, null, true);
+                header('Location: client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
+                exit();
+            }
+            // Format passed but no project — record as failure.
+            recordShareCodeAttempt($clientIp, $code, null, false);
+        } else {
+            // Malformed direct-link — still record so a brute-force
+            // spray of random strings is throttled.
+            recordShareCodeAttempt($clientIp, $code, null, false);
         }
+        // Bad/missing code falls through and shows the form again with an error.
     }
-    // Bad/missing code falls through and shows the form again with an error.
 }
 
 // --- 2. Form submission -----------------------------------------------------
-$error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $code = strtoupper(trim($_POST['code'] ?? ''));
 
-    if ($code === '') {
+    // Issue-023: per-IP rate limit on the POST too. We check
+    // BEFORE the format/empty/exists checks so a script spraying
+    // form POSTs hits the same wall.
+    if (isShareCodeRateLimited($clientIp)) {
+        recordShareCodeAttempt($clientIp, $code, null, false);
+        http_response_code(429);
+        $error = t('err.too_many_requests');
+    } elseif ($code === '') {
         $error = t('err.empty_code');
     } elseif (!isValidShareCodeFormat($code)) {
+        recordShareCodeAttempt($clientIp, $code, null, false);
         $error = t('err.bad_format');
     } else {
         $exists = $db->fetchOne(
@@ -73,8 +117,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             [$code]
         );
         if (!$exists) {
+            recordShareCodeAttempt($clientIp, $code, null, false);
             $error = t('err.no_project');
         } else {
+            // The form-validation succeeded; the redirect target
+            // does the heavy lifting (and will record the actual
+            // success/failure against the project row).
+            recordShareCodeAttempt($clientIp, $code, null, true);
             header('Location: client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
             exit();
         }

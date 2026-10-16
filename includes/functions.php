@@ -5,9 +5,39 @@
 
 // Start session if not already started
 function startSession() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+    if (session_status() !== PHP_SESSION_NONE) {
+        return;
     }
+    // Issue-020: open an output buffer the FIRST time a session is
+    // started. The PHP-FPM pool runs with output_buffering=0 +
+    // implicit_flush=1, so any byte echoed before the first
+    // header() call is sent immediately to nginx and
+    // "headers already sent" follows. The buffer stays open until
+    // script end and is flushed automatically.
+    //
+    // The buffer is started here (not in header.php) because
+    // startSession() is called BEFORE the page echoes its closing
+    // PHP tag and a blank line, while header.php is included AFTER.
+    // The earlier we open the buffer, the more bytes we can capture.
+    if (ob_get_level() === 0) {
+        ob_start();
+    }
+    // Issue-020: pin cookie flags in code, not php.ini, so the behaviour
+    // is portable across container rebuilds. The Secure flag is computed
+    // from $_SERVER['HTTPS'] so the cookie is Secure in production
+    // (HTTPS) and plain in local dev (HTTP). Local-dev users see no
+    // behavioural change.
+    $httpsOn = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['SERVER_PORT'] ?? '') == '443');
+    session_set_cookie_params([
+        'lifetime' => 0,                    // session cookie
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $httpsOn,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
 }
 
 // Check if user is logged in
@@ -484,5 +514,446 @@ function formatMoney($amount, $currency) {
     ][strtoupper($currency)] ?? '';
     $decimals = (strtoupper($currency) === 'JPY') ? 0 : 2;
     return $symbol . number_format((float)$amount, $decimals) . ' ' . strtoupper($currency);
+}
+
+// ============================================================================
+// Password-reset rate-limit / brute-force protection (issue-018)
+//
+// Three small helpers used by forgot_password.php and reset_password.php.
+// The policy is per-IP and recorded in the password_reset_attempts table
+// (see database/migrations/20261015_add_password_reset_attempts.sql).
+//
+// Constants (overridable in config.php; defaults are 5 request attempts per
+// 15 minutes and 10 consume attempts per 15 minutes):
+//   PASSWORD_RESET_REQUEST_LIMIT  (default 5)
+//   PASSWORD_RESET_REQUEST_WINDOW (default 900 seconds = 15 min)
+//   PASSWORD_RESET_CONSUME_LIMIT  (default 10)
+//   PASSWORD_RESET_CONSUME_WINDOW (default 900 seconds = 15 min)
+// ============================================================================
+
+if (!function_exists('recordPasswordResetAttempt')) {
+    /**
+     * Record a single password-reset attempt.
+     *
+     * @param string $ip      The client IP (use $_SERVER['REMOTE_ADDR']; not
+     *                        X-Forwarded-For, since this app is not behind
+     *                        a load balancer that sets the header).
+     * @param string $action  'request' (forgot_password.php POST) or
+     *                        'consume' (reset_password.php POST).
+     * @param int|null $userId  The user id if known, or null for unknown
+     *                        emails (forgot_password.php) and rate-limited
+     *                        dropped requests.
+     * @param bool $success   True if the attempt succeeded (the request was
+     *                        processed normally), false if it failed (bad
+     *                        credentials, rate-limited drop, etc.).
+     */
+    function recordPasswordResetAttempt($ip, $action, $userId, $success) {
+        $ip = (string)$ip;
+        $action = ($action === 'consume') ? 'consume' : 'request';
+        $successFlag = $success ? 1 : 0;
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO password_reset_attempts (ip_address, action, user_id, success)
+             VALUES (?, ?, ?, ?)",
+            [$ip, $action, $userId, $successFlag]
+        );
+    }
+}
+
+if (!function_exists('isPasswordResetRateLimited')) {
+    /**
+     * Check whether a given IP is currently rate-limited for a given action.
+     *
+     * The policy:
+     *   - 'request' (forgot_password.php): at most
+     *     PASSWORD_RESET_REQUEST_LIMIT attempts (default 5) within
+     *     PASSWORD_RESET_REQUEST_WINDOW seconds (default 15 min). A
+     *     *successful* request counts as a request too (it sent an
+     *     email and consumed SMTP quota), so a real user who hammers
+     *     the button can also trip the limit. The 15-min cooldown
+     *     is short enough that this is rarely a UX problem.
+     *   - 'consume' (reset_password.php): at most
+     *     PASSWORD_RESET_CONSUME_LIMIT attempts (default 10) within
+     *     PASSWORD_RESET_CONSUME_WINDOW seconds (default 15 min).
+     *     Successful consumes DO count — but a successful consume
+     *     also clears the consume history for that IP via
+     *     clearPasswordResetAttempts() so the user is not locked
+     *     out by their own success.
+     *
+     * The function does NOT mutate the database; the caller is
+     * responsible for calling recordPasswordResetAttempt() to
+     * record the current attempt.
+     *
+     * @return bool True if the IP is over the threshold.
+     */
+    function isPasswordResetRateLimited($ip, $action) {
+        $ip = (string)$ip;
+        $action = ($action === 'consume') ? 'consume' : 'request';
+
+        if ($action === 'consume') {
+            $limit  = defined('PASSWORD_RESET_CONSUME_LIMIT')  ? PASSWORD_RESET_CONSUME_LIMIT  : 10;
+            $window = defined('PASSWORD_RESET_CONSUME_WINDOW') ? PASSWORD_RESET_CONSUME_WINDOW : 900;
+        } else {
+            $limit  = defined('PASSWORD_RESET_REQUEST_LIMIT')  ? PASSWORD_RESET_REQUEST_LIMIT  : 5;
+            $window = defined('PASSWORD_RESET_REQUEST_WINDOW') ? PASSWORD_RESET_REQUEST_WINDOW : 900;
+        }
+
+        $db = Database::getInstance();
+        $count = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM password_reset_attempts
+             WHERE ip_address = ? AND action = ?
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $action, $window]
+        )['c'];
+
+        // The limit is the MAXIMUM allowed. After `$limit` records
+        // the IP is still allowed (the `$limit`-th request was the
+        // last one that fit). The `$limit + 1`-th request is the
+        // first to be denied. So use `>` not `>=`.
+        return $count > $limit;
+    }
+}
+
+if (!function_exists('clearPasswordResetAttempts')) {
+    /**
+     * Clear the rate-limit history for a given IP + action.
+     *
+     * Called after a successful 'consume' so the legitimate user
+     * is not locked out by their own success. Not called after
+     * a successful 'request' — a user who successfully requested
+     * a reset should not immediately be able to request another
+     * one without the cooldown.
+     */
+    function clearPasswordResetAttempts($ip, $action) {
+        $ip = (string)$ip;
+        $action = ($action === 'consume') ? 'consume' : 'request';
+        $db = Database::getInstance();
+        $db->execute(
+            "DELETE FROM password_reset_attempts WHERE ip_address = ? AND action = ?",
+            [$ip, $action]
+        );
+    }
+}
+
+if (!function_exists('consumePasswordResetToken')) {
+    /**
+     * Look up a valid (non-expired) password-reset token and return the
+     * associated user info. Does NOT consume (delete) the token — the
+     * caller is responsible for marking it consumed after a successful
+     * password update.
+     *
+     * The reason this is factored out of reset_password.php is twofold:
+     *   1. The test suite needs to call it from a CLI proxy without
+     *      booting the whole page (the page has session / isLoggedIn()
+     *      / header() calls that make a CLI render brittle).
+     *   2. It is a clean separation: the page is responsible for the
+     *      user-facing flow; this helper is responsible for the DB
+     *      lookup.
+     *
+     * @return array|null The token row + joined user name/email, or null
+     *                    if the token is missing, unknown, or expired.
+     */
+    function consumePasswordResetToken($token) {
+        $token = (string)$token;
+        if ($token === '') {
+            return null;
+        }
+        $db = Database::getInstance();
+        $row = $db->fetchOne(
+            "SELECT rt.id, rt.user_id, rt.token, rt.expires_at, u.name, u.email
+             FROM password_reset_tokens rt
+             JOIN users u ON rt.user_id = u.id
+             WHERE rt.token = ? AND rt.expires_at > NOW()",
+            [$token]
+        );
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('rotatePasswordResetToken')) {
+    /**
+     * Replace a password-reset token with a fresh one. Returns the new
+     * token string, or null if the original token was not found.
+     *
+     * The expiry is bumped to NOW() + PASSWORD_RESET_EXPIRY (1 hour by
+     * default) so the rotation extends the validity window for the
+     * currently-valid user. A future hardening could leave the expiry
+     * alone, but extending is the user-friendly default and matches
+     * the spec's "rotates on every form render" intent.
+     */
+    function rotatePasswordResetToken($oldToken) {
+        $oldToken = (string)$oldToken;
+        if ($oldToken === '') {
+            return null;
+        }
+        $db = Database::getInstance();
+        $row = $db->fetchOne(
+            "SELECT id FROM password_reset_tokens WHERE token = ?",
+            [$oldToken]
+        );
+        if (!$row) {
+            return null;
+        }
+        $newToken = generateToken();
+        $newExpires = date('Y-m-d H:i:s', time() + PASSWORD_RESET_EXPIRY);
+        $db->execute(
+            "UPDATE password_reset_tokens SET token = ?, expires_at = ? WHERE id = ?",
+            [$newToken, $newExpires, $row['id']]
+        );
+        return $newToken;
+    }
+}
+
+if (!function_exists('invalidateAllPasswordResetTokensForUser')) {
+    /**
+     * Delete ALL password-reset tokens for a given user. Called on
+     * successful password change so a previously-issued link cannot
+     * be reused after the user has successfully reset.
+     */
+    function invalidateAllPasswordResetTokensForUser($userId) {
+        $uid = (int)$userId;
+        if ($uid <= 0) {
+            return;
+        }
+        $db = Database::getInstance();
+        $db->execute(
+            "DELETE FROM password_reset_tokens WHERE user_id = ?",
+            [$uid]
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Issue-019: login & registration brute-force / enumeration protection
+// ---------------------------------------------------------------------------
+
+if (!function_exists('recordLoginAttempt')) {
+    /**
+     * Record one row in `login_attempts` for the given client IP, submitted
+     * username, and outcome.
+     *
+     * The `$username` is the SUBMITTED value (not a users FK) so a
+     * credential-stuffing attack that rotates usernames is fully recorded.
+     * `$username` is capped to 255 chars to match the column width.
+     *
+     * On a SUCCESS record, the helper also clears the per-(IP, username)
+     * failure history for that tuple. This is the "success resets the
+     * counter" property called out in the issue-019 spec. The IP-only
+     * failure count is NOT cleared here — that counter defends against
+     * distributed attacks across usernames and should accumulate over
+     * the window regardless of which usernames succeed.
+     *
+     * @param string $ip       Client IP (REMOTE_ADDR, never X-Forwarded-For).
+     * @param string $username Submitted username or email value.
+     * @param bool $success    True if the credentials verified successfully.
+     */
+    function recordLoginAttempt($ip, $username, $success) {
+        $ip = (string)$ip;
+        $username = substr((string)$username, 0, 255);
+        $successFlag = $success ? 1 : 0;
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO login_attempts (ip_address, username_attempted, success)
+             VALUES (?, ?, ?)",
+            [$ip, $username, $successFlag]
+        );
+
+        if ($success) {
+            // A success resets the per-(IP, username) failure counter so the
+            // user is not locked out by their own past failures. The IP-only
+            // counter is intentionally left alone.
+            $db->execute(
+                "DELETE FROM login_attempts
+                 WHERE ip_address = ? AND username_attempted = ? AND success = 0",
+                [$ip, $username]
+            );
+        }
+    }
+}
+
+if (!function_exists('isLoginRateLimited')) {
+    /**
+     * Check whether the (IP, username) tuple is currently rate-limited.
+     *
+     * The policy (issue-019):
+     *   - Per (IP, username_attempted): at most LOGIN_FAILURE_LIMIT failed
+     *     attempts (default 5) within LOGIN_FAILURE_WINDOW seconds (default
+     *     15 min). After the 5th failure the 6th is the first to be denied.
+     *   - Per IP across all usernames: at most LOGIN_IP_LIMIT failed
+     *     attempts (default 30) within LOGIN_IP_WINDOW seconds (default
+     *     15 min). Defends against a distributed dictionary attack that
+     *     rotates usernames.
+     *
+     * If EITHER threshold is exceeded, return true. Both gates use `>`
+     * not `>=` so the Nth attempt is allowed and the (N+1)th is denied
+     * (matches the spec's acceptance-test prose).
+     *
+     * Successful logins do NOT count toward either limit (a success is
+     * recorded with success=1, the COUNT(*) here filters success=0). A
+     * success also clears the per-(IP, username) failure history via
+     * recordLoginAttempt() so the next failure starts the count at 1.
+     *
+     * @return bool True if the request should be denied.
+     */
+    function isLoginRateLimited($ip, $username) {
+        $ip = (string)$ip;
+        $username = substr((string)$username, 0, 255);
+
+        $userLimit  = defined('LOGIN_FAILURE_LIMIT')  ? LOGIN_FAILURE_LIMIT  : 5;
+        $userWindow = defined('LOGIN_FAILURE_WINDOW') ? LOGIN_FAILURE_WINDOW : 900;
+        $ipLimit    = defined('LOGIN_IP_LIMIT')       ? LOGIN_IP_LIMIT       : 30;
+        $ipWindow   = defined('LOGIN_IP_WINDOW')      ? LOGIN_IP_WINDOW      : 900;
+
+        $db = Database::getInstance();
+
+        // Per-(IP, username) check.
+        $userCount = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM login_attempts
+             WHERE ip_address = ? AND username_attempted = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $username, $userWindow]
+        )['c'];
+        if ($userCount > $userLimit) {
+            return true;
+        }
+
+        // Per-IP check (any username).
+        $ipCount = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM login_attempts
+             WHERE ip_address = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $ipWindow]
+        )['c'];
+        if ($ipCount > $ipLimit) {
+            return true;
+        }
+
+        return false;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Issue-023: client share-code brute-force / dictionary-attack protection
+// ---------------------------------------------------------------------------
+
+if (!function_exists('recordShareCodeAttempt')) {
+    /**
+     * Record one row in `client_share_code_attempts` for the given
+     * client IP, submitted code, and outcome.
+     *
+     * The `$code` is the SUBMITTED value (not a projects FK) so
+     * malformed inputs (regex failures, typos) and the brute-force
+     * history of any one code are fully recorded. `$code` is capped to
+     * 20 chars to match the column width. `$projectId` is NULL for
+     * unknown / malformed codes — the attempt is still recorded.
+     *
+     * On a SUCCESS record, the helper also clears the per-IP failure
+     * history so a legitimate user who mistypes a code (or several
+     * codes) and then enters the right one is back to 0 failures.
+     * This is the "success resets the counter" property called out
+     * in the issue-023 spec.
+     *
+     * @param string   $ip        Client IP (REMOTE_ADDR, never X-Forwarded-For).
+     * @param string   $code      Submitted code (raw, pre-validation).
+     * @param int|null $projectId Matched project id, or NULL for unknown / malformed codes.
+     * @param bool     $success   True if the code matched a real project.
+     */
+    function recordShareCodeAttempt($ip, $code, $projectId, $success) {
+        $ip = (string)$ip;
+        $code = substr((string)$code, 0, 20);
+        $projectId = ($projectId === null || (int)$projectId <= 0) ? null : (int)$projectId;
+        $successFlag = $success ? 1 : 0;
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO client_share_code_attempts
+                 (ip_address, code_attempted, project_id, success)
+             VALUES (?, ?, ?, ?)",
+            [$ip, $code, $projectId, $successFlag]
+        );
+
+        if ($success) {
+            // A success clears the per-IP failure history so the user
+            // is not locked out by their own past failures. Only the
+            // current IP is cleared; we do NOT clear other IPs that
+            // may have attempted the same code (e.g. a NAT'd office).
+            $db->execute(
+                "DELETE FROM client_share_code_attempts
+                 WHERE ip_address = ? AND success = 0",
+                [$ip]
+            );
+        }
+    }
+}
+
+if (!function_exists('isShareCodeRateLimited')) {
+    /**
+     * Check whether the client IP is currently rate-limited from
+     * submitting share codes to the public client portal.
+     *
+     * The policy (issue-023):
+     *   - Per IP: at most SHARE_CODE_IP_LIMIT attempts (default 20)
+     *     within SHARE_CODE_IP_WINDOW seconds (default 5 min). The
+     *     cap is higher than login.php's 5-in-15 because the client
+     *     portal is anonymous and a misbehaving corporate proxy may
+     *     issue many requests under the same IP.
+     *   - Per IP, distinct FAILED codes: at most SHARE_CODE_DISTINCT_LIMIT
+     *     (default 5) distinct failed codes in the window. Defends
+     *     against the "I have a list of leaked codes and want to
+     *     validate them all" attack — successes are EXCLUDED from
+     *     the distinct count.
+     *
+     * If EITHER threshold is exceeded, return true. Both gates use
+     * `>` not `>=` so the Nth attempt is allowed and the (N+1)th is
+     * denied (matches the issue-019 / issue-018 pattern).
+     *
+     * Successful attempts do NOT count toward either limit (a success
+     * is recorded with success=1, the COUNT(*) here filters success=0).
+     * A success also clears the per-IP failure history via
+     * recordShareCodeAttempt() so the next failure starts at 1.
+     *
+     * @param string $ip  Client IP (REMOTE_ADDR, never X-Forwarded-For).
+     * @return bool True if the request should be denied (HTTP 429).
+     */
+    function isShareCodeRateLimited($ip) {
+        $ip = (string)$ip;
+
+        $ipLimit         = defined('SHARE_CODE_IP_LIMIT')       ? SHARE_CODE_IP_LIMIT       : 20;
+        $ipWindow        = defined('SHARE_CODE_IP_WINDOW')      ? SHARE_CODE_IP_WINDOW      : 300;
+        $distinctLimit   = defined('SHARE_CODE_DISTINCT_LIMIT') ? SHARE_CODE_DISTINCT_LIMIT : 5;
+
+        $db = Database::getInstance();
+
+        // Per-IP total attempt count.
+        $ipCount = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM client_share_code_attempts
+             WHERE ip_address = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $ipWindow]
+        )['c'];
+        if ($ipCount > $ipLimit) {
+            return true;
+        }
+
+        // Per-IP distinct-failed-codes count. DISTINCT code_attempted
+        // across the IP's failed-attempt history in the window. A
+        // user who types the same wrong code 100 times is NOT
+        // distinct-limited (it's the same code).
+        $distinctCount = (int)$db->fetchOne(
+            "SELECT COUNT(DISTINCT code_attempted) AS c
+             FROM client_share_code_attempts
+             WHERE ip_address = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $ipWindow]
+        )['c'];
+        if ($distinctCount > $distinctLimit) {
+            return true;
+        }
+
+        return false;
+    }
 }
 ?>

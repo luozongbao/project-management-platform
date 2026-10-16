@@ -44,6 +44,7 @@ function client_translations() {
             'err.bad_format'         => "That doesn't look like a valid project code. Codes look like AX498-99ZB2-92C3J.",
             'err.no_project'         => 'No project found for that code. Please double-check it.',
             'err.bad_format_dash'    => 'Invalid project code format.',
+            'err.too_many_requests'  => 'Too many requests. Please try again later.',
 
             // Dashboard
             'dash.title_suffix'      => 'Client Portal',
@@ -113,8 +114,7 @@ function client_translations() {
             'err.empty_code'         => '请输入您的项目代码。',
             'err.bad_format'         => '代码格式不正确,示例:AX498-99ZB2-92C3J。',
             'err.no_project'         => '未找到与此代码关联的项目,请核对后重试。',
-            'err.bad_format_dash'    => '项目代码格式无效。',
-
+            'err.bad_format_dash'    => '项目代码格式无效。',            'err.too_many_requests'  => '请求过于频繁,请稍后再试。',
             // Dashboard
             'dash.title_suffix'      => '客户门户',
             'dash.brand_suffix'      => '客户门户',

@@ -432,29 +432,23 @@ $show_nav = true;
 </div>
 
 <style>
+/* Per-page CSS for task_detail.php.
+ *
+ * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
+ * provide the baseline (page-container, breadcrumb, page-header,
+ * page-actions, card, btn, and the @media (max-width: 768px) collapse).
+ * Rules below are EITHER page-unique to this detail view OR explicit
+ * per-page overrides of a global rule (the divergence is intentional;
+ * comments tag them).
+ */
+
+/* Per-page override of .page-container in style.css: this detail view
+ * uses a wider container (1200px) to host the 2-column task + sidebar
+ * grid below. */
 .page-container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
-}
-
-.breadcrumb {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 10px;
-}
-
-.breadcrumb a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-.breadcrumb span {
-    margin: 0 8px;
 }
 
 .subtask-indicator {
@@ -761,36 +755,24 @@ $show_nav = true;
 }
 
 @media (max-width: 768px) {
+    /* Per-page mobile overrides. The baseline mobile collapse for
+     * .page-header and .page-actions now lives in style.css (the
+     * v1.5.1 fix); only the detail-page-specific mobile tweaks remain. */
     .page-container {
         padding: 15px;
     }
-    
+
     .task-detail-layout {
         grid-template-columns: 1fr;
         gap: 20px;
     }
-    
-    .page-header {
-        flex-direction: column;
-        gap: 15px;
-        align-items: stretch;
-    }
-    
-    .page-actions {
-        display: flex;
-        gap: 10px;
-    }
-    
-    .page-actions .btn {
-        flex: 1;
-    }
-    
+
     .subtask-header {
         flex-direction: column;
         gap: 10px;
         align-items: stretch;
     }
-    
+
     .subtask-meta {
         flex-direction: column;
         gap: 8px;

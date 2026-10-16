@@ -35,37 +35,45 @@ if ($_POST) {
     
     if (empty($errors)) {
         $db = Database::getInstance();
-        
+
         // Check if username or email already exists
         $existing = $db->fetchOne(
             "SELECT id FROM users WHERE username = ? OR email = ?",
             [$username, $email]
         );
-        
+
         if ($existing) {
-            $errors[] = "Username or email already exists";
+            // Account enumeration mitigation (issue-019): do NOT reveal that
+            // the user/email is taken. Render the SAME success card as a real
+            // registration would, but do NOT create a user and do NOT send a
+            // welcome email. The existing user already has their original
+            // welcome email; this silent no-op is byte-identical to a fresh
+            // registration from the attacker's point of view. The attacker
+            // cannot distinguish "user created" from "user exists" from the
+            // response, so they cannot enumerate the user table.
+            $success = true;
         } else {
             try {
                 // Create user with temporary password
                 $temp_password = generateToken(16);
                 $hashed_password = hashPassword($temp_password);
-                
+
                 $db->query(
                     "INSERT INTO users (name, username, email, password, created_at) VALUES (?, ?, ?, ?, NOW())",
                     [$name, $username, $email, $hashed_password]
                 );
-                
+
                 $user_id = $db->lastInsertId();
-                
+
                 // Generate password reset token
                 $reset_token = generateToken();
                 $expires_at = date('Y-m-d H:i:s', time() + PASSWORD_RESET_EXPIRY);
-                
+
                 $db->query(
                     "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
                     [$user_id, $reset_token, $expires_at]
                 );
-                
+
                 // Send welcome email with password setup link
                 $emailService = new EmailService();
                 if ($emailService->sendWelcomeEmail($email, $name, $reset_token)) {
@@ -73,7 +81,7 @@ if ($_POST) {
                 } else {
                     $errors[] = "Account created but failed to send email. Please use forgot password to set your password.";
                 }
-                
+
             } catch (Exception $e) {
                 error_log("Registration error: " . $e->getMessage());
                 $errors[] = "Registration failed. Please try again.";

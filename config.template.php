@@ -27,4 +27,10 @@ const SESSION_LIFETIME = 3600; // 1 hour
 const PASSWORD_RESET_EXPIRY = 3600; // 1 hour
 const ENCRYPTION_KEY = 'your-32-character-encryption-key-here';
 
+// Login / registration brute-force protection (issue-019)
+const LOGIN_FAILURE_LIMIT = 5;       // Per (IP, username) failed attempts
+const LOGIN_FAILURE_WINDOW = 900;    // 15 min
+const LOGIN_IP_LIMIT = 30;           // Per-IP failed attempts across all usernames
+const LOGIN_IP_WINDOW = 900;         // 15 min
+
 ?>

@@ -17,46 +17,72 @@ $success = false;
 
 if ($_POST) {
     $email = sanitize($_POST['email'] ?? '');
-    
+
     if (empty($email)) {
         $errors[] = "Email is required";
     } elseif (!isValidEmail($email)) {
         $errors[] = "Please enter a valid email address";
     } else {
-        $db = Database::getInstance();
-        
-        // Check if user exists
-        $user = $db->fetchOne(
-            "SELECT id, name, email FROM users WHERE email = ?",
-            [$email]
-        );
-        
-        if ($user) {
-            // Delete any existing reset tokens for this user
-            $db->query(
-                "DELETE FROM password_reset_tokens WHERE user_id = ?",
-                [$user['id']]
-            );
-            
-            // Generate new reset token
-            $reset_token = generateToken();
-            $expires_at = date('Y-m-d H:i:s', time() + PASSWORD_RESET_EXPIRY);
-            
-            $db->query(
-                "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
-                [$user['id'], $reset_token, $expires_at]
-            );
-            
-            // Send reset email
-            $emailService = new EmailService();
-            if ($emailService->sendPasswordResetEmail($user['email'], $user['name'], $reset_token)) {
-                $success = true;
-            } else {
-                $errors[] = "Failed to send reset email. Please try again later.";
-            }
+        // Issue-018: rate-limit per client IP. The IP is REMOTE_ADDR,
+        // not X-Forwarded-For (this app is not behind a load balancer
+        // that sets the header; if a reverse proxy is added later,
+        // REMOTE_ADDR resolution must be revisited).
+        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+        if (isPasswordResetRateLimited($clientIp, 'request')) {
+            $errors[] = "Too many reset requests. Please try again later.";
+            // Record the dropped attempt so the counter is consistent
+            // with the 5+1 = 6 row count the spec's acceptance criteria
+            // expect on the 6th request.
+            recordPasswordResetAttempt($clientIp, 'request', null, false);
         } else {
-            // For security, don't reveal that email doesn't exist
-            $success = true;
+            $db = Database::getInstance();
+
+            // Check if user exists
+            $user = $db->fetchOne(
+                "SELECT id, name, email FROM users WHERE email = ?",
+                [$email]
+            );
+
+            if ($user) {
+                // Delete any existing reset tokens for this user
+                $db->query(
+                    "DELETE FROM password_reset_tokens WHERE user_id = ?",
+                    [$user['id']]
+                );
+
+                // Generate new reset token
+                $reset_token = generateToken();
+                $expires_at = date('Y-m-d H:i:s', time() + PASSWORD_RESET_EXPIRY);
+
+                $db->query(
+                    "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
+                    [$user['id'], $reset_token, $expires_at]
+                );
+
+                // Send reset email
+                $emailService = new EmailService();
+                $emailOk = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $reset_token);
+
+                if ($emailOk) {
+                    $success = true;
+                    recordPasswordResetAttempt($clientIp, 'request', $user['id'], true);
+                } else {
+                    $errors[] = "Failed to send reset email. Please try again later.";
+                    // SMTP failure is still a "request was processed"
+                    // from the rate-limit perspective — record as a
+                    // failure so a sustained SMTP outage does not let
+                    // the attacker bypass the limit.
+                    recordPasswordResetAttempt($clientIp, 'request', $user['id'], false);
+                }
+            } else {
+                // For security, don't reveal that email doesn't exist
+                $success = true;
+                // user_id is null for unknown emails; the attempt still
+                // counts so an attacker cannot bypass the rate limit by
+                // sending requests for non-existent addresses.
+                recordPasswordResetAttempt($clientIp, 'request', null, true);
+            }
         }
     }
 }

@@ -680,3 +680,85 @@ body {
         font-size: 14px;
     }
 }
+
+/* Shared page-layout + breadcrumb + form-actions helpers used by
+ * task_edit.php, task_detail.php, contact_edit.php, project_edit.php.
+ * Promoted from per-page <style> blocks in v1.6.0 (issue-014 §2).
+ * Per-page blocks now only carry page-unique selectors (e.g. the
+ * sub-task tree on task_detail, the delete-project dialog on
+ * project_edit) plus explicit per-page overrides of the rules below. */
+.page-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.breadcrumb {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.breadcrumb a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb span {
+    margin: 0 8px;
+}
+
+.form-layout {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 30px;
+    margin-top: 20px;
+}
+
+.field-help {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 5px 0 0 0;
+    font-style: italic;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid #f1f3f4;
+}
+
+.form-actions-left {
+    display: flex;
+    gap: 15px;
+}
+
+.form-actions-right {
+    display: flex;
+    gap: 15px;
+}
+
+.form-actions .btn {
+    padding: 12px 24px;
+    font-weight: 500;
+}
+
+.alert ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.alert li {
+    margin-bottom: 5px;
+}
+
+.alert li:last-child {
+    margin-bottom: 0;
+}
