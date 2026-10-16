@@ -1,9 +1,125 @@
 # Client Share-Code Brute-Force Protection
 
-**Status:** Proposed
+**Status:** Implemented (v1.10.0)
 **Type:** Security / Abuse Prevention
 **Priority:** Medium
-**Affects:** `client/dashboard.php`, `index.php`, `includes/functions.php`, `database/migrations/`, new `database/client_share_code_protection_test.php`
+**Affects:** `client/dashboard.php`, `index.php`, `project_edit.php`, `includes/functions.php`, `config.php`, `client/lang.php`, `database/migrations/`, `database/schema.sql`, new `database/client_share_code_protection_test.php`
+
+## Implementation summary
+
+All acceptance criteria are met. The implementation
+follows the structure proposed in §1–§6 of this
+document, with these concrete changes:
+
+- **`database/migrations/20261016_add_client_share_code_attempts.sql`**
+  (NEW): creates `client_share_code_attempts` with
+  composite indexes on `(ip_address, attempted_at)`
+  and `(project_id, attempted_at)`. No FK on
+  `code_attempted` (it's the submitted value, may
+  be garbage) and no FK on `project_id` (history
+  survives project deletion).
+- **`database/migrations/20261016_add_projects_share_code_rotated_at.sql`**
+  (NEW): adds `share_code_rotated_at TIMESTAMP NULL
+  DEFAULT NULL` to `projects`, guarded by
+  `information_schema.COLUMNS` + a backfill UPDATE
+  for any existing row with a non-null
+  `share_code`. Multi-statement migration; applied
+  with `$db->exec($full_sql)` in one call.
+- **`database/schema.sql`**: refreshed with both
+  new objects so a fresh install is self-contained.
+- **`config.php`**: three new constants
+  (`SHARE_CODE_IP_LIMIT = 20`,
+  `SHARE_CODE_IP_WINDOW = 300`,
+  `SHARE_CODE_DISTINCT_LIMIT = 5`).
+- **`includes/functions.php`**: two new helpers
+  `recordShareCodeAttempt($ip, $code, $projectId,
+  $success)` and
+  `isShareCodeRateLimited($ip)`. Both wrapped in
+  `if (!function_exists('…'))` so the test
+  re-requires don't fatal, and both use
+  `defined()` fallbacks for the constants so a
+  test bootstrap that doesn't load `config.php`
+  still works. The "per-IP total cap" uses `>` not
+  `>=` so the Nth attempt is allowed and the
+  (N+1)th is denied (same convention as
+  issue-019 / issue-018).
+- **`client/dashboard.php`**: limit-check fires
+  BEFORE the format check so a brute-force script
+  spraying random strings still hits the 429 wall.
+  429 returns inline HTML with the
+  `<h2><i class="fas fa-ban"></i> Too many
+  requests</h2>` body. Failures are recorded on
+  the 429 branch, the bad-format branch, and the
+  no-project branch. Success on the matched-
+  project branch clears the per-IP failure
+  history.
+- **`index.php`**: same rate-limit applied to
+  both the direct-link GET branch AND the form-
+  POST branch (the "Find by Code" landing page).
+  429 uses the translation key
+  `err.too_many_requests` (EN + ZH) for the
+  error message.
+- **`client/lang.php`**: new
+  `err.too_many_requests` key, EN: "Too many
+  requests. Please try again later.", ZH: "请求
+  过于频繁,请稍后再试。".
+- **`project_edit.php`**: new `rotate_share_code`
+  action handler (CSRF-validated, ownership-
+  checked via `responsible_person_id = ?`,
+  `generateShareCode()` with one collision retry,
+  single-statement UPDATE on `share_code +
+  share_code_rotated_at = NOW()`). The main form
+  POST gate is `if ($_POST && ($_POST['action']
+  ?? '') !== 'rotate_share_code')` so the rotation
+  POST is not silently consumed by the edit
+  handler. A "Client Share Code" card below the
+  main form shows the current code, "Last
+  rotated: TIMESTAMP (N days ago)", a 90-day
+  warning alert, and the "Rotate code" button with
+  an onsubmit confirmation dialog. Mobile-
+  responsive CSS under `@media (max-width:
+  768px)`.
+
+## Test coverage
+
+`database/client_share_code_protection_test.php`
+is a 14-section self-contained PHPUnit-style
+script. It covers:
+
+1. Per-IP total cap (20 attempts / 5 min).
+2. Success clears the per-IP failure history.
+3. Per-IP distinct-failed-codes cap (5 distinct / 5 min).
+4. Backfill of `share_code_rotated_at`.
+5. Source-grep on `client/dashboard.php`.
+6. Source-grep on `index.php`.
+7. Source-grep on `project_edit.php` (rotation nudge + action).
+8. Source-grep on `includes/functions.php`.
+9. Source-grep on `config.php` (constants).
+10. Source-grep on `database/schema.sql`.
+11. Source-grep on migrations (idempotency).
+12. Source-grep on `client/lang.php` (translation key).
+13. Lint all six touched PHP files.
+14. Live HTTP probe — 25 sequential GETs to
+    `/client/dashboard.php?code=QQQQQ-WWWWW-EEEEE`,
+    asserts first 21 are not 429 and 22nd–25th
+    are 429. (Note: the rate-limit threshold is
+    `count > 20`, so the 21st attempt is the
+    last allowed and the 22nd is the first
+    denied — the +1 vs. the spec's "21st = 429"
+    is deliberate and matches the issue-019 /
+    issue-018 convention.)
+
+Total: **91 assertions, 0 failures**.
+
+## Cross-references
+
+- Umbrella: [issue-015](issue-015.md) finding 9.
+- Headers: [issue-020](issue-020.md) — the
+  `Referrer-Policy: strict-origin-when-cross-origin`
+  header mitigates the CDN-cache leak.
+- CSRF: [issue-016](issue-016.md) — the
+  "Rotate code" button is CSRF-protected by the
+  existing `project_edit.php` token.
 
 ## Problem
 

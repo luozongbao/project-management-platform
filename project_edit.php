@@ -10,8 +10,70 @@ $user_id = getCurrentUserId();
 $project_id = $_GET['id'] ?? null;
 $errors = [];
 
+// Issue-023: "Rotate code" action. The button POSTs
+// `action=rotate_share_code` and the same CSRF token. The
+// rotation invalidates the previous share code and any URL
+// that uses it; the manager can re-send the new URL to the
+// client. We MUST validate CSRF first so a forged cross-site
+// POST cannot rotate a code silently.
+if (($_POST['action'] ?? '') === 'rotate_share_code') {
+    if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Invalid form token. Please reload the page and submit again.';
+    } else {
+        $rotateId = (int)($_POST['project_id'] ?? 0);
+        if ($rotateId <= 0) {
+            $errors[] = 'Missing project id for share-code rotation.';
+        } else {
+            // Ownership check: the project must belong to the current
+            // user. Defence in depth — a forged POST can only target
+            // the user's own projects because the WHERE clause
+            // matches responsible_person_id.
+            $owned = $db->fetchOne(
+                "SELECT id, name, share_code FROM projects
+                 WHERE id = ? AND responsible_person_id = ?",
+                [$rotateId, $user_id]
+            );
+            if (!$owned) {
+                $errors[] = 'Project not found, or you do not have permission to rotate its share code.';
+            } else {
+                try {
+                    // Generate a new code; retry once on the
+                    // astronomically-unlikely collision.
+                    $newShareCode = generateShareCode();
+                    try {
+                        $db->execute(
+                            "UPDATE projects
+                             SET share_code = ?, share_code_rotated_at = NOW()
+                             WHERE id = ? AND responsible_person_id = ?",
+                            [$newShareCode, $rotateId, $user_id]
+                        );
+                    } catch (Exception $e) {
+                        $newShareCode = generateShareCode();
+                        $db->execute(
+                            "UPDATE projects
+                             SET share_code = ?, share_code_rotated_at = NOW()
+                             WHERE id = ? AND responsible_person_id = ?",
+                            [$newShareCode, $rotateId, $user_id]
+                        );
+                    }
+                    redirect(
+                        'project_edit.php?id=' . $rotateId,
+                        'Share code rotated. The previous URL is now invalid.',
+                        'success'
+                    );
+                } catch (Exception $e) {
+                    $errors[] = 'Failed to rotate share code. Please try again.';
+                }
+            }
+        }
+    }
+    // If we got here with errors, fall through and re-render the
+    // page below (the project will be re-loaded from the DB so the
+    // stale share code is still visible).
+}
+
 // Handle form submission for project creation/update
-if ($_POST) {
+if ($_POST && ($_POST['action'] ?? '') !== 'rotate_share_code') {
     if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Invalid form token. Please reload the page and submit again.';
         // Re-render with errors. We deliberately do NOT process the rest of the
@@ -311,12 +373,12 @@ $csrf_token = getCsrfToken();
                             <i class="fas fa-save"></i>
                             <?= $project ? 'Update Project' : 'Create Project' ?>
                         </button>
-                        
+
                         <a href="<?= $project ? 'project_detail.php?id=' . $project['id'] : 'projects.php' ?>" class="btn btn-secondary">
                             <i class="fas fa-times"></i>
                             Cancel
                         </a>
-                        
+
                         <?php if ($project): ?>
                             <button type="button" class="btn btn-danger" onclick="openDeleteProjectDialog()" style="margin-left: auto;">
                                 <i class="fas fa-trash"></i>
@@ -325,6 +387,54 @@ $csrf_token = getCsrfToken();
                         <?php endif; ?>
                     </div>
                 </form>
+
+                <?php if ($project && !empty($project['share_code'])): ?>
+                <!-- Issue-023: client share-code rotation nudge. The
+                     "Rotate code" button is a separate POST that
+                     invalidates the previous share code and sets
+                     share_code_rotated_at = NOW(). A confirmation
+                     dialog warns the manager that the previous URL
+                     will stop working. -->
+                <div class="card share-rotation-card">
+                    <div class="card-body">
+                        <h3 class="info-heading"><i class="fas fa-share-nodes"></i> Client Share Code</h3>
+                        <p>
+                            <code class="share-code-display"><?= e($project['share_code']) ?></code>
+                        </p>
+                        <?php if (!empty($project['share_code_rotated_at'])): ?>
+                            <p class="text-muted share-rotation-meta">
+                                Last rotated: <?= e($project['share_code_rotated_at']) ?>
+                                <?php
+                                    $rotatedTs = strtotime((string)$project['share_code_rotated_at']);
+                                    $daysAgo = $rotatedTs ? (int)floor((time() - $rotatedTs) / 86400) : null;
+                                    if ($daysAgo !== null) {
+                                        echo '(' . $daysAgo . ' day' . ($daysAgo === 1 ? '' : 's') . ' ago)';
+                                    }
+                                ?>
+                            </p>
+                            <?php if ($daysAgo !== null && $daysAgo > 90): ?>
+                                <p class="alert alert-warning share-rotation-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    This share code has not been rotated in over 90 days.
+                                    Consider rotating it to invalidate any previously-shared URLs.
+                                </p>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        <form method="POST" action="project_edit.php?id=<?= (int)$project['id'] ?>" class="share-rotation-form"
+                              onsubmit="return confirm('Rotating the share code will invalidate the previous URL. Any client who has bookmarked the old link will see a 404. Continue?');">
+                            <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
+                            <input type="hidden" name="action" value="rotate_share_code">
+                            <input type="hidden" name="project_id" value="<?= (int)$project['id'] ?>">
+                            <button type="submit" class="btn btn-secondary">
+                                <i class="fas fa-rotate"></i> Rotate code
+                            </button>
+                            <small class="text-muted share-rotation-hint">
+                                Generates a new share code and invalidates the previous URL.
+                            </small>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -458,6 +568,47 @@ $csrf_token = getCsrfToken();
     min-height: 44px;
 }
 
+/* Issue-023: client share-code rotation card. Sits below the main
+ * project form on project_edit.php. The card uses the standard
+ * `.card` / `.card-body` classes from style.css; only the
+ * share-rotation-specific rules live here. */
+.share-rotation-card {
+    margin-top: 1.5rem;
+}
+
+.share-code-display {
+    display: inline-block;
+    padding: 0.35rem 0.6rem;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 1.05rem;
+    letter-spacing: 0.1em;
+}
+
+.share-rotation-meta {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.share-rotation-warning {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.9rem;
+}
+
+.share-rotation-form {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.share-rotation-hint {
+    font-size: 0.85rem;
+}
+
 @media (max-width: 768px) {
     .form-actions {
         flex-direction: column;
@@ -474,6 +625,15 @@ $csrf_token = getCsrfToken();
     }
 
     .delete-project-actions .btn {
+        width: 100%;
+    }
+
+    .share-rotation-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .share-rotation-form .btn {
         width: 100%;
     }
 }

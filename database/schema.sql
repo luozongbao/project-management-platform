@@ -59,6 +59,23 @@ CREATE TABLE login_attempts (
     INDEX idx_la_ip_time (ip_address, attempted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Client share-code attempts table (issue-023: client share-code brute-force protection)
+-- Records every public client-portal code attempt by client IP, the submitted code,
+-- the matched project (NULL for unknown / malformed codes), and the outcome. The
+-- application uses the history to enforce a per-IP attempt cap (20 in 5 min) and a
+-- per-IP distinct-codes cap (5 distinct failed codes in 5 min) on both
+-- `client/dashboard.php` GETs and the `index.php` "Find by Code" POST.
+CREATE TABLE client_share_code_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,         -- IPv6-safe
+    code_attempted VARCHAR(20) NOT NULL,     -- the submitted code, not a FK
+    project_id INT NULL,                     -- NULL for unknown / malformed codes
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_csca_ip_time (ip_address, attempted_at),
+    INDEX idx_csca_project_time (project_id, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Projects table
 CREATE TABLE projects (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -68,6 +85,7 @@ CREATE TABLE projects (
     budget_amount DECIMAL(15,2) NULL,                 -- Project budget in user-defined currency
     currency CHAR(3) NULL,                            -- THB, USD, CNY, JPY, SGD, EUR
     share_code CHAR(17) NULL,                         -- Public client share code, format AAAA0-AAAA0-AAAA0 (e.g. AX498-99ZB2-92C3J)
+    share_code_rotated_at TIMESTAMP NULL DEFAULT NULL, -- issue-023: when the current share_code was last generated/rotated
     responsible_person_id INT NOT NULL,
     expected_completion_date DATE,
     start_date DATE,                                -- User-settable Project Start Date (issue-008); NULL means "not recorded"

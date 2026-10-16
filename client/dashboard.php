@@ -32,7 +32,13 @@ $lang = client_current_lang();
 
 $db = Database::getInstance();
 
-$code = strtoupper(trim($_GET['code'] ?? ''));
+// Issue-023: rate-limit the public client portal by client IP. We
+// also accept POST so the index.php "Find by Code" form can be
+// rate-limited symmetrically. The IP is REMOTE_ADDR, never
+// X-Forwarded-For, so the limit cannot be spoofed by setting a
+// client header.
+$clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+$code = strtoupper(trim($_GET['code'] ?? $_POST['code'] ?? ''));
 $error = '';
 
 if ($code === '') {
@@ -40,8 +46,47 @@ if ($code === '') {
     exit();
 }
 
+// Issue-023: per-IP rate limit fires BEFORE the format check so a
+// brute-force script that sprays random strings still hits the
+// 429 wall. A 429 records one failure so the next iteration of
+// the same attacker is still counted even if the limit was just
+// not hit.
+if (isShareCodeRateLimited($clientIp)) {
+    recordShareCodeAttempt($clientIp, $code, null, false);
+    http_response_code(429);
+    ?>
+    <!DOCTYPE html>
+    <html lang="<?= e($lang) ?>">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Too many requests — <?= e(APP_NAME) ?></title>
+        <link rel="stylesheet" href="../assets/css/style.css">
+        <link rel="stylesheet" href="assets/client.css">
+    </head>
+    <body class="client-body">
+    <main class="client-shell">
+        <div class="client-card">
+            <div class="client-brand">
+                <i class="fas fa-project-diagram"></i>
+                <h1><?= e(APP_NAME) ?></h1>
+            </div>
+            <div class="alert alert-danger">
+                <h2><i class="fas fa-ban"></i> Too many requests</h2>
+                <p>Please try again later.</p>
+            </div>
+            <p><a href="index.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> <?= e(t('landing.try_again')) ?></a></p>
+        </div>
+    </main>
+    </body>
+    </html>
+    <?php
+    exit();
+}
+
 // Strict format check; if it doesn't even look right, send back to landing.
 if (!preg_match('/^[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/', $code)) {
+    recordShareCodeAttempt($clientIp, $code, null, false);
     $error = t('err.bad_format_dash');
 }
 
@@ -61,7 +106,16 @@ if (!$error) {
         [$code]
     );
     if (!$project) {
+        // Issue-023: unknown-code is a failure, not a success. The
+        // distinct-codes cap catches a dictionary attack that
+        // sweeps a leaked list of codes.
+        recordShareCodeAttempt($clientIp, $code, null, false);
         $error = t('err.no_project') . ' Please double-check it with your project manager.';
+    } else {
+        // Issue-023: a successful code lookup clears the per-IP
+        // failure history so a legitimate user is not locked out
+        // by their own past failures.
+        recordShareCodeAttempt($clientIp, $code, $project['id'], true);
     }
 }
 

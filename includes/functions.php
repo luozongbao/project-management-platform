@@ -833,4 +833,127 @@ if (!function_exists('isLoginRateLimited')) {
         return false;
     }
 }
+
+// ---------------------------------------------------------------------------
+// Issue-023: client share-code brute-force / dictionary-attack protection
+// ---------------------------------------------------------------------------
+
+if (!function_exists('recordShareCodeAttempt')) {
+    /**
+     * Record one row in `client_share_code_attempts` for the given
+     * client IP, submitted code, and outcome.
+     *
+     * The `$code` is the SUBMITTED value (not a projects FK) so
+     * malformed inputs (regex failures, typos) and the brute-force
+     * history of any one code are fully recorded. `$code` is capped to
+     * 20 chars to match the column width. `$projectId` is NULL for
+     * unknown / malformed codes — the attempt is still recorded.
+     *
+     * On a SUCCESS record, the helper also clears the per-IP failure
+     * history so a legitimate user who mistypes a code (or several
+     * codes) and then enters the right one is back to 0 failures.
+     * This is the "success resets the counter" property called out
+     * in the issue-023 spec.
+     *
+     * @param string   $ip        Client IP (REMOTE_ADDR, never X-Forwarded-For).
+     * @param string   $code      Submitted code (raw, pre-validation).
+     * @param int|null $projectId Matched project id, or NULL for unknown / malformed codes.
+     * @param bool     $success   True if the code matched a real project.
+     */
+    function recordShareCodeAttempt($ip, $code, $projectId, $success) {
+        $ip = (string)$ip;
+        $code = substr((string)$code, 0, 20);
+        $projectId = ($projectId === null || (int)$projectId <= 0) ? null : (int)$projectId;
+        $successFlag = $success ? 1 : 0;
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO client_share_code_attempts
+                 (ip_address, code_attempted, project_id, success)
+             VALUES (?, ?, ?, ?)",
+            [$ip, $code, $projectId, $successFlag]
+        );
+
+        if ($success) {
+            // A success clears the per-IP failure history so the user
+            // is not locked out by their own past failures. Only the
+            // current IP is cleared; we do NOT clear other IPs that
+            // may have attempted the same code (e.g. a NAT'd office).
+            $db->execute(
+                "DELETE FROM client_share_code_attempts
+                 WHERE ip_address = ? AND success = 0",
+                [$ip]
+            );
+        }
+    }
+}
+
+if (!function_exists('isShareCodeRateLimited')) {
+    /**
+     * Check whether the client IP is currently rate-limited from
+     * submitting share codes to the public client portal.
+     *
+     * The policy (issue-023):
+     *   - Per IP: at most SHARE_CODE_IP_LIMIT attempts (default 20)
+     *     within SHARE_CODE_IP_WINDOW seconds (default 5 min). The
+     *     cap is higher than login.php's 5-in-15 because the client
+     *     portal is anonymous and a misbehaving corporate proxy may
+     *     issue many requests under the same IP.
+     *   - Per IP, distinct FAILED codes: at most SHARE_CODE_DISTINCT_LIMIT
+     *     (default 5) distinct failed codes in the window. Defends
+     *     against the "I have a list of leaked codes and want to
+     *     validate them all" attack — successes are EXCLUDED from
+     *     the distinct count.
+     *
+     * If EITHER threshold is exceeded, return true. Both gates use
+     * `>` not `>=` so the Nth attempt is allowed and the (N+1)th is
+     * denied (matches the issue-019 / issue-018 pattern).
+     *
+     * Successful attempts do NOT count toward either limit (a success
+     * is recorded with success=1, the COUNT(*) here filters success=0).
+     * A success also clears the per-IP failure history via
+     * recordShareCodeAttempt() so the next failure starts at 1.
+     *
+     * @param string $ip  Client IP (REMOTE_ADDR, never X-Forwarded-For).
+     * @return bool True if the request should be denied (HTTP 429).
+     */
+    function isShareCodeRateLimited($ip) {
+        $ip = (string)$ip;
+
+        $ipLimit         = defined('SHARE_CODE_IP_LIMIT')       ? SHARE_CODE_IP_LIMIT       : 20;
+        $ipWindow        = defined('SHARE_CODE_IP_WINDOW')      ? SHARE_CODE_IP_WINDOW      : 300;
+        $distinctLimit   = defined('SHARE_CODE_DISTINCT_LIMIT') ? SHARE_CODE_DISTINCT_LIMIT : 5;
+
+        $db = Database::getInstance();
+
+        // Per-IP total attempt count.
+        $ipCount = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM client_share_code_attempts
+             WHERE ip_address = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $ipWindow]
+        )['c'];
+        if ($ipCount > $ipLimit) {
+            return true;
+        }
+
+        // Per-IP distinct-failed-codes count. DISTINCT code_attempted
+        // across the IP's failed-attempt history in the window. A
+        // user who types the same wrong code 100 times is NOT
+        // distinct-limited (it's the same code).
+        $distinctCount = (int)$db->fetchOne(
+            "SELECT COUNT(DISTINCT code_attempted) AS c
+             FROM client_share_code_attempts
+             WHERE ip_address = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $ipWindow]
+        )['c'];
+        if ($distinctCount > $distinctLimit) {
+            return true;
+        }
+
+        return false;
+    }
+}
 ?>
