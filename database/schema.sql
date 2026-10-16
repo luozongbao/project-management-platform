@@ -43,6 +43,22 @@ CREATE TABLE password_reset_attempts (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Login attempts table (issue-019: login / register brute-force & enumeration protection)
+-- Records every login attempt (by client IP, submitted username/email, outcome) so the
+-- application can enforce per-(IP, username) and per-IP rate limits. The
+-- `username_attempted` column is the SUBMITTED value (not a users FK) so a credential
+-- stuffing attack that rotates usernames is fully recorded — and a successful login for
+-- one user does not clear the failure count for another user from the same IP.
+CREATE TABLE login_attempts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_address VARCHAR(45) NOT NULL,         -- IPv6-safe
+    username_attempted VARCHAR(255) NOT NULL,
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_la_user_time (username_attempted, attempted_at),
+    INDEX idx_la_ip_time (ip_address, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Projects table
 CREATE TABLE projects (
     id INT PRIMARY KEY AUTO_INCREMENT,

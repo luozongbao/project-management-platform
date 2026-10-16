@@ -190,7 +190,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (int)$step === 3) {
             . "\n"
             . "const SESSION_LIFETIME      = 3600;\n"
             . "const PASSWORD_RESET_EXPIRY = 3600;\n"
-            . "const ENCRYPTION_KEY        = " . var_export(bin2hex(random_bytes(32)), true) . ";\n";
+            . "const ENCRYPTION_KEY        = " . var_export(bin2hex(random_bytes(32)), true) . ";\n"
+            . "\n"
+            . "const LOGIN_FAILURE_LIMIT   = 5;\n"
+            . "const LOGIN_FAILURE_WINDOW  = 900;\n"
+            . "const LOGIN_IP_LIMIT        = 30;\n"
+            . "const LOGIN_IP_WINDOW       = 900;\n";
 
         if (file_put_contents(__DIR__ . '/config.php', $config_content)) {
             session_destroy();

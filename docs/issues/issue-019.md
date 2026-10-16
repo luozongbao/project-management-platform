@@ -1,6 +1,6 @@
 # Login & Registration Brute-Force / Enumeration Protection
 
-**Status:** Proposed
+**Status:** Implemented (v1.9.0)
 **Type:** Security / Abuse Prevention
 **Priority:** Medium
 **Affects:** `login.php`, `register.php`, `includes/functions.php`, `database/migrations/`, new `database/login_register_protection_test.php`
@@ -222,16 +222,24 @@ Critically:
 - `database/migrations/20261015_add_login_attempts.sql`
   (new, idempotent).
 - `database/schema.sql` — add the same `CREATE TABLE`.
-- `includes/functions.php` — add
-  `recordLoginAttempt()` and `isLoginRateLimited()`.
-- `login.php` — wrap the user lookup with the
-  rate-limit gate, record every attempt.
-- `register.php` — collapse the "already exists"
-  branch into the success path.
-- `config.php` — add the four new constants.
-- `database/login_register_protection_test.php`
-  (new) — regression test.
-- `docs/sprint/v1.6.md` — capture as a v1.7.1 item.
+- `includes/functions.php` — add `recordLoginAttempt()`
+  and `isLoginRateLimited()` (both `function_exists`-guarded,
+  with `defined()` fallbacks for the four tunables).
+- `login.php` — gate on the (IP, username) and per-IP
+  rate limit, record every attempt (success / wrong-password /
+  rate-limited drop), same "Invalid username or password"
+  message on all denial paths (no enumeration leak).
+- `register.php` — collapse the "already exists" branch
+  into a silent `$success = true` (no INSERT, no welcome
+  email, same rendered card).
+- `config.template.php`, `config.php`, `docker/entrypoint.sh`,
+  `install.php` — add `LOGIN_FAILURE_LIMIT=5`,
+  `LOGIN_FAILURE_WINDOW=900`, `LOGIN_IP_LIMIT=30`,
+  `LOGIN_IP_WINDOW=900`. The helpers still use `defined()`
+  fallbacks so a stale `config.php` does not break login.
+- `database/login_register_protection_test.php` (new) —
+  regression test, 10 sections, 54 assertions.
+- `docs/issues/issue-019.md` — this file.
 
 ## Risks
 
@@ -351,3 +359,115 @@ either disables the CSRF check or uses a
 - Lockout notification email to the user
   ("Someone tried to log in as you 5 times in the
   last 15 minutes. Was this you?"). v2.0.
+
+## Implementation summary (v1.9.0)
+
+The spec was implemented end-to-end with one
+deliberate deviation from the spec text: the
+registration-enumeration fix is a single-line
+`$success = true;` in the "already exists" branch
+followed by the existing `if ($success)` render
+block. The spec's pseudocode (which showed inline
+INSERT + email-send in the success branch) is
+preserved as-is; the "exists" branch is a true
+no-op.
+
+### Helpers
+
+| Helper | Purpose |
+| --- | --- |
+| `recordLoginAttempt($ip, $username, $success)` | INSERT one row into `login_attempts`. On `success=true`, also `DELETE`s the per-(IP, username) failure history (success resets the counter). |
+| `isLoginRateLimited($ip, $username)` | Two gates: per-(IP, username) threshold (5 / 15 min) AND per-IP threshold (30 / 15 min). Returns true if EITHER is exceeded. Both use `count > limit` so the Nth is allowed and the (N+1)th is denied. |
+
+### `login.php` — what changed
+
+The POST block now:
+1. Reads `$clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'`.
+2. Calls `isLoginRateLimited($clientIp, $username)`. If true, emits the byte-identical "Invalid username or password" message and records a failure (so a sustained attack keeps incrementing the counter — the attacker cannot ping the rate-limit branch forever).
+3. Otherwise, looks up the user, calls `verifyPassword`, and either sets up the session + records a success (which clears the per-(IP, username) failure history) or emits the same "Invalid username or password" and records a failure.
+
+`$clientIp` is `$_SERVER['REMOTE_ADDR']` — the spec's "do not trust `X-Forwarded-For`" note is honoured (and source-grepped).
+
+### `register.php` — what changed
+
+The "user already exists" branch used to push `$errors[] = "Username or email already exists"`. Replaced with a single `$success = true;` line. The page then renders the SAME `if ($success)` "Registration Successful!" card as a real registration would. The attacker cannot distinguish "user created" from "user exists" from the response, so they cannot enumerate the user table.
+
+Critically: the existing branch is a NO-OP. No `INSERT INTO users`, no welcome email. The existing user keeps their original welcome email; their password is not reset.
+
+### Migration
+
+`database/migrations/20261015_add_login_attempts.sql` is additive (`CREATE TABLE IF NOT EXISTS …`). No FK on `username_attempted` (it's the submitted value, not a users FK — a credential-stuffing attack that rotates usernames is fully recorded). The same DDL is mirrored in `database/schema.sql`.
+
+## Test results
+
+`database/login_register_protection_test.php` runs 10 sections, 54 assertions, all green:
+
+```
+## 1. Per-(IP, username) rate limit (5 failed / 15 min)
+  [PASS] x 8  (fresh not limited, 5 records-not-limited, 6th-trips, cross-username isolated)
+## 2. Success clears the per-(IP, username) failure history
+  [PASS] x 5  (success clears, 5 fresh fail NOT limited, 6th IS limited, cross-user success does NOT clear, same-user success DOES clear)
+## 3. Per-IP rate limit (30 failed / 15 min)
+  [PASS] x 3  (30 NOT tripped, 31 IS tripped, unknown username also denied at IP cap)
+## 4. Source-grep on login.php
+  [PASS] x 9  (gate, record, REMOTE_ADDR, no enumeration leak, no X-Forwarded-For)
+## 5. Source-grep on register.php (enumeration fix)
+  [PASS] x 6  (still queries users, no $errors push, $success=true, no INSERT in existing branch, success card present, no welcome email in existing branch)
+## 6. Source-grep on includes/functions.php
+  [PASS] x 9  (helpers present, defined() fallbacks, `>` not `>=`, success-clears)
+## 7. Source-grep on config.php (constants)
+  [PASS] x 4
+## 8. Source-grep on database/schema.sql
+  [PASS] x 4  (table, indexes, no FK on username_attempted)
+## 9. Source-grep on the migration
+  [PASS] x 3
+## 10. Lint touched files
+  [PASS] x 3  (login.php, register.php, includes/functions.php)
+
+Issue-019 login/register protection: ALL ASSERTIONS PASSED
+```
+
+### Self-test (bug catch)
+
+The test catches two distinct regressions:
+
+1. **`>=` vs `>` semantic revert** — re-introducing `$userCount >= $userLimit` in `isLoginRateLimited` produces:
+   ```
+   [FAIL] After 5 failure(s), (IP, username) is still not rate-limited
+   [FAIL] After 5 fresh failures post-clear, (IP, username) is NOT yet rate-limited (count=5, limit=5)
+   [FAIL] functions.php isLoginRateLimited uses '>' (not '>=') for the threshold
+   ```
+2. **Enumeration leak revert** — re-inserting `$errors[] = "Username or email already exists";` in the existing branch produces:
+   ```
+   [FAIL] register.php does NOT push 'already exists' to $errors
+   [FAIL] register.php sets $success = true on the existing branch
+   [FAIL] register.php does NOT send a welcome email in the existing branch
+   ```
+
+Exit code `1` — CI-safe.
+
+### Regression sweep
+
+All 12 self-contained tests under `database/` and `client/` pass on the live DB after the migration is applied:
+
+```
+database/contacts_columns_test.php                    exit=0
+database/install_wizard_test.php                      exit=0
+database/login_register_protection_test.php           exit=0   (new)
+database/password_reset_attempts_test.php             exit=0
+database/project_start_date_test.php                  exit=0
+database/security_issue016_test.php                   exit=0
+database/task_completion_test.php                     exit=0
+database/task_edit_idor_test.php                      exit=0
+database/task_inherit_subtask_hours_test.php          exit=0
+database/task_layout_issue013_test.php                exit=0
+database/task_parent_status_derived_test.php          exit=0
+client/toggle_subtasks_test.php                       exit=0
+```
+
+## Notes on spec deviations
+
+- **The spec text says "docs/sprint/v1.6.md"** in the Files Touched section. The current repo does not have a `docs/sprint/` directory; the change set is captured in this file (`docs/issues/issue-019.md`) instead. The v1.6 sprint doc is no longer the canonical record of v1.9.0 work.
+- **The rate-limit-dropped request records a failure.** The spec's pseudocode does not explicitly call out that the rate-limit branch should call `recordLoginAttempt(..., false)`, but the "two non-obvious details" paragraph below the pseudocode does: "The rate-limit branch records a *failure* in `login_attempts` even though the password was never actually checked. Otherwise an attacker could ping the rate-limit branch forever without the counter incrementing." This is implemented and source-grepped.
+- **The `username_attempted` column is the SUBMITTED value, not the resolved user.** The spec is explicit about this ("free-form, NOT a users.username FK"). The regression test asserts the schema has no FK on this column.
+- **`defined()` fallbacks for the four constants.** The spec puts the constants in `config.php`, but the helpers use `defined()` fallbacks (5 / 900 / 30 / 900) so a stale `config.php` does not break login. The constants are still defined in all four config files (`config.template.php`, `config.php`, `docker/entrypoint.sh`, `install.php`); the fallbacks are a defense-in-depth measure, not a replacement.

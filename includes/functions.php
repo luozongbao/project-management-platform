@@ -692,4 +692,115 @@ if (!function_exists('invalidateAllPasswordResetTokensForUser')) {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Issue-019: login & registration brute-force / enumeration protection
+// ---------------------------------------------------------------------------
+
+if (!function_exists('recordLoginAttempt')) {
+    /**
+     * Record one row in `login_attempts` for the given client IP, submitted
+     * username, and outcome.
+     *
+     * The `$username` is the SUBMITTED value (not a users FK) so a
+     * credential-stuffing attack that rotates usernames is fully recorded.
+     * `$username` is capped to 255 chars to match the column width.
+     *
+     * On a SUCCESS record, the helper also clears the per-(IP, username)
+     * failure history for that tuple. This is the "success resets the
+     * counter" property called out in the issue-019 spec. The IP-only
+     * failure count is NOT cleared here — that counter defends against
+     * distributed attacks across usernames and should accumulate over
+     * the window regardless of which usernames succeed.
+     *
+     * @param string $ip       Client IP (REMOTE_ADDR, never X-Forwarded-For).
+     * @param string $username Submitted username or email value.
+     * @param bool $success    True if the credentials verified successfully.
+     */
+    function recordLoginAttempt($ip, $username, $success) {
+        $ip = (string)$ip;
+        $username = substr((string)$username, 0, 255);
+        $successFlag = $success ? 1 : 0;
+        $db = Database::getInstance();
+        $db->execute(
+            "INSERT INTO login_attempts (ip_address, username_attempted, success)
+             VALUES (?, ?, ?)",
+            [$ip, $username, $successFlag]
+        );
+
+        if ($success) {
+            // A success resets the per-(IP, username) failure counter so the
+            // user is not locked out by their own past failures. The IP-only
+            // counter is intentionally left alone.
+            $db->execute(
+                "DELETE FROM login_attempts
+                 WHERE ip_address = ? AND username_attempted = ? AND success = 0",
+                [$ip, $username]
+            );
+        }
+    }
+}
+
+if (!function_exists('isLoginRateLimited')) {
+    /**
+     * Check whether the (IP, username) tuple is currently rate-limited.
+     *
+     * The policy (issue-019):
+     *   - Per (IP, username_attempted): at most LOGIN_FAILURE_LIMIT failed
+     *     attempts (default 5) within LOGIN_FAILURE_WINDOW seconds (default
+     *     15 min). After the 5th failure the 6th is the first to be denied.
+     *   - Per IP across all usernames: at most LOGIN_IP_LIMIT failed
+     *     attempts (default 30) within LOGIN_IP_WINDOW seconds (default
+     *     15 min). Defends against a distributed dictionary attack that
+     *     rotates usernames.
+     *
+     * If EITHER threshold is exceeded, return true. Both gates use `>`
+     * not `>=` so the Nth attempt is allowed and the (N+1)th is denied
+     * (matches the spec's acceptance-test prose).
+     *
+     * Successful logins do NOT count toward either limit (a success is
+     * recorded with success=1, the COUNT(*) here filters success=0). A
+     * success also clears the per-(IP, username) failure history via
+     * recordLoginAttempt() so the next failure starts the count at 1.
+     *
+     * @return bool True if the request should be denied.
+     */
+    function isLoginRateLimited($ip, $username) {
+        $ip = (string)$ip;
+        $username = substr((string)$username, 0, 255);
+
+        $userLimit  = defined('LOGIN_FAILURE_LIMIT')  ? LOGIN_FAILURE_LIMIT  : 5;
+        $userWindow = defined('LOGIN_FAILURE_WINDOW') ? LOGIN_FAILURE_WINDOW : 900;
+        $ipLimit    = defined('LOGIN_IP_LIMIT')       ? LOGIN_IP_LIMIT       : 30;
+        $ipWindow   = defined('LOGIN_IP_WINDOW')      ? LOGIN_IP_WINDOW      : 900;
+
+        $db = Database::getInstance();
+
+        // Per-(IP, username) check.
+        $userCount = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM login_attempts
+             WHERE ip_address = ? AND username_attempted = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $username, $userWindow]
+        )['c'];
+        if ($userCount > $userLimit) {
+            return true;
+        }
+
+        // Per-IP check (any username).
+        $ipCount = (int)$db->fetchOne(
+            "SELECT COUNT(*) AS c FROM login_attempts
+             WHERE ip_address = ?
+               AND success = 0
+               AND attempted_at >= NOW() - INTERVAL ? SECOND",
+            [$ip, $ipWindow]
+        )['c'];
+        if ($ipCount > $ipLimit) {
+            return true;
+        }
+
+        return false;
+    }
+}
 ?>

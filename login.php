@@ -18,29 +18,45 @@ $success = false;
 if ($_POST) {
     $username = sanitize($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
     if (empty($username)) $errors[] = "Username is required";
     if (empty($password)) $errors[] = "Password is required";
-    
+
     if (empty($errors)) {
         $db = Database::getInstance();
-        
-        // Find user by username or email
-        $user = $db->fetchOne(
-            "SELECT id, name, username, email, password FROM users WHERE username = ? OR email = ?",
-            [$username, $username]
-        );
-        
-        if ($user && verifyPassword($password, $user['password'])) {
-            // Login successful
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['name'] = $user['name'];
-            $_SESSION['timezone'] = $_SESSION['timezone'] ?? TIMEZONE;
-            
-            redirect('dashboard.php', 'Login successful!', 'success');
-        } else {
+
+        // Issue-019: rate-limit gate. The denied branch records a FAILURE
+        // so the counter keeps incrementing for a sustained attack — an
+        // attacker cannot ping the rate-limit branch forever without the
+        // counter moving. The user-visible message is byte-identical to a
+        // wrong-password attempt, so the attacker cannot tell "rate-limited"
+        // from "wrong password".
+        if (isLoginRateLimited($clientIp, $username)) {
             $errors[] = "Invalid username or password";
+            recordLoginAttempt($clientIp, $username, false);
+        } else {
+            // Find user by username or email
+            $user = $db->fetchOne(
+                "SELECT id, name, username, email, password FROM users WHERE username = ? OR email = ?",
+                [$username, $username]
+            );
+
+            if ($user && verifyPassword($password, $user['password'])) {
+                // Login successful. recordLoginAttempt(true) also clears
+                // the per-(IP, username) failure history so the user is
+                // not locked out by their own past failures.
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['name'] = $user['name'];
+                $_SESSION['timezone'] = $_SESSION['timezone'] ?? TIMEZONE;
+
+                recordLoginAttempt($clientIp, $username, true);
+                redirect('dashboard.php', 'Login successful!', 'success');
+            } else {
+                $errors[] = "Invalid username or password";
+                recordLoginAttempt($clientIp, $username, false);
+            }
         }
     }
 }
