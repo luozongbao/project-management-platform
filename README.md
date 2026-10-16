@@ -4,7 +4,18 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.0 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.1 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.1** tightens the parent-task status rule (issue-025):
+> the parent is now `completed` only when **every** sub-task is
+> `completed` (was: any sub-task `completed`). The three other
+> rules (`on_hold` stickiness, `in_progress` wins, empty
+> children → `not_started`) are unchanged. A parent that was
+> classified as `completed` under the old rule and still has a
+> `not_started` sub-task is automatically demoted to
+> `not_started` on the next sub-task edit, hold, resume,
+> complete, or progress update. No DB / schema / AJAX / CSS /
+> translation change. Pull and reload — no restart required.
 >
 > **v1.7.0** is a security + bugfix bundle. It closes the v1.6.0
 > security audit ([issue-015](docs/issues/issue-015.md) — umbrella;
@@ -79,6 +90,45 @@ portal** that lets stakeholders view read-only progress without logging in.
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
 
 ---
+
+## What's new in v1.7.1
+
+### v1.7.1 — Parent-task status: strict "all sub-tasks completed" rule (issue-025)
+
+- **`deriveParentStatus()` is now strict on the `completed` branch.**
+  A parent task is only classified as `completed` when **every**
+  sub-task is `completed` (and the children list is non-empty).
+  The previous loose rule promoted the parent to `completed` as
+  soon as any sub-task was completed, even when the rest were
+  `not_started` or `on_hold` — e.g. sub-tasks
+  `['completed', 'not_started']` previously classified the
+  parent as `completed`; it is now `not_started`. The other
+  three rules are unchanged: `on_hold` parent is still sticky;
+  any `in_progress` child still wins; empty children list still
+  yields `not_started`.
+- **Backwards-incompatible behaviour, automatic demotion.** A
+  parent that was previously classified as `completed` under
+  the loose rule and still has at least one `not_started`
+  sub-task is automatically re-classified to `not_started` on
+  the next user interaction that triggers
+  `syncProjectTaskCompletions()` (any sub-task edit, hold,
+  resume, complete, or progress update). No back-fill script
+  is required. The `completion_date` is cleared at the same
+  time, consistent with the v1.5.0 demotion rules.
+- **Files changed:** `includes/functions.php` (function body
+  + docblock) and
+  `database/task_parent_status_derived_test.php` (4 pure
+  fixtures updated to codify the strict rule, 2f live-DB
+  assertion updated to expect `not_started`). No schema, AJAX,
+  JS, CSS, or translation change.
+- **Acceptance check:** run
+  `docker compose exec app php database/task_parent_status_derived_test.php`
+  — 0 failures. The test now explicitly asserts the three
+  regressed cases (`['completed', 'not_started']`,
+  `['completed', 'on_hold']`, and
+  `['completed', 'completed', 'not_started']`) and the 4×4
+  exhaustive matrix still proves every cell returns a valid
+  enum value with `on_hold` sticky.
 
 ## What's new in v1.5.1
 
