@@ -43,6 +43,14 @@ if ($_POST) {
             );
 
             if ($user && verifyPassword($password, $user['password'])) {
+                // Issue-020: session ID rotation. The `true` argument
+                // deletes the old session file so a session-fixation
+                // attacker's pre-set cookie becomes invalid the moment
+                // the victim authenticates. Must run BEFORE any
+                // $_SESSION writes so the new ID is what gets the
+                // user_id populated.
+                session_regenerate_id(true);
+
                 // Login successful. recordLoginAttempt(true) also clears
                 // the per-(IP, username) failure history so the user is
                 // not locked out by their own past failures.

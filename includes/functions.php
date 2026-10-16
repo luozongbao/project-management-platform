@@ -5,9 +5,39 @@
 
 // Start session if not already started
 function startSession() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+    if (session_status() !== PHP_SESSION_NONE) {
+        return;
     }
+    // Issue-020: open an output buffer the FIRST time a session is
+    // started. The PHP-FPM pool runs with output_buffering=0 +
+    // implicit_flush=1, so any byte echoed before the first
+    // header() call is sent immediately to nginx and
+    // "headers already sent" follows. The buffer stays open until
+    // script end and is flushed automatically.
+    //
+    // The buffer is started here (not in header.php) because
+    // startSession() is called BEFORE the page echoes its closing
+    // PHP tag and a blank line, while header.php is included AFTER.
+    // The earlier we open the buffer, the more bytes we can capture.
+    if (ob_get_level() === 0) {
+        ob_start();
+    }
+    // Issue-020: pin cookie flags in code, not php.ini, so the behaviour
+    // is portable across container rebuilds. The Secure flag is computed
+    // from $_SERVER['HTTPS'] so the cookie is Secure in production
+    // (HTTPS) and plain in local dev (HTTP). Local-dev users see no
+    // behavioural change.
+    $httpsOn = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['SERVER_PORT'] ?? '') == '443');
+    session_set_cookie_params([
+        'lifetime' => 0,                    // session cookie
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $httpsOn,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
 }
 
 // Check if user is logged in

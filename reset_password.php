@@ -114,6 +114,15 @@ if (empty($token)) {
                         // after a successful reset.
                         invalidateAllPasswordResetTokensForUser($reset_data['user_id']);
 
+                        // Issue-020: session ID rotation on a successful
+                        // password reset. The reset flow does not
+                        // auto-log-in, but rotating the session ID here
+                        // means the URL token is no longer bound to the
+                        // old session. A network-position attacker who
+                        // observed the old session ID cannot reuse it
+                        // after the reset succeeds.
+                        session_regenerate_id(true);
+
                         $success = true;
 
                         recordPasswordResetAttempt($clientIp, 'consume', $reset_data['user_id'], true);

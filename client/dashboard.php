@@ -18,6 +18,12 @@ require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/lang.php';
 
+// Issue-020: tightened CSP for the public client portal — no
+// 'unsafe-inline' for script-src because the toggle JS is in an
+// external file and there are no inline event handlers on this page.
+require_once __DIR__ . '/../includes/security_headers.php';
+sendClientPortalSecurityHeaders();
+
 // Persist ?lang= into the cookie so subsequent navigations remember it.
 if (isset($_GET['lang']) && in_array($_GET['lang'], client_supported_langs(), true)) {
     client_set_lang_cookie($_GET['lang']);

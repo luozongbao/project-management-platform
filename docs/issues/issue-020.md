@@ -1,9 +1,11 @@
 # Response Security Headers + Session Hardening
 
-**Status:** Proposed
+**Status:** Implemented (v1.9.0)
+**Fixed in commit:** *feat(issue-020): response security headers + session hardening* — see `git log --oneline` on the `issue-020` branch.
+**Regression test:** `database/security_headers_test.php` (5 layers, exit=0)
 **Type:** Security / Hardening
 **Priority:** Medium
-**Affects:** `includes/header.php`, `includes/functions.php`, `config.php`, `docker/nginx.conf`, `database/security_headers_test.php` (new)
+**Affects:** `includes/header.php`, `includes/functions.php`, `includes/security_headers.php` (new), `index.php`, `client/dashboard.php`, `login.php`, `reset_password.php`, `docker/nginx.conf`, `database/security_headers_test.php` (new)
 
 ## Problem
 
@@ -279,6 +281,120 @@ The CSP and Permissions-Policy are sent by PHP only —
 nginx `add_header` for those would require escaping
 the semicolons in the nginx config, which is brittle.
 PHP-side is the canonical source of truth.
+
+## Implementation summary
+
+Shipped exactly as proposed, with three small
+adjustments discovered during implementation:
+
+- **Two helpers, not one.** `sendSecurityHeaders()`
+  is for internal-app pages (CSP allows
+  `'unsafe-inline'` for scripts). `sendClientPortalSecurityHeaders()`
+  is for the public client portal at
+  `index.php` and `client/dashboard.php` and
+  tightens `script-src` to `'self'` only. Both live
+  in `includes/security_headers.php` with
+  `static $sent` guards so they are idempotent and
+  safe to call from multiple include points.
+
+- **`ob_start()` in `startSession()`.** The
+  app container's PHP-FPM is configured with
+  `output_buffering=0` and `implicit_flush=1`,
+  which means any byte echoed before
+  `header()` is sent to the SAPI immediately and
+  triggers "headers already sent" warnings.
+  Calling pages (`login.php`, `dashboard.php`,
+  etc.) close their PHP block with `?>` and emit
+  a blank line before including `header.php`. The
+  fix is `if (ob_get_level() === 0) ob_start();`
+  in `startSession()`, which is the first thing
+  every page calls. The buffer is implicitly
+  flushed at script end.
+
+- **Nginx static-asset location block.** The
+  `add_header` directives declared in the parent
+  `server { }` block do **not** inherit into
+  nested `location { }` blocks. The three simple
+  headers (X-Frame-Options, X-Content-Type-Options,
+  Referrer-Policy) are therefore declared a second
+  time in the static-asset
+  `~* \.(css|js|...)$` block. Without this, the
+  `/assets/css/style.css` 200 response is missing
+  the clickjacking / MIME-sniffing / referrer
+  protection.
+
+### Live verification
+
+After implementation, the live response headers
+on a few representative pages are:
+
+```
+# /login.php
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' https://cdnjs.cloudflare.com data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+x-frame-options: DENY
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: camera=(), microphone=(), geolocation=(), usb=(), payment=(), accelerometer=(), gyroscope=()
+set-cookie: PHPSESSID=...; path=/; HttpOnly; SameSite=Lax
+
+# /index.php (public client portal)
+content-security-policy: default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; ...   # tighter script-src
+x-frame-options: DENY
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: ...
+
+# /assets/css/style.css (static asset, nginx-only headers)
+x-frame-options: DENY
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+# (no CSP — PHP did not run; correct)
+```
+
+### Regression test
+
+`database/security_headers_test.php` is a 5-layer
+regression test:
+
+1. **Source-grep** on
+   `includes/security_headers.php` — both helpers
+   exist, both use `static $sent`, both send the
+   5 documented headers, and the client portal
+   variant tightens `script-src` (drops
+   `'unsafe-inline'`).
+2. **Source-grep** on the call sites
+   (`includes/header.php`, `index.php`,
+   `client/dashboard.php`).
+3. **Source-grep** on `includes/functions.php`
+   (`session_set_cookie_params` with
+   `httponly => true` and `samesite => 'Lax'`) and
+   on the two `session_regenerate_id(true)` call
+   sites (`login.php`, `reset_password.php`).
+4. **Source-grep** on `docker/nginx.conf` — the
+   three complement headers appear in BOTH the
+   `server { }` block AND the static-asset
+   `location { }` block.
+5. **Live HTTP** through the nginx container —
+   `curl` HEAD probes on `/login.php`,
+   `/index.php`, `/client/dashboard.php?code=...`,
+   and `/assets/css/style.css`. Plus a full
+   GET → POST login drive that resets user #1's
+   password to a known value, drives the login
+   flow, asserts `Set-Cookie` has
+   `HttpOnly` + `SameSite=Lax`, asserts the
+   `PHPSESSID` value changes between the GET and
+   POST (session ID rotation), and restores the
+   original Argon2id hash in a `finally` block so
+   the dev environment is unaffected.
+
+The test was self-verified during development by
+temporarily breaking each layer (removing
+`httponly`, removing `session_regenerate_id(true)`,
+removing the static-asset nginx `add_header`
+block) and confirming the test fails with a
+descriptive message. Then restored and confirmed
+exit=0. Full regression sweep across all 13
+existing tests also green.
 
 ## Files touched
 
