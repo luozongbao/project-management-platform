@@ -4,7 +4,23 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.1 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.1.1 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.1.1** aligns parent status with parent completion
+> percentage (issue-026): the parent's `status` is now
+> derived from its computed `completion_percentage` (0 →
+> `not_started`, 0 < x < 99.5 → `in_progress`, ≥ 99.5 →
+> `completed`) rather than from the child `status` mix. A
+> new pure helper `deriveParentStatusFromCompletion()` in
+> `includes/functions.php` powers the parent-derivation
+> path in `syncProjectTaskCompletions()`; the strict
+> `all-completed` rule from v1.7.1 is preserved at the
+> leaf level and at the user-driven resume path in
+> `ajax/parent_hold.php`. Closes the UAT2 regression
+> where a parent at 1.6% progress was classified as
+> `not_started`. Pure function-body + 1-line call-site
+> change. No DB / schema / AJAX / JS / CSS / translation
+> change. Pull and reload — no restart required.
 >
 > **v1.7.1** tightens the parent-task status rule (issue-025):
 > the parent is now `completed` only when **every** sub-task is
@@ -88,6 +104,57 @@ portal** that lets stakeholders view read-only progress without logging in.
 > (tester-note-001). Originally planned as v1.4: missing `company` /
 > `position` / `address` columns on `contacts` (issue-009) plus surfacing
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
+
+---
+
+## What's new in v1.7.1.1
+
+### v1.7.1.1 — Parent status aligned with parent completion percentage (issue-026)
+
+- **`deriveParentStatusFromCompletion(?string $currentStatus, float $percentage): string` is the new
+  percentage-driven helper** in `includes/functions.php`.
+  It is used by `syncProjectTaskCompletions()` to derive a
+  parent's `status` from its computed
+  `completion_percentage`, so the two fields share a single
+  source of truth. The rule: `on_hold` (parent) is sticky;
+  otherwise `completed` if percentage `>= 99.5`, otherwise
+  `in_progress` if percentage `> 0`, otherwise
+  `not_started`. The 99.5 threshold matches the
+  `round(x, 2)` granularity used at the call site.
+- **`deriveParentStatus()` is unchanged** and still owns
+  the user-driven `resume` branch in
+  `ajax/parent_hold.php`. The two helpers are siblings,
+  not replacements; the strict `all-completed` rule from
+  v1.7.1 is preserved at the leaf level and at the
+  resume path. No AJAX endpoint, JS, CSS, translation, or
+  schema change.
+- **Closes the UAT2 regression.** A parent with three
+  sub-tasks, one at 5% / `not_started` and two at 0% /
+  `not_started`, now lands on `in_progress` with a
+  positive `completion_percentage` after
+  `syncProjectTaskCompletions()`. Under the old helper
+  the parent was `not_started` with percentage 0.
+- **Files changed:** `includes/functions.php` (new
+  helper with full docblock referencing issue-025 and
+  issue-026; the call site in
+  `syncProjectTaskCompletions()` now uses the new helper)
+  and `database/task_parent_status_derived_test.php`
+  (new layer-1b block with 12 spec fixtures plus
+  boundary stress for 99.49 / 99.50; live-DB sub-test 2a
+  extended to assert `completion_percentage === 0.0`;
+  new live-DB sub-test 2g for the UAT2 regression;
+  live-DB fixtures 2b and 2d updated to give the
+  promoted child a non-zero `completion_percentage` so
+  the parent percentage is also non-zero under the new
+  contract; new layer-4 source-grep check that the
+  call site in `syncProjectTaskCompletions()` is
+  exactly `deriveParentStatusFromCompletion($currentStatus, (float)$storedCompletion)`).
+- **Acceptance check:** run
+  `docker compose exec app php database/task_parent_status_derived_test.php`
+  — 0 failures (12 new pure-function fixtures, 2
+  boundary, 2 from the new matrix stress, 1 new live-DB
+  sub-test, 1 new source-grep check). All five other
+  regression tests are unchanged and still pass.
 
 ---
 
