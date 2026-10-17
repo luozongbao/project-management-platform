@@ -75,6 +75,10 @@ ok(
     (bool)preg_match('~ENCRYPTION_KEY\s*=\s*"\s*\.\s*var_export\(~', $install_code)
 );
 ok(
+    'install.php uses var_export() for APP_VERSION (issue-028)',
+    (bool)preg_match('~APP_VERSION\s*=\s*"\s*\.\s*var_export\(~', $install_code)
+);
+ok(
     'install.php does NOT call addslashes()',
     // Search the code-only (comment-stripped) view, and look for the
     // function-call form, not just the identifier.
@@ -388,6 +392,7 @@ if (is_string($config_from_install) && $config_from_install !== '') {
         'SMTP_USER'   => var_export($input['smtp_user'], true),
         'SMTP_PASS'   => var_export($input['smtp_pass'], true),
         'APP_NAME'    => "'Project Management System'",
+        'APP_VERSION' => "'v1.7.2.1'",
         'TIMEZONE'    => "'UTC'",
         'SESSION_LIFETIME' => '3600',
         'PASSWORD_RESET_EXPIRY' => '3600',
@@ -415,8 +420,19 @@ if (is_string($config_from_install) && $config_from_install !== '') {
         isset($parsed_install['APP_URL']) && $parsed_install['APP_URL'] === "'http://localhost'"
     );
 
+    // Issue-028: the install wizard's APP_VERSION line must use the same
+    // var_export() writer as the other constants (defends against a
+    // future "let me just use single quotes here" change that would
+    // re-introduce the issue-021 addslashes-style fragility for the
+    // version string alone).
     ok(
-        'all 13 expected constants match the entrypoint.sh heredoc format',
+        'install.php wrote APP_VERSION via var_export() (issue-028 drift guard)',
+        isset($parsed_install['APP_VERSION'])
+            && $parsed_install['APP_VERSION'] === "'v1.7.2.1'"
+    );
+
+    ok(
+        'all 14 expected constants match the entrypoint.sh heredoc format',
         empty($mismatches),
         $mismatches ? implode('; ', $mismatches) : ''
     );

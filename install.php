@@ -168,6 +168,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (int)$step === 3) {
         $smtp_port = (int)$smtp_port_raw;
         $app_url   = install_build_app_url();
 
+        // Issue-028: APP_VERSION is the single source of truth for the
+        // version string rendered in the in-app About popup (the `?` icon
+        // in the navbar on the internal app, the `?` icon in the header
+        // on the client portal). Bump $current_version by hand on each
+        // release as part of the docs/RELEASE_PROCESS.md checklist; the
+        // drift guard in database/about_popup_test.php will fail the
+        // build if this literal drifts away from config.php /
+        // config.template.php.
+        $current_version = 'v1.7.2.1';
+
         // Issue-021 §2: var_export() produces a valid PHP literal for
         // the value. Far safer than addslashes() against hostile
         // backslash / quote sequences.
@@ -184,8 +194,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (int)$step === 3) {
             . "const SMTP_USER     = " . var_export($smtp_user, true) . ";\n"
             . "const SMTP_PASS     = " . var_export($smtp_pass, true) . ";\n"
             . "\n"
-            . "const APP_NAME = 'Project Management System';\n"
-            . "const APP_URL  = " . var_export($app_url, true) . ";\n"
+            . "const APP_NAME    = 'Project Management System';\n"
+            . "const APP_VERSION = " . var_export($current_version, true) . ";\n"
+            . "const APP_URL     = " . var_export($app_url, true) . ";\n"
             . "const TIMEZONE = 'UTC';\n"
             . "\n"
             . "const SESSION_LIFETIME      = 3600;\n"

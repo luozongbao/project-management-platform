@@ -555,6 +555,75 @@ function buildClientShareUrl($share_code) {
     return rtrim(APP_URL, '/') . '/?code=' . rawurlencode($share_code);
 }
 
+// ---------------------------------------------------------------------------
+// Release summary helper (added 2026-10-17, issue-028 tester-note-002)
+//
+// The "?" About popup used to link to /RELEASE.md for the full changelog,
+// but the issue-020 nginx hardening (docker/nginx.conf) deliberately
+// returns 404 for any request to a .md file or to RELEASE.md/README.md —
+// so the link 404'd in production. The fix is to parse the top entry of
+// RELEASE.md server-side and render it inline. The function reads the
+// file directly from disk (PHP-side), so it is not affected by the
+// nginx block; it is also CSP-safe (no inline JS required) and i18n
+// neutral (the version + date are language-agnostic; the summary line
+// is a short, pre-truncated first sentence from RELEASE.md).
+//
+// Returns: "v1.7.2 — 2026-10-17 — <short summary>". Falls back to
+// the bare APP_VERSION constant if RELEASE.md is missing or unparsable
+// so the popup still degrades gracefully.
+// ---------------------------------------------------------------------------
+function getLatestReleaseSummary(int $max_summary_chars = 140) {
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    // APP_VERSION is always available — that's our floor.
+    $cache = APP_VERSION;
+    $path  = __DIR__ . '/../RELEASE.md';
+    if (!is_readable($path)) {
+        return $cache;
+    }
+    $src = file_get_contents($path);
+    if ($src === false || $src === '') {
+        return $cache;
+    }
+    // Top entry: "## vX.Y.Z — YYYY-MM-DD" then a blank line, then a
+    // non-heading line (the first sentence of the body). We match
+    // 1-3 numeric segments after the "v" so v1.7 and v1.7.2.1 both
+    // parse. The em-dash is U+2014.
+    if (!preg_match(
+        '/^##\s+(v\d+(?:\.\d+){0,3})\s+\x{2014}\s+(\d{4}-\d{2}-\d{2})\s*\n+([^\n#][^\n]*)/um',
+        $src,
+        $m
+    )) {
+        return $cache;
+    }
+    $version = $m[1];
+    $date    = $m[2];
+    $line    = trim($m[3]);
+    // Extract a short summary from the first body line. The RELEASE.md
+    // convention is to bold the first sentence (or short title) as a
+    // one-liner. We look for the first '**' pair and prefer what's
+    // inside; if no bold is present, we use the line up to the first
+    // sentence terminator ('. ' / '! ' / '? ') so the popup stays
+    // scannable. If none of those are found, we fall back to the
+    // whole line (caller truncates with an ellipsis if needed).
+    $summary = '';
+    if (preg_match('/\*\*(.+?)\*\*/u', $line, $bm) && mb_strlen($bm[1]) <= 200) {
+        $summary = trim($bm[1]);
+    } elseif (preg_match('/^(.+?[.!?])(?:\s|$)/u', $line, $sm)) {
+        $summary = trim($sm[1]);
+    } else {
+        $summary = $line;
+    }
+    $summary = rtrim($summary, " \t\n\r\0\x0B:.,;");
+    if ($max_summary_chars > 0 && mb_strlen($summary) > $max_summary_chars) {
+        $summary = mb_substr($summary, 0, $max_summary_chars - 1) . '…';
+    }
+    $cache = $version . ' — ' . $date . ' — ' . $summary;
+    return $cache;
+}
+
 // Format a money amount with the project currency. No FX conversion — the
 // stored amount is taken at face value in the project's chosen currency.
 function formatMoney($amount, $currency) {

@@ -51,6 +51,15 @@ $candidateCode = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string)($_POST['code'] ?? '')
     : (string)($_GET['code'] ?? '');
 
+// Initialise at function scope so a plain GET (no POST, no ?code=)
+// does not emit "Undefined variable" warnings when the template
+// later reads $code and $error (input value + error banner). Both
+// variables are otherwise only assigned inside the direct-link
+// GET branch and the POST branch — neither of which runs on a
+// fresh landing-page render. (tester-note-001 bug 3 / note-002 §2.1)
+$code  = '';
+$error = '';
+
 // Helper: validate format only — don't reveal whether a code exists until
 // we actually look it up. Format = 5-5-5 of A-Z0-9 minus confusing chars.
 function isValidShareCodeFormat($code) {
