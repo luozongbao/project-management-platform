@@ -206,25 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </main>
 
-<script>
-// Auto-uppercase + auto-insert dashes while typing for a smoother UX.
-(function() {
-    var input = document.getElementById('code');
-    if (!input) return;
-    input.addEventListener('input', function(e) {
-        var v = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (v.length > 15) v = v.substring(0, 15);
-        var formatted = '';
-        for (var i = 0; i < v.length; i++) {
-            if (i === 5 || i === 10) formatted += '-';
-            formatted += v[i];
-        }
-        if (input.value !== formatted) {
-            input.value = formatted;
-        }
-    });
-})();
-</script>
+<script src="assets/js/share-code-format.js" defer></script>
 
 </body>
 </html>
