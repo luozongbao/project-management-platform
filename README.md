@@ -4,7 +4,31 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.1.1 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.1.2 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.1.2** extracts the client-portal sub-tasks toggle
+> (issue-027) into an external JS file so the v1.7.0 CSP
+> tightening on the public client portal can load it. The
+> controller used to ship as an inline
+> `<script>(function () { … })();</script>` block in
+> `client/dashboard.php`; the browser refused to execute it
+> under the new CSP (no `'unsafe-inline'` in `script-src`).
+> v1.7.1.2 moves the controller into a new static
+> ES5-compatible file at `client/assets/js/subtask-toggle.js`
+> loaded via `<script src="…" defer>` and threads the
+> per-project share code + the two translated labels through
+> three new `data-*` attributes on the toggle button
+> (`data-share-code`, `data-label-show-all`,
+> `data-label-show-top`). Behaviour is identical: default
+> collapsed, click flips `data-subtasks` / `data-state` /
+> `aria-pressed` / button label / icon class / `aria-hidden`
+> on nested `ul.task-tree:not(.root)`, persisted to
+> `localStorage['client_dash.subtasks_visible.' + shareCode]`
+> as `"0"` / `"1"`. The `<script>` tag is only emitted on
+> dashboards that actually have sub-tasks
+> (`<?php if ($has_subtasks): ?>`). No DB / schema / nginx /
+> CSS / translation change. Pull and reload — no restart
+> required.
 >
 > **v1.7.1.1** aligns parent status with parent completion
 > percentage (issue-026): the parent's `status` is now
@@ -104,6 +128,63 @@ portal** that lets stakeholders view read-only progress without logging in.
 > (tester-note-001). Originally planned as v1.4: missing `company` /
 > `position` / `address` columns on `contacts` (issue-009) plus surfacing
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
+
+---
+
+## What's new in v1.7.1.2
+
+### v1.7.1.2 — Sub-tasks toggle controller extracted to an external JS file (issue-027)
+
+- **New file: `client/assets/js/subtask-toggle.js`.** The
+  per-device "Show all sub-tasks" toggle on the public
+  client dashboard used to ship as an inline
+  `<script>(function () { … })();</script>` block in
+  `client/dashboard.php`. The v1.7.0 CSP tightening on
+  the public portal drops `'unsafe-inline'` from
+  `script-src`, so the browser refused to execute the
+  controller and the toggle silently no-op'd on a fresh
+  page load. v1.7.1.2 moves the controller into a new
+  static ES5-compatible file at
+  `client/assets/js/subtask-toggle.js` loaded via
+  `<script src="assets/js/subtask-toggle.js" defer></script>`.
+  Hand-written ES5 (var only, no arrow, no block-scoped
+  declarations, no template literals) to match
+  `assets/js/script.js`. No build step.
+- **Three new `data-*` attributes on the toggle button.**
+  `data-share-code="<?= e($project['share_code']) ?>"`,
+  `data-label-show-all="<?= e(t('dash.subtasks_show_all')) ?>"`,
+  `data-label-show-top="<?= e(t('dash.subtasks_show_top')) ?>"`.
+  The controller reads all three via `btn.getAttribute(…)`
+  on first paint, so the JS file is fully static and has
+  no per-page PHP interpolation. All three values are
+  passed through `e()` for HTML-attribute safety.
+- **Behaviour is identical to v1.7.1.1.** Default
+  collapsed. Click flips `data-subtasks` /
+  `data-state` / `aria-pressed` / button label / icon
+  class (`fa-eye` ⇄ `fa-eye-slash`) and toggles
+  `aria-hidden` on nested `ul.task-tree:not(.root)`
+  sub-trees (root `<ul class="task-tree root">` stays
+  visible either way). Persisted to
+  `localStorage['client_dash.subtasks_visible.' + shareCode]`
+  as `"0"` / `"1"`. First-paint read runs before the
+  click handler is attached, so a stored `"1"`
+  preference is honoured without a flash. Every
+  `localStorage` access is wrapped in try/catch so a
+  sandboxed iframe or Safari private mode does not
+  throw.
+- **`<script>` tag is conditional.** The
+  `<script src="assets/js/subtask-toggle.js" defer></script>`
+  tag is wrapped in `<?php if ($has_subtasks): ?>`, so
+  projects with no sub-trees do not pay the extra HTTP
+  request.
+- **No DB / schema / nginx / CSS / translation change.**
+  The fix is one new file + the toggle-button markup +
+  the script-tag swap in `client/dashboard.php`. The
+  security-headers regression test
+  (`database/security_headers_test.php`) has its
+  `script-src 'self' / 'unsafe-inline'` comment
+  corrected to point at the new controller path
+  (the CSP invariant the test enforces is unchanged).
 
 ---
 

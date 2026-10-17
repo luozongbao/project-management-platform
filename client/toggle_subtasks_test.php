@@ -22,33 +22,39 @@
  *        is "Show all sub-tasks", icon is fa-eye).
  *      - The section carries id="tasks-progress" and
  *        data-subtasks="hidden".
+ *      - The toggle button carries the three new data-* attributes
+ *        (data-share-code, data-label-show-all, data-label-show-top)
+ *        that the external controller reads on first paint
+ *        (issue-027).
  *      - The Tasks & Progress count and the root <ul.task-tree> are
  *        still emitted (i.e. the markup is intact, not re-rendered
  *        server-side based on state).
- *      - The inline <script> at the end of <body> is present and
- *        contains: a read of the per-share-code localStorage key, a
- *        click handler that flips state, and write-back to localStorage.
+ *      - The page loads the external controller file via
+ *        <script src="assets/js/subtask-toggle.js" defer></script>
+ *        and does NOT contain an inline <script>(function () { ... })
+ *        block (issue-027: the issue-020 CSP tightening on the public
+ *        client portal drops 'unsafe-inline' from script-src, so any
+ *        inline script body in the page will be refused by the
+ *        browser).
  *   2. Project WITHOUT sub-tasks (and project with NO tasks):
  *      - Does NOT render the toggle button.
- *      - Does NOT include the inline <script>.
+ *      - Does NOT include the <script src=…> tag.
  *   3. Source-level invariants:
+ *      - The external controller file
+ *        client/assets/js/subtask-toggle.js exists, is reachable from
+ *        the dashboard, and contains the read/write/first-paint/click
+ *        glue, the scoped aria-hidden selector, the per-project
+ *        localStorage key, the IIFE wrapper, and reads the three new
+ *        data-* attributes off the button (no `<?= … ?>` in the
+ *        file — it must be static).
  *      - client/lang.php exposes the three new keys in both `en` and
  *        `zh`.
  *      - client/assets/client.css has the scoped
  *        `#tasks-progress[data-subtasks="hidden"] ul.task-tree:not(.root)`
  *        rule (the :not(.root) clause is the bit that keeps the root
  *        tree visible).
- *      - The share code is JSON-encoded into the inline script (not
- *        raw interpolation) so a future change to the share-code
- *        character set cannot break the page.
- *      - The JS selector that sets `aria-hidden` is scoped with
- *        `ul.task-tree:not(.root)` so the root workstream list is
- *        never hidden from screen readers (issue-010
- *        tester-note-001 bug 1; previously the test only checked
- *        for the literal string `aria-hidden` and silently
- *        accepted the buggy selector).
  *   4. State machine: re-implements the visible/hidden transition in
- *      PHP exactly as the inline script does, and asserts the
+ *      PHP exactly as the external script does, and asserts the
  *      resulting label / icon / aria-pressed values match what the
  *      markup + lang catalog say they should be.
  *   5. Cleanup: deletes every row it inserts, and verifies the DB
@@ -204,30 +210,79 @@ foreach ($must_contain_with_subs as $needle) {
     }
 }
 
-// Inline <script> present, references the per-project localStorage key.
-// The actual key is built at runtime by concatenating the prefix literal
-// with the shareCode variable, so we check the prefix and the share code
-// are both present in the inline script (each in its own JS string literal).
+// External controller file is present, served from the dashboard, and not
+// duplicated by an inline <script>(function () { ... })() block. The
+// inline-block check is the issue-027 invariant: any inline script
+// (especially the one the dashboard used to ship) would be refused by
+// the browser because the issue-020 CSP tightening on the public client
+// portal drops 'unsafe-inline' from script-src. (issue-027 "Goals".)
+$js_path = __DIR__ . '/assets/js/subtask-toggle.js';
+if (!is_file($js_path)) {
+    $failures[] = "with-subs dashboard requires client/assets/js/subtask-toggle.js, but the file is missing";
+}
+$js_src = is_file($js_path) ? file_get_contents($js_path) : '';
+$expected_script_tag = 'src="assets/js/subtask-toggle.js" defer';
+if (strpos($with_subs_html, $expected_script_tag) === false) {
+    $failures[] = "with-subs dashboard is missing the <script {$expected_script_tag}></script> tag for the external controller";
+}
+// No inline <script>(function () { ... })() block in the page.
+if (preg_match('#<script>\s*\(function\s*\(\s*\)\s*\{#i', $with_subs_html)) {
+    $failures[] = 'with-subs dashboard still contains an inline <script>(function () { … })() block — the issue-020 CSP tightening forbids this; the controller must be loaded via <script src=…> instead (issue-027)';
+}
+
+// External controller must read the per-project localStorage key + drive
+// the click handler + the data-subtasks attribute. The actual key is
+// built at runtime by concatenating the prefix literal with the shareCode
+// read from data-share-code, so we check the prefix is in the file and
+// that the share code is reachable via the data-* attribute.
 $expected_storage_prefix = 'client_dash.subtasks_visible.';
-if (strpos($with_subs_html, $expected_storage_prefix) === false) {
-    $failures[] = "with-subs dashboard script is missing the storage-key prefix '$expected_storage_prefix'";
+if (strpos($js_src, $expected_storage_prefix) === false) {
+    $failures[] = "external controller is missing the storage-key prefix '$expected_storage_prefix'";
 }
+if (strpos($js_src, "addEventListener('click'") === false) {
+    $failures[] = 'external controller is missing the click handler (addEventListener on click)';
+}
+if (strpos($js_src, 'localStorage.setItem') === false) {
+    $failures[] = 'external controller does not write back to localStorage';
+}
+if (strpos($js_src, 'localStorage.getItem') === false) {
+    $failures[] = 'external controller does not read from localStorage on first paint';
+}
+if (strpos($js_src, "data-subtasks") === false) {
+    $failures[] = 'external controller does not toggle the data-subtasks attribute';
+}
+// ES5-compatible style — no `const`, `let`, `=>`, or template literals
+// (issue-027: must match assets/js/script.js).
+foreach (['\bconst\b', '\blet\b', '=>', '`'] as $forbidden) {
+    if (preg_match('/' . $forbidden . '/', $js_src)) {
+        $failures[] = "external controller uses ES6-only token ($forbidden) — must be ES5 to match assets/js/script.js (issue-027)";
+    }
+}
+// File is static — no PHP tags inside.
+if (preg_match('/<\\?=|<\\?php/i', $js_src)) {
+    $failures[] = 'external controller contains a PHP tag — it must be a static .js file (issue-027)';
+}
+
+// data-* attribute contract (issue-027 "Data flow"). The controller reads
+// these three attributes off the toggle button, so the server-rendered
+// markup MUST include them with the expected values.
 $with_subs_code = $created['with-subs'];
-if (strpos($with_subs_html, '"' . $with_subs_code . '"') === false
-    && strpos($with_subs_html, "'" . $with_subs_code . "'") === false) {
-    $failures[] = "with-subs dashboard script does not embed its share code '$with_subs_code' as a JS string literal";
+$expected_data_attrs = [
+    'data-share-code="' . $with_subs_code . '"',
+    'data-label-show-all="Show all sub-tasks"',
+    'data-label-show-top="Show top-level only"',
+];
+foreach ($expected_data_attrs as $needle) {
+    if (strpos($with_subs_html, $needle) === false) {
+        $failures[] = "with-subs dashboard is missing the data-* attribute pair: $needle";
+    }
 }
-if (strpos($with_subs_html, "addEventListener('click'") === false) {
-    $failures[] = 'with-subs dashboard is missing the click handler (addEventListener on click)';
-}
-if (strpos($with_subs_html, 'localStorage.setItem') === false) {
-    $failures[] = 'with-subs dashboard script does not write back to localStorage';
-}
-if (strpos($with_subs_html, 'localStorage.getItem') === false) {
-    $failures[] = 'with-subs dashboard script does not read from localStorage on first paint';
-}
-if (strpos($with_subs_html, "data-subtasks") === false) {
-    $failures[] = 'with-subs dashboard script does not toggle the data-subtasks attribute';
+// And the controller must actually read all three (not just rely on
+// data-share-code).
+foreach (["getAttribute('data-share-code')", "getAttribute('data-label-show-all')", "getAttribute('data-label-show-top')"] as $needle) {
+    if (strpos($js_src, $needle) === false) {
+        $failures[] = "external controller is missing a read of $needle";
+    }
 }
 
 // The selector that sets aria-hidden MUST scope to nested sub-trees only,
@@ -236,8 +291,8 @@ if (strpos($with_subs_html, "data-subtasks") === false) {
 // "aria-hidden" and silently accepted a buggy selector that also matched
 // the root <ul class="task-tree root">, hiding the top-level workstream
 // names from screen readers (issue-010 tester-note-001 bug 1).
-if (strpos($with_subs_html, 'ul.task-tree:not(.root)') === false) {
-    $failures[] = "with-subs dashboard script selector does not scope to nested sub-trees; it would set aria-hidden on the root <ul class='task-tree root'> too";
+if (strpos($js_src, 'ul.task-tree:not(.root)') === false) {
+    $failures[] = "external controller selector does not scope to nested sub-trees; it would set aria-hidden on the root <ul class='task-tree root'> too";
 }
 
 // The Tasks & Progress count and the root task-tree are still rendered.
@@ -252,36 +307,15 @@ if (substr_count($with_subs_html, '<ul class="task-tree">') < 1) {
     $failures[] = 'with-subs dashboard should still emit at least one nested <ul class="task-tree"> (the sub-task tree)';
 }
 
-// Share code is JSON-encoded (look for the explicit JSON_HEX flag call).
-// The function call is server-side — what we observe in the rendered HTML
-// is the JSON-encoded result, which must be wrapped in double quotes
-// (json_encode always emits a JSON string literal for a string input).
-// The previously-checked presence of the share code as a "..." / '...'
-// literal above also asserts the JSON-encode produced a string-shaped
-// output. Here we additionally confirm the rendered code is NOT
-// HTML-attribute-broken: there must be no unescaped "<" or ">" between
-// the opening and closing quote.
-if (preg_match('#var shareCode = "([^"]*)"#', $with_subs_html, $m)) {
-    $decoded = $m[1];
-    if ($decoded !== $with_subs_code) {
-        $failures[] = "with-subs dashboard share code in inline script ($decoded) does not match the project's actual share code ($with_subs_code)";
-    }
-    if (strpos($decoded, '<') !== false || strpos($decoded, '>') !== false) {
-        $failures[] = "with-subs dashboard share code in inline script is not properly escaped (found '<' or '>')";
-    }
-} else {
-    $failures[] = 'with-subs dashboard inline script is missing `var shareCode = "..."` assignment';
-}
-
 // ---------------------------------------------------------------------------
-// 2. Project WITHOUT sub-tasks: NO toggle, NO script.
+// 2. Project WITHOUT sub-tasks: NO toggle, NO script tag.
 // ---------------------------------------------------------------------------
-foreach (['id="subtasks-toggle"', 'addEventListener(\'click\''] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_subs_html, $needle) !== false) {
         $failures[] = "no-subs dashboard should not contain '$needle'";
     }
 }
-foreach (['id="subtasks-toggle"', 'addEventListener(\'click\''] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_tasks_html, $needle) !== false) {
         $failures[] = "no-tasks dashboard should not contain '$needle'";
     }

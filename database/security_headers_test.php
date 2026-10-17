@@ -305,7 +305,10 @@ if (isset($r['error'])) {
         $failures[] = 'live /client/dashboard.php is missing Content-Security-Policy';
     } else {
         // Client portal: script-src MUST NOT contain 'unsafe-inline'
-        // (the only JS is /assets/js/subtask-manager.js).
+        // (the only JS is /client/assets/js/subtask-toggle.js, served
+        // as an external file via <script src=…> defer — issue-027
+        // extracted it from an inline <script> block to satisfy this
+        // CSP tightening from issue-020).
         $csp = $h['content-security-policy'];
         if (preg_match("/script-src[^;]*'unsafe-inline'/", $csp)) {
             $failures[] = "live /client/dashboard.php Content-Security-Policy still has 'unsafe-inline' in script-src — should be tightened for the public portal";

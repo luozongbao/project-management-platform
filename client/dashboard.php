@@ -343,6 +343,9 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
                 <button type="button" id="subtasks-toggle"
                         class="btn btn-secondary btn-sm subtasks-toggle"
                         data-state="hidden"
+                        data-share-code="<?= e($project['share_code']) ?>"
+                        data-label-show-all="<?= e(t('dash.subtasks_show_all')) ?>"
+                        data-label-show-top="<?= e(t('dash.subtasks_show_top')) ?>"
                         aria-controls="tasks-progress"
                         aria-pressed="false"
                         aria-label="<?= e(t('dash.subtasks_toggle_aria')) ?>">
@@ -368,67 +371,11 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
 </main>
 
 <?php if ($has_subtasks): ?>
-<script>
-(function () {
-    // Sub-tasks toggle (issue-010). Runs at the end of <body> so the section
-    // is already in the DOM; no DOMContentLoaded wait, no flash. State is
-    // per-project, stored in localStorage. Safe no-op when localStorage is
-    // unavailable (e.g. Safari private mode, sandboxed iframes).
-    var section = document.getElementById('tasks-progress');
-    var btn = document.getElementById('subtasks-toggle');
-    if (!section || !btn) { return; }
-    var labelEl = btn.querySelector('.subtasks-toggle-label');
-    var iconEl = btn.querySelector('i');
-    var shareCode = <?= json_encode($project['share_code'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    var LABEL_SHOW_ALL = <?= json_encode(t('dash.subtasks_show_all'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    var LABEL_SHOW_TOP = <?= json_encode(t('dash.subtasks_show_top'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    var STORAGE_KEY = 'client_dash.subtasks_visible.' + shareCode;
-
-    function readPref() {
-        try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
-    }
-    function writePref(v) {
-        try { localStorage.setItem(STORAGE_KEY, v); } catch (e) { /* no-op */ }
-    }
-    function applyState(state) {
-        section.setAttribute('data-subtasks', state);
-        btn.setAttribute('data-state', state);
-        var visible = (state === 'visible');
-        btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
-        if (labelEl) { labelEl.textContent = visible ? LABEL_SHOW_TOP : LABEL_SHOW_ALL; }
-        if (iconEl) {
-            iconEl.className = visible ? 'fas fa-eye-slash' : 'fas fa-eye';
-        }
-        // Reflect on nested <ul class="task-tree"> nodes so screen readers
-        // can skip the subtree when collapsed. We must scope the selector
-        // with :not(.root) to match the CSS rule — the root
-        // <ul class="task-tree root"> is intentionally always visible,
-        // so flipping its aria-hidden to "true" hides the top-level
-        // workstream names from screen readers (issue-010 tester-note-001
-        // bug 1).
-        var subs = section.querySelectorAll('ul.task-tree:not(.root)');
-        for (var i = 0; i < subs.length; i++) {
-            subs[i].setAttribute('aria-hidden', visible ? 'false' : 'true');
-        }
-    }
-
-    // First-paint: honour the stored preference without a flash.
-    var stored = readPref();
-    if (stored === '1') {
-        applyState('visible');
-    } else {
-        // Default already encoded in the server-rendered markup; just mirror
-        // the aria-hidden attributes so screen readers see the same state.
-        applyState('hidden');
-    }
-
-    btn.addEventListener('click', function () {
-        var next = (btn.getAttribute('data-state') === 'visible') ? 'hidden' : 'visible';
-        applyState(next);
-        writePref(next === 'visible' ? '1' : '0');
-    });
-})();
-</script>
+<!-- Sub-tasks toggle controller — external file so the issue-020 CSP
+     tightening on the public client portal (no 'unsafe-inline') still
+     allows it to run. Translation strings + share code are passed in
+     via data-* attributes on the button (issue-027). -->
+<script src="assets/js/subtask-toggle.js" defer></script>
 <?php endif; ?>
 
 </body>
