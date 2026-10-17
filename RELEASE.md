@@ -1,5 +1,37 @@
 # Release Notes
 
+## v1.7.1.2 — 2026-10-16
+
+**Extract the client-portal sub-tasks toggle into an external JS file to satisfy the issue-020 CSP tightening.** Closes [issue-027](docs/issues/issue-027.md): the per-device "Show all sub-tasks" toggle on `client/dashboard.php` used to ship as an inline `<script>(function () { … })();</script>` block at the end of `<body>`. The v1.7.0 [issue-020](docs/issues/issue-020.md) CSP tightening on the public client portal drops `'unsafe-inline'` from `script-src`, so the browser refused to execute the controller and the toggle silently no-op'd on a fresh page load. v1.7.1.2 moves the controller into a new static ES5-compatible file at `client/assets/js/subtask-toggle.js` and loads it via `<script src="assets/js/subtask-toggle.js" defer></script>`. The translation strings + the per-project share code are now passed into the controller through three new `data-*` attributes on the toggle button (`data-share-code`, `data-label-show-all`, `data-label-show-top`), so the JS file is fully static and has no per-page PHP interpolation. Behaviour is identical: default-collapsed, click flips `data-subtasks` / `data-state` / `aria-pressed` / button label / icon class / `aria-hidden` on nested `ul.task-tree:not(.root)`, persisted to `localStorage['client_dash.subtasks_visible.' + shareCode]` as `"0"` / `"1"`. The :not(.root) scoping and the per-project key isolation are preserved. The root `<ul class="task-tree root">` stays visible either way.
+
+### Files changed
+
+- `client/assets/js/subtask-toggle.js` — **new file**. IIFE wrapper, hand-written ES5-compatible JS (var only, no arrow, no block-scoped declarations, no template literals — matches the style of `assets/js/script.js`). Reads the three new `data-*` attributes off the toggle button, runs the first-paint read before the click handler is attached (so stored preferences are honoured without a flash), wraps every `localStorage` access in try/catch so a sandboxed iframe or Safari private mode does not throw. No `<?= … ?>` inside the file — the controller is the same for every project; the per-project state lives entirely in the share code passed through `data-share-code`.
+- `client/dashboard.php` — toggle button gains three `data-*` attributes (`data-share-code="<?= e($project['share_code']) ?>"`, `data-label-show-all="<?= e(t('dash.subtasks_show_all')) ?>"`, `data-label-show-top="<?= e(t('dash.subtasks_show_top')) ?>"`); the ~60-line inline `<script>(function () { … })();</script>` block at the end of `<body>` is replaced by a single `<script src="assets/js/subtask-toggle.js" defer></script>` tag, still inside `<?php if ($has_subtasks): ?>` so projects with no sub-tasks do not pay the script load. `e()` is used to escape all three data attributes. The server-rendered default state, the section id, the button id, the `aria-*` attributes, the label / icon markup, and the per-project share-code leakage guard are all unchanged.
+- `client/toggle_subtasks_test.php` — section 1 replaces the 5 inline-script assertions (`addEventListener('click'`, `localStorage.setItem`, `localStorage.getItem`, `data-subtasks`, the `var shareCode = "…"` assignment) with a new external-file contract: the file exists at `client/assets/js/subtask-toggle.js`, the dashboard emits `<script src="assets/js/subtask-toggle.js" defer></script>`, the dashboard does **not** contain any inline `<script>(function () { … })();` block, the toggle button carries all three new `data-*` attributes with the expected values, the external controller reads all three attributes via `getAttribute(…)`, the controller is ES5-only (no `\bconst\b`, no `\blet\b`, no `=>`, no backticks), and the controller file contains no `<?= … ?>` / `<?php` tags. The "no-subs" and "no-tasks" branches in section 2 now assert the absence of `src="assets/js/subtask-toggle.js"` instead of the inline `addEventListener('click'`. Sections 3-7 (translation keys, CSS rule, state-machine parity, per-project key isolation, cleanup) are unchanged. Docblock updated to match.
+- `database/security_headers_test.php` — line 307-309 comment updated. The old comment said the only JS was `/assets/js/subtask-manager.js`; the new comment correctly identifies the controller as `/client/assets/js/subtask-toggle.js`, served as an external file via `<script src=…> defer` (the issue-020 CSP invariant the test enforces is unchanged).
+
+### Why external (and not just a nonce)
+
+The issue-020 CSP on the public client portal is `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`. A `'nonce-…'`-based inline script would also work, but it would force every page render to mint a fresh nonce, force the controller to live in a server-rendered string in a place the CSP can see, and re-introduce the very pattern the tightening was designed to discourage (per-page script body in HTML). An external file served from the same origin under `script-src 'self'` is the simpler and more robust fix, and it lets us unit-test the controller in isolation (see below).
+
+### Why ES5
+
+The other front-end JS in the project (`assets/js/script.js`, `assets/js/subtask-manager.js`) is hand-written ES5 to maximise browser compatibility and to ship with no build step. The new controller follows the same convention. The regression test enforces this with explicit `preg_match` checks for `\bconst\b`, `\blet\b`, `=>`, and backticks against the file body, and additionally asserts the file contains no `<?= … ?>` / `<?php` tags so a future "let me just inline the share code here" change is caught at test time.
+
+### Regression coverage
+
+- `client/toggle_subtasks_test.php` — 5 inline-script markers removed, 9 new external-file / data-* / ES5 / static-file markers added. The two new first-class invariants are "page has no inline IIFE" and "the external controller reads all three data-* attributes"; both are checked via `strpos` / `preg_match` against the live-rendered dashboard and the file body.
+- The 9 pre-existing regression tests are unchanged in number and still pass.
+- 3 self-tests were run during development: (a) removing the `data-share-code` attribute causes the new attribute-contract assertion to fire; (b) re-introducing an inline `<script>(function () { … })();</script>` block causes the "CSP tightening forbids this" assertion to fire; (c) deleting `client/assets/js/subtask-toggle.js` causes 8 distinct assertions to fire. In all three cases restoring the file or markup made the test pass again.
+
+### Upgrade notes
+
+- No database migration. No PHP / nginx / CSS / translation change. Pull the latest code and reload `client/dashboard.php`; the new external script is served on the next request, the toggle is functional again. Users who had previously collapsed or expanded a project keep their preference (the `localStorage` key format is unchanged: `client_dash.subtasks_visible.<share_code>` with values `"0"` / `"1"`).
+- The `<script src=…>` is only emitted on dashboards that actually have sub-tasks (`<?php if ($has_subtasks): ?>`), so projects with no sub-trees do not pay the extra HTTP request.
+
+---
+
 ## v1.7.1.1 — 2026-10-16
 
 **Align parent status with parent completion percentage.**
