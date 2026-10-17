@@ -1,4 +1,14 @@
 # Apache Configuration
+
+# Issue-030 v1.7.2.3: defensive DirectoryIndex so a future
+# cPanel-Index-Manager removal or a hosting migration does not
+# re-introduce the / -> /login.php redirect. Note: this does NOT
+# override an active cPanel Index Manager (which has higher
+# precedence than .htaccess); the real fix for the v1.7.2.3 bug
+# is the hPanel change in docs/issues/issue-030.md section 6.1.
+# This line is belt-and-braces.
+DirectoryIndex index.php index.html
+
 RewriteEngine On
 
 # Redirect to index.php if file doesn't exist
@@ -26,6 +36,14 @@ RewriteRule ^(.*)$ index.php [QSA,L]
 
 # Deny access to configuration files
 <FilesMatch "^(config|composer|package)\.">
+    Require all denied
+</FilesMatch>
+
+# Issue-029 v1.7.2.2: deny public HTTP access to the prod sanity probe
+# (the dev runs it from the shell, not from a browser). The file is
+# safe to leave in public_html permanently because the deny rule
+# blocks it from any non-shell request.
+<FilesMatch "^_diag\.php$">
     Require all denied
 </FilesMatch>
 
