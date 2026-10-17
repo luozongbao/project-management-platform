@@ -359,7 +359,7 @@ if (!defined('APP_VERSION')) {
     // require config.php; APP_VERSION is read via the const fallback
     // path in getLatestReleaseSummary(). We simulate it by
     // pre-declaring the constant via runkit-free define().
-    define('APP_VERSION', 'v1.7.2.1');
+    define('APP_VERSION', 'v1.7.2.2');
 }
 // Suppress any unrelated output (the helper itself echoes nothing).
 ob_start();
@@ -369,7 +369,7 @@ try {
     require_once $funcs_path;
     if (function_exists('getLatestReleaseSummary')) {
         $summary = getLatestReleaseSummary();
-        $ok_summary = is_string($summary) && $summary !== '' && strpos($summary, 'v1.7.2.1') === 0;
+        $ok_summary = is_string($summary) && $summary !== '' && strpos($summary, 'v1.7.2.2') === 0;
     }
 } catch (Throwable $t) {
     $summary = null;

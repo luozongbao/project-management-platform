@@ -4,24 +4,40 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.2.1 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.2.2 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.2.2** is a prod hotfix for
+> [issue-029](docs/issues/issue-029.md): the public client
+> portal was returning 500 on
+> `/client/dashboard.php?code=…&lang=en` after the v1.7.2 ship
+> to `https://project.lorwongam.com` (Cloudflare-fronted
+> shared hosting), and the Cloudflare Web Analytics beacon
+> was producing a CSP violation in the browser console on
+> every page. The 500 is fixed defensively: `client/dashboard.php`
+> now opens an `ob_start()` at the top, guards the empty-code
+> redirect with `headers_sent()`, reorders the `client/lang.php`
+> `require_once` to be above the headers emission, and writes
+> a one-line `[v1.7.2.2 deploy]` marker to the PHP error log
+> so the dev can confirm the new file ran (vs an
+> opcache-served old version). The CSP violation is fixed by
+> adding `https://static.cloudflareinsights.com` to the
+> `script-src` directive in **both** the internal-app and
+> client-portal CSPs (Path B in the spec — Path A
+> "disable Web Analytics on the zone" is a dashboard-only
+> change that does not require a code commit and is left
+> to the dev to flip from the Cloudflare UI). A new
+> read-only prod sanity probe at `_diag.php` (blocked from
+> public HTTP by the new `.htaccess` `<FilesMatch>` rule,
+> runnable from the prod shell) lets the dev compare the
+> md5sum of the files on prod against the v1.7.2.2-shipped
+> versions and confirm the `about.*` lang keys are present
+> in both `en` and `zh` catalogs. A new "step 5.5" in the
+> release process makes the probe a mandatory post-deploy
+> gate. No schema / no public-API change.
 >
 > **v1.7.2.1** is a hotfix for the v1.7.2 "?" About popup (tester-note-002):
 > fixes the Close-button click re-toggle, replaces the broken /RELEASE.md
 > link with an inline release summary, and adds regression nets.
-> and a documented release-process checklist. The disclosure
-> is a zero-JS `<details>`/`<summary>` popup that appears in
-> the internal-app navbar, on the public client-portal
-> header, on the domain-root landing page, and as a floating
-> trigger on logged-out pages so any visitor can verify the
-> build they are looking at. The version string is sourced
-> from the new `APP_VERSION` constant in `config.php` (kept
-> in lock-step with `config.template.php`, the top entry in
-> [RELEASE.md](RELEASE.md), and this banner) and surfaced
-> through a new regression test
-> (`database/about_popup_test.php`). A new
-> [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) is the
-> canonical 6-step release checklist.
 >
 > **v1.7.1.1** aligns parent status with parent completion
 > percentage (issue-026): the parent's `status` is now

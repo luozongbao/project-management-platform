@@ -29,6 +29,14 @@ RewriteRule ^(.*)$ index.php [QSA,L]
     Require all denied
 </FilesMatch>
 
+# Issue-029 v1.7.2.2: deny public HTTP access to the prod sanity probe
+# (the dev runs it from the shell, not from a browser). The file is
+# safe to leave in public_html permanently because the deny rule
+# blocks it from any non-shell request.
+<FilesMatch "^_diag\.php$">
+    Require all denied
+</FilesMatch>
+
 # Enable compression
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain

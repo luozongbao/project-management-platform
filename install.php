@@ -176,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (int)$step === 3) {
         // drift guard in database/about_popup_test.php will fail the
         // build if this literal drifts away from config.php /
         // config.template.php.
-        $current_version = 'v1.7.2.1';
+        $current_version = 'v1.7.2.2';
 
         // Issue-021 §2: var_export() produces a valid PHP literal for
         // the value. Far safer than addslashes() against hostile
