@@ -4,7 +4,30 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.3 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.3.1 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.3.1** is a hotfix for
+> [issue-032](docs/issues/issue-032.md): the public landing
+> (`/`) was logging
+> `Executing inline script violates the following Content
+> Security Policy directive 'script-src 'self'
+> https://cdnjs.cloudflare.com
+> https://static.cloudflareinsights.com'…` in the browser
+> console because the page shipped with an inline `<script>`
+> block (the share-code auto-format IIFE) but `/` is served
+> with the **client-portal** CSP (no `'unsafe-inline'` in
+> `script-src` — the issue-020 invariant), so the browser
+> blocks it. Fixed by extracting the inline IIFE to the
+> external file `assets/js/share-code-format.js` and loading
+> it via `<script src="…">`. A new check #9 in
+> `database/probe_diag_test.php` asserts `index.php` has no
+> inline `<script>` block and at least one
+> `<script src="assets/js/…">` tag, so a future dev who adds
+> a new inline script to `/` (or reverts the externalise
+> edit) is caught at test time. No schema / no public-API
+> change. No CSP change. v1.7.3.1 is a 1-file
+> externalise + 1 new test check; the v1.7.3 favicon
+> release is preserved below as historical.
 >
 > **v1.7.3** adds the project favicon
 > ([issue-031](docs/issues/issue-031.md)). The browser

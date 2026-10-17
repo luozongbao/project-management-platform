@@ -44,6 +44,20 @@
  *   8. The favicon PNG itself must be on disk at
  *      assets/image/project-favicon.png and not be empty (a
  *      broken <link rel="icon"> would itself 404).
+ *   9. Issue-032 v1.7.3.1: the public landing index.php must
+ *      not contain any inline <script> block. The page is
+ *      served with the CLIENT-PORTAL CSP (script-src does NOT
+ *      contain 'unsafe-inline' — the issue-020 invariant), so
+ *      the browser blocks any inline script and emits a CSP
+ *      violation in the console. The v1.7.3.1 fix was to
+ *      externalise the share-code auto-format IIFE to
+ *      assets/js/share-code-format.js and load it via
+ *      <script src="…">. The check asserts: (a) no inline
+ *      '<script>(function' IIFE pattern in index.php, (b) at
+ *      least one '<script src="assets/js/…">' tag referencing
+ *      the externalised file. Catches a future dev who adds a
+ *      new inline <script> to index.php or reverts the
+ *      externalise edit.
  *
  * This is a dev-side test, not a prod-side one. The dev runs it
  * once per release to verify the _diag.php template is well-formed
@@ -234,7 +248,42 @@ if (!is_readable($favicon_asset)) {
         $failures[] = "favicon check: assets/image/project-favicon.png is suspiciously small ($favicon_size bytes) — looks like an empty/truncated file";
     }
 }
-
+// 9. Issue-032 v1.7.3.1: the public landing (index.php) is served
+//    with the CLIENT-PORTAL CSP (script-src does NOT contain
+//    'unsafe-inline' — the issue-020 invariant), so any inline
+//    <script> block in index.php is blocked by the browser and
+//    shows a CSP violation in the console. The fix in v1.7.3.1 was
+//    to extract the only inline script (the share-code auto-format
+//    IIFE) to an external file assets/js/share-code-format.js and
+//    load it via <script src="…">. Catches a future dev who adds a
+//    new inline <script> to index.php (or reverts the externalise
+//    edit) — the assertion is source-grep on the index.php source.
+//    The check specifically looks for '<script>' (with no src=
+//    attribute) as the inline-script indicator, allowing legitimate
+//    external <script src="…"> tags.
+$index_path = __DIR__ . '/../index.php';
+if (!is_readable($index_path)) {
+    $failures[] = 'inline-script check: index.php is missing entirely (cannot verify no inline <script>)';
+} else {
+    $index_src = file_get_contents($index_path);
+    // The IIFE pattern '<script>(function' (with optional whitespace)
+    // is the exact shape of the v1.7.3 inline block we extracted. We
+    // also catch the bare '<script>' followed by code (not a src= attr)
+    // as a defensive belt-and-braces check.
+    $has_inline_script = preg_match('#<script>\s*\(function#i', $index_src) === 1
+        || preg_match('#<script>[^(<]*[A-Za-z0-9_]#s', $index_src) === 1;
+    if ($has_inline_script) {
+        $failures[] = 'inline-script check: index.php still contains an inline <script>(function () { … })() block — the public landing is served with the client-portal CSP (no \'unsafe-inline\' in script-src) and the browser blocks it; the script must be externalised to assets/js/… and loaded via <script src="…"> (issue-032 v1.7.3.1)';
+    }
+    // The fix must also be in place: the externalised file must exist
+    // and the page must reference it via <script src=…>. We don't pin
+    // the exact filename (the dev may rename it) — we just assert
+    // there's a <script src="assets/js/…"> tag referencing the
+    // assets/js/ directory.
+    if (strpos($index_src, '<script src="assets/js/') === false) {
+        $failures[] = 'inline-script check: index.php has no <script src="assets/js/…"> reference — the externalised share-code-format.js (or equivalent) must be loaded via <script src=…> (issue-032 v1.7.3.1)';
+    }
+}
 // Result.
 if (!empty($failures)) {
     fwrite(STDERR, "probe_diag_test failed:\n");
@@ -244,4 +293,4 @@ if (!empty($failures)) {
     exit(1);
 }
 
-echo "probe_diag_test passed (issue-029 v1.7.2.2 _diag.php contract holds; issue-031 v1.7.3 favicon linked).\n";
+echo "probe_diag_test passed (issue-029 v1.7.2.2 _diag.php contract holds; issue-031 v1.7.3 favicon linked; issue-032 v1.7.3.1 inline script externalised).\n";
