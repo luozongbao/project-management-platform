@@ -34,6 +34,16 @@
  *      "Sub-check 1" through "Sub-check 4") and asserts the
  *      response is not a redirect to /login.php. Catches a future
  *      dev who removes the new probe or weakens its assertion.
+ *   7. Issue-031 v1.7.3: every HTML page in the project that has a
+ *      <head> section must include a <link rel="icon"> tag to the
+ *      project favicon at assets/image/project-favicon.png, so
+ *      browsers stop falling back to GET /favicon.ico (which 404s
+ *      and spams the console). Verifies the exact tag string in
+ *      includes/header.php, index.php, install.php, and
+ *      client/dashboard.php (which uses a ../assets/... href).
+ *   8. The favicon PNG itself must be on disk at
+ *      assets/image/project-favicon.png and not be empty (a
+ *      broken <link rel="icon"> would itself 404).
  *
  * This is a dev-side test, not a prod-side one. The dev runs it
  * once per release to verify the _diag.php template is well-formed
@@ -165,6 +175,66 @@ if (!$diagRejectsLoginRedirect) {
     $failures[] = '_diag.php landing probe does not assert the response is not a redirect to /login.php (issue-030 v1.7.2.3)';
 }
 
+// 7. Issue-031 v1.7.3: every HTML page in the project that has a
+//    <head> section must include a <link rel="icon"> to the project
+//    favicon at assets/image/project-favicon.png. Without it,
+//    browsers fall back to GET /favicon.ico and log a 404 in the
+//    console. The fix is the standard <link rel="icon"> tag in each
+//    <head> (modern browsers respect it and stop requesting the
+//    default /favicon.ico path).
+//
+//    The 4 files we ship a <head> for, and the expected href path
+//    that must appear in that file:
+//      - includes/header.php   → 'assets/image/project-favicon.png'
+//        (root-relative; all pages that include header.php are
+//        served from the app root).
+//      - index.php             → 'assets/image/project-favicon.png'
+//        (served from the app root).
+//      - install.php           → 'assets/image/project-favicon.png'
+//        (served from the app root, even when run as a CLI script,
+//        the head is rendered into the response).
+//      - client/dashboard.php  → '../assets/image/project-favicon.png'
+//        (served from /client/, so the href is one level up).
+//
+//    Each <head> must also carry the <link rel="icon" type="image/png">
+//    attribute prefix so the browser knows it is a PNG (and not the
+//    old /favicon.ico). We check both the prefix and the href.
+//
+//    _diag.php is excluded — its <head> is in a .htaccess-denied
+//    file that the browser never requests.
+$favicon_files = [
+    'includes/header.php'    => 'assets/image/project-favicon.png',
+    'index.php'              => 'assets/image/project-favicon.png',
+    'install.php'            => 'assets/image/project-favicon.png',
+    'client/dashboard.php'   => '../assets/image/project-favicon.png',
+];
+foreach ($favicon_files as $label => $expected_href) {
+    $path = __DIR__ . '/../' . $label;
+    if (!is_readable($path)) {
+        $failures[] = "favicon check: $label is missing entirely (cannot verify favicon link)";
+        continue;
+    }
+    $src = file_get_contents($path);
+    $prefix = '<link rel="icon" type="image/png" href="';
+    $expected_tag = $prefix . $expected_href . '">';
+    if (strpos($src, $expected_tag) === false) {
+        $failures[] = "favicon check: $label is missing the exact tag $expected_tag — every HTML page must link the project favicon to suppress the /favicon.ico 404 (issue-031 v1.7.3)";
+    }
+}
+
+// 8. The favicon PNG itself must be on disk. Without the file, the
+//    <link rel="icon"> tag is a broken 404 in its own right. The
+//    asset is committed to git in assets/image/project-favicon.png.
+$favicon_asset = __DIR__ . '/../assets/image/project-favicon.png';
+if (!is_readable($favicon_asset)) {
+    $failures[] = "favicon check: assets/image/project-favicon.png is missing on disk (issue-031 v1.7.3)";
+} else {
+    $favicon_size = filesize($favicon_asset);
+    if ($favicon_size === false || $favicon_size < 100) {
+        $failures[] = "favicon check: assets/image/project-favicon.png is suspiciously small ($favicon_size bytes) — looks like an empty/truncated file";
+    }
+}
+
 // Result.
 if (!empty($failures)) {
     fwrite(STDERR, "probe_diag_test failed:\n");
@@ -174,4 +244,4 @@ if (!empty($failures)) {
     exit(1);
 }
 
-echo "probe_diag_test passed (issue-029 v1.7.2.2 _diag.php contract holds).\n";
+echo "probe_diag_test passed (issue-029 v1.7.2.2 _diag.php contract holds; issue-031 v1.7.3 favicon linked).\n";

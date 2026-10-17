@@ -91,17 +91,24 @@ $files_to_check = [
 // new release that touches any of these files. v1.7.2.3 did NOT
 // touch any of the 5 files below (the only changes are .htaccess,
 // _diag.php itself, and database/probe_diag_test.php), so the
-// v1.7.2.2 md5s remain valid. The placeholder
-// FILL_IN_AT_RELEASE_TIME is replaced by the actual md5sum at
-// release time (see docs/RELEASE_PROCESS.md step 5.5 and
-// docs/issues/issue-029.md §6.4). The probe_diag_test.php test
-// asserts that no FILL_IN_AT_RELEASE_TIME literal remains in the
-// deployed file.
+// v1.7.2.2 md5s remain valid. v1.7.3 DOES touch 3 of the 5 files
+// below: the favicon <link> edit changes the md5 of
+// includes/header.php and client/dashboard.php, and the
+// APP_VERSION v1.7.2.3 → v1.7.3 bump changes the md5 of the
+// local config.php (because the APP_VERSION literal changes
+// inside the file). All 3 entries are re-bumped in this commit.
+// The other 2 (client/lang.php, includes/functions.php) keep
+// their v1.7.2.2 md5s because the v1.7.3 edit did not change
+// them. The placeholder FILL_IN_AT_RELEASE_TIME is replaced by
+// the actual md5sum at release time (see docs/RELEASE_PROCESS.md
+// step 5.5 and docs/issues/issue-029.md §6.4). The
+// probe_diag_test.php test asserts that no FILL_IN_AT_RELEASE_TIME
+// literal remains in the deployed file.
 $expected_md5 = [
-    'config.php'              => 'ee3ce707536bd3ef2c7617f90a2542b6',
-    'client/dashboard.php'    => '3336a970f07cf9f71f9338883f4a29a1',
+    'config.php'              => '642c61e3ed25d6f813e059fd79c12408',
+    'client/dashboard.php'    => '4c87b97107c8856f62f269d0bfd08576',
     'client/lang.php'         => '795a1c1363a82612dde97fde24c616f6',
-    'includes/header.php'     => '3a49d1353ce5b2c1e6ed6419cec9989f',
+    'includes/header.php'     => '1c686e4f6e502f85a0586e7c1dd85c12',
     'includes/functions.php'  => '6821e5ec01eced298a5f196ecbb802c0',
 ];
 
