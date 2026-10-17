@@ -4,7 +4,34 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.2.2 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.2.3 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.2.3** is a prod hotfix for
+> [issue-030](docs/issues/issue-030.md): hitting
+> `https://project.lorwongam.com/` was silently
+> redirecting to `https://project.lorwongam.com/login.php`
+> instead of rendering the public landing form
+> (`index.php`). The cause is **not** in the code or
+> `.htaccess` — it is a cPanel hPanel setting on the
+> `project.lorwongam.com` subdomain (either a Redirects
+> UI rule or an Index Manager override), which has higher
+> precedence than `.htaccess` `DirectoryIndex`. Fixed by:
+> (1) the user (or dev) removing the hPanel Redirects
+> rule and/or adding `index.php` to the Index Manager
+> default list on the prod host's hPanel UI — see the
+> new "step 5.6" in the release process; (2) a 1-line
+> defensive `DirectoryIndex index.php index.html` in
+> `.htaccess` so a future hosting migration does not
+> re-introduce the same bug; (3) a new live-URL probe
+> ("Landing page (`/`)" sub-section) in `_diag.php` that
+> does `curl https://project.lorwongam.com/`, asserts
+> the response is HTTP 200 (not 301/302 to `/login.php`)
+> and the body contains the public landing form
+> (`name="code"`), and prints an actionable hPanel fix
+> message if the assertion fails; (4) 2 new assertions
+> in `database/probe_diag_test.php` that catch a future
+> dev who removes the new probe or weakens its
+> assertion. No schema / no public-API change.
 >
 > **v1.7.2.2** is a prod hotfix for
 > [issue-029](docs/issues/issue-029.md): the public client

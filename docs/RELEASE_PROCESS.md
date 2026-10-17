@@ -158,6 +158,59 @@ md5sum config.php client/dashboard.php client/lang.php \
 loudly if any `FILL_IN_AT_RELEASE_TIME` literal remains in the file
 at release time.
 
+## 5.6. cPanel hPanel sanity check (issue-030 v1.7.2.3)
+
+Added in v1.7.2.3. After the prod sanity probe (step 5.5) returns
+"ALL CHECKS PASSED", open the Hostinger hPanel in a browser and
+verify two settings on the `project.lorwongam.com` subdomain:
+
+1. **hPanel → Websites → `project.lorwongam.com` → Manage →
+   Redirects.** Confirm there is no rule with `Source = /` and
+   `Destination` containing `login.php`. If such a rule exists,
+   **delete it** and re-run the prod sanity probe.
+
+2. **hPanel → Files → Directory Privacy** (or **hPanel → Advanced →
+   Index Manager**). Navigate to `public_html/`. Confirm the default
+   index list contains `index.php` and does **not** contain
+   `login.php`. If it contains `login.php` instead of `index.php`,
+   **add `index.php`** to the list, save, and re-run the prod
+   sanity probe.
+
+3. Hard-reload `https://project.lorwongam.com/` in a private
+   browser window. The browser should now show the public landing
+   form (the code-entry field, the "Owner sign in" link, the about
+   popup). If it still shows the owner login form, one of the two
+   hPanel settings above was not actually applied — re-check.
+
+4. Paste a screenshot of (a) the hPanel Redirects page (post-fix)
+   and (b) the hPanel Directory Privacy / Index Manager page
+   (post-fix) into the v1.7.2.3 GitHub release notes. This is the
+   durable audit trail that the prod was verified end-to-end on
+   every deploy.
+
+### What this catches
+
+This step was added after the v1.7.2.2 release shipped correctly but
+surfaced a fresh bug: hitting `https://project.lorwongam.com/`
+redirects to `https://project.lorwongam.com/login.php` instead of
+rendering the public landing form (`index.php`). The cause is NOT in
+the code or the `.htaccess` — it is a cPanel hPanel setting (either
+a Redirects UI rule or an Index Manager override on the
+`project.lorwongam.com` subdomain). The dev-side test in step 5
+(`database/probe_diag_test.php`) only does source-grep checks; the
+prod sanity probe in step 5.5 only checks file md5s and lang keys.
+Neither catches a vhost-level redirect. The hPanel sanity check is
+the only place where the dev can verify the bug is not present on
+prod.
+
+The 1-line defensive `DirectoryIndex index.php index.html` added to
+`.htaccess` in v1.7.2.3 is a belt-and-braces safety net for the case
+where cPanel has no Index Manager set (e.g. on a future hosting
+migration). It does **not** override an active cPanel Index Manager,
+which has higher precedence than `.htaccess`. The real fix is in the
+hPanel UI above; the `.htaccess` change is documented but not
+load-bearing for the fix.
+
 ## 6. Smoke-test the About popup in the browser
 
 Open the app in a browser and verify the `?` icon in the navbar reveals the
