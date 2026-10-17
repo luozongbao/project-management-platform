@@ -4,31 +4,24 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.1.2 (2026-10-16) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.2.1 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
 >
-> **v1.7.1.2** extracts the client-portal sub-tasks toggle
-> (issue-027) into an external JS file so the v1.7.0 CSP
-> tightening on the public client portal can load it. The
-> controller used to ship as an inline
-> `<script>(function () { … })();</script>` block in
-> `client/dashboard.php`; the browser refused to execute it
-> under the new CSP (no `'unsafe-inline'` in `script-src`).
-> v1.7.1.2 moves the controller into a new static
-> ES5-compatible file at `client/assets/js/subtask-toggle.js`
-> loaded via `<script src="…" defer>` and threads the
-> per-project share code + the two translated labels through
-> three new `data-*` attributes on the toggle button
-> (`data-share-code`, `data-label-show-all`,
-> `data-label-show-top`). Behaviour is identical: default
-> collapsed, click flips `data-subtasks` / `data-state` /
-> `aria-pressed` / button label / icon class / `aria-hidden`
-> on nested `ul.task-tree:not(.root)`, persisted to
-> `localStorage['client_dash.subtasks_visible.' + shareCode]`
-> as `"0"` / `"1"`. The `<script>` tag is only emitted on
-> dashboards that actually have sub-tasks
-> (`<?php if ($has_subtasks): ?>`). No DB / schema / nginx /
-> CSS / translation change. Pull and reload — no restart
-> required.
+> **v1.7.2.1** is a hotfix for the v1.7.2 "?" About popup (tester-note-002):
+> fixes the Close-button click re-toggle, replaces the broken /RELEASE.md
+> link with an inline release summary, and adds regression nets.
+> and a documented release-process checklist. The disclosure
+> is a zero-JS `<details>`/`<summary>` popup that appears in
+> the internal-app navbar, on the public client-portal
+> header, on the domain-root landing page, and as a floating
+> trigger on logged-out pages so any visitor can verify the
+> build they are looking at. The version string is sourced
+> from the new `APP_VERSION` constant in `config.php` (kept
+> in lock-step with `config.template.php`, the top entry in
+> [RELEASE.md](RELEASE.md), and this banner) and surfaced
+> through a new regression test
+> (`database/about_popup_test.php`). A new
+> [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) is the
+> canonical 6-step release checklist.
 >
 > **v1.7.1.1** aligns parent status with parent completion
 > percentage (issue-026): the parent's `status` is now
@@ -130,6 +123,66 @@ portal** that lets stakeholders view read-only progress without logging in.
 > underlying PDO errors. All three shipped under the v1.2.1 tag.
 
 ---
+
+## What's new in v1.7.2
+
+### v1.7.2 — Application "About" / Version popup + Release-process checklist (issue-028)
+
+- **New `APP_VERSION` constant** in `config.php` and
+  `config.template.php` (kept byte-identical). Single
+  source of truth for the version string; `install.php`
+  emits it via `var_export($current_version, true)` in
+  the same style as the other constants from issue-021.
+  Drift between the four sites (`config.php`,
+  `config.template.php`, `RELEASE.md` top entry,
+  `README.md:3` banner) is caught by layer 1 of
+  `database/about_popup_test.php`.
+- **In-app About popup** anchored to a "?" trigger in the
+  navbar of the internal app, the public client-portal
+  header, the domain-root landing page, and as a floating
+  trigger on logged-out pages (login / register / forgot
+  / reset). Zero JS — uses native `<details>` /
+  `<summary>` so the disclosure is CSP-safe on the
+  tightened client portal (issue-020 invariant preserved).
+  Shows the version, the dev attribution
+  (`Built by: Me` / `Vibe coding with AI agent
+  (MiniMaxM3)`), and on the internal app a "View full
+  changelog" link to `RELEASE.md`. The link is
+  deliberately omitted on the public client portal so
+  internal milestones do not leak.
+- **New release-process checklist**
+  ([`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)).
+  6 steps: bump the `APP_VERSION` constant → append the
+  `RELEASE.md` entry → update the README banner → update
+  docs / inline attribution → run the full test suite →
+  smoke-test the About popup. Invoked from the new
+  "Release process (issue-028)" footer in `RELEASE.md`
+  and from the "About this build" footer in this file.
+- **New regression test
+  [`database/about_popup_test.php`](database/about_popup_test.php)**
+  with four layers: APP_VERSION drift guard, the
+  `install.php` `var_export()` writer, the
+  `<details class="app-about">` markup in
+  `includes/header.php` (with the floating variant for
+  logged-out pages), and the existence of the new
+  release-process doc with all 6 step headings. Run as
+  part of the merge gate alongside the 10 pre-existing
+  tests.
+- **6 new `about.*` translation keys** in
+  `client/lang.php` (both `en` and `zh`). The attribution
+  value is the same in both locales per the issue's NG6
+  non-goal (no extra localization for the dev
+  attribution). `e()` is used to escape the version in
+  every render site.
+- **Files touched:** `config.php`, `config.template.php`,
+  `install.php`, `includes/header.php`,
+  `client/dashboard.php`, `index.php`, `client/lang.php`,
+  `assets/css/style.css`, `client/assets/client.css`,
+  `docs/RELEASE_PROCESS.md` (new), `RELEASE.md`,
+  `README.md`, `database/install_wizard_test.php` (new
+  layer-2 assertion), `database/about_popup_test.php`
+  (new). Pull and reload — no DB / nginx / container
+  restart required.
 
 ## What's new in v1.7.1.2
 
@@ -989,6 +1042,18 @@ See [RELEASE.md](RELEASE.md) for the per-version changelog and [docs/issues](doc
 for resolved bug reports.
 
 ---
+
+## About this build
+
+The application version shown in the in-app About popup, the README banner,
+and the top entry of [RELEASE.md](RELEASE.md) is sourced from the
+`APP_VERSION` constant in [`config.php`](config.php). A regression test
+([`database/about_popup_test.php`](database/about_popup_test.php))
+enforces the drift guard across all four sites.
+
+For the canonical release checklist (bump the constant → changelog → README
+banner → docs / attribution → run the tests → smoke-test the popup) see
+[`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md).
 
 ## License
 

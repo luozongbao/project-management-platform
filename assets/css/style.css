@@ -762,3 +762,115 @@ body {
 .alert li:last-child {
     margin-bottom: 0;
 }
+
+/* Application About / Version disclosure (issue-028).
+   Anchored to the right of the navbar trigger. Zero JS — uses native
+   <details>/<summary> browser behaviour so the disclosure works under
+   the issue-020 CSP tightening on the public client portal as well
+   (issue-028 only adds the trigger on the internal app; the client
+   portal uses its own scoped block in client/assets/client.css). */
+.app-about {
+    position: relative;
+    /* Inline-flex so the <details> sits cleanly in the flex .nav-menu
+       row (issue-028 tester-note-001: without this, the UA default of
+       display: block on <details> forces the navbar to wrap and
+       pushes the user dropdown below the trigger). */
+    display: inline-flex;
+    align-items: center;
+}
+.app-about-trigger {
+    list-style: none;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+    user-select: none;
+}
+.app-about-trigger::-webkit-details-marker { display: none; }
+.app-about-trigger:hover { background: rgba(255,255,255,0.22); }
+.app-about[open] .app-about-trigger { background: rgba(255,255,255,0.28); }
+.app-about-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    background: #fff;
+    color: #333;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    padding: 16px 18px;
+    z-index: 1100;
+    overflow: hidden;
+}
+.app-about-panel h3 {
+    font-size: 1rem;
+    margin: 0 0 10px 0;
+    color: #007bff;
+}
+.app-about-panel p { margin: 4px 0; font-size: 0.9rem; }
+.app-about-panel a { color: #007bff; text-decoration: none; }
+.app-about-panel a:hover { text-decoration: underline; }
+/* Inline release summary (added 2026-10-17, issue-028 tester-note-002).
+   Used to be a <a href="RELEASE.md"> link, but the issue-020 nginx
+   hardening (docker/nginx.conf) blocks .md files and RELEASE.md with
+   404, so the link went nowhere. We now parse the top RELEASE.md
+   entry server-side via getLatestReleaseSummary() in
+   includes/functions.php and render it inline. Visually separated
+   from the version + attribution rows above with a top border so
+   the user can scan it as "what's new" rather than "who built it". */
+.app-about-panel .app-about-release {
+    margin: 8px 0 4px 0;
+    padding-top: 6px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.8rem;
+    color: #555;
+    line-height: 1.35;
+}
+.app-about-panel button {
+    margin-top: 10px;
+    background: #f1f3f4;
+    color: #333;
+    border: 0;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+/* Floating variant for logged-out pages (login/register/forgot/reset).
+   The regular navbar trigger is hidden when the visitor is not signed
+   in, so the issue-028 spec requires a separate, bottom-right anchored
+   trigger that any visitor can use to verify the build version. */
+.app-about--floating {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 1050;
+}
+.app-about--floating .app-about-trigger {
+    /* The base trigger styles assume the dark navbar
+       (rgba(255,255,255,0.12) bg, #fff glyph). On the light auth-page
+       body (#f8f9fa) that pair is effectively invisible — the
+       tester-note-001 bug 4.2. Override with the same colour pair the
+       client portal uses so the ? glyph is visible regardless of
+       which surface the floating variant lands on. */
+    background: rgba(0,123,255,0.10);
+    color: #007bff;
+}
+.app-about--floating .app-about-trigger:hover {
+    background: rgba(0,123,255,0.18);
+}
+.app-about--floating[open] .app-about-trigger {
+    background: rgba(0,123,255,0.25);
+}
+.app-about--floating .app-about-panel {
+    top: auto;
+    bottom: calc(100% + 8px);
+}

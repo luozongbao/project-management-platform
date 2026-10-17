@@ -19,6 +19,7 @@ const SMTP_PASS = 'your_email_password';
 
 // Application Configuration
 const APP_NAME = 'Project Management System';
+const APP_VERSION = 'v1.7.2.1';
 const APP_URL = 'http://localhost';
 const TIMEZONE = 'UTC';
 
