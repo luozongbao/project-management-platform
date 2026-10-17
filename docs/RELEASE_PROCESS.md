@@ -84,6 +84,133 @@ All 11 tests MUST pass before tagging the release. A self-test on the
 `APP_VERSION` drift guard (change the constant in only one site, restore it,
 re-run) is also part of the merge gate.
 
+## 5.5. Prod sanity probe (issue-029)
+
+Added in v1.7.2.2. After every prod deploy, SSH into the prod shared host
+and run the read-only diagnostic at `_diag.php`:
+
+```sh
+php /home/u162912405/public_html/_diag.php
+```
+
+(The path is the shared-host docroot. On other topologies — Docker,
+cPanel with a non-standard docroot, etc. — adjust accordingly. The diag
+page itself prints its expected docroot at the top so you know where
+it is.)
+
+Then from a public internet connection (your laptop, not the prod
+shell), try:
+
+```sh
+curl -I https://<prod-host>/_diag.php
+```
+
+You should get **403 Forbidden** (the `.htaccess` deny rule). If you
+get 200, the deny rule is missing — add the
+`<FilesMatch "^_diag\.php$"> Require all denied </FilesMatch>` block
+to the prod `.htaccess` and re-test.
+
+Now confirm in the diag output:
+
+- All 5 file checks pass (`is_readable() = YES`, md5 matches the
+  v1.7.2.2-shipped hash, mtime is within the last hour).
+- The `about.*` keys are present in both `en` and `zh` (6+ keys each).
+- The emitted CSP matches the expected one in
+  `database/security_headers_test.php`.
+- The "ALL CHECKS PASSED" banner is at the top of the output.
+
+If any check fails, do **not** promote the release to "live":
+
+| Failing check            | What to do                                                  |
+| ------------------------ | ----------------------------------------------------------- |
+| md5 MISMATCH             | Re-upload the file (SFTP / cPanel File Manager).            |
+| about.* keys missing     | Re-upload `client/lang.php`.                                |
+| File NOT readable        | `chmod 644` and re-check ownership.                         |
+| opcache ON + old mtime   | `touch` the file or restart Apache (cPanel → Restart).      |
+
+After fixing, re-run the probe. Only when the banner is green should
+you proceed to step 6.
+
+### What this catches
+
+This step was added after the v1.7.2 release shipped a
+`client/dashboard.php` 500 to the prod shared host. Root cause: a
+partial deploy left `client/lang.php` missing the new `about.*` keys
+while `client/dashboard.php` was calling `t('about.*')` against them.
+The drift-guard test in step 5 (`database/about_popup_test.php`) only
+checks that the keys are in the **source** files in the repo — it
+does not check that the files on prod are in sync. The prod sanity
+probe is the durable fix for that gap: it compares the md5sum of the
+file on prod to the md5sum of the file in the release, and fails
+loudly if they diverge.
+
+The 5 expected md5sums in `_diag.php` MUST be re-bumped at every
+release. The dev runs:
+
+```bash
+md5sum config.php client/dashboard.php client/lang.php \
+        includes/header.php includes/functions.php
+```
+
+…and pastes the 5 hashes into the corresponding entries in the
+`$expected_md5` array in `_diag.php` before committing. The
+`database/probe_diag_test.php` test enforces this — the test fails
+loudly if any `FILL_IN_AT_RELEASE_TIME` literal remains in the file
+at release time.
+
+## 5.6. cPanel hPanel sanity check (issue-030 v1.7.2.3)
+
+Added in v1.7.2.3. After the prod sanity probe (step 5.5) returns
+"ALL CHECKS PASSED", open the Hostinger hPanel in a browser and
+verify two settings on the `project.lorwongam.com` subdomain:
+
+1. **hPanel → Websites → `project.lorwongam.com` → Manage →
+   Redirects.** Confirm there is no rule with `Source = /` and
+   `Destination` containing `login.php`. If such a rule exists,
+   **delete it** and re-run the prod sanity probe.
+
+2. **hPanel → Files → Directory Privacy** (or **hPanel → Advanced →
+   Index Manager**). Navigate to `public_html/`. Confirm the default
+   index list contains `index.php` and does **not** contain
+   `login.php`. If it contains `login.php` instead of `index.php`,
+   **add `index.php`** to the list, save, and re-run the prod
+   sanity probe.
+
+3. Hard-reload `https://project.lorwongam.com/` in a private
+   browser window. The browser should now show the public landing
+   form (the code-entry field, the "Owner sign in" link, the about
+   popup). If it still shows the owner login form, one of the two
+   hPanel settings above was not actually applied — re-check.
+
+4. Paste a screenshot of (a) the hPanel Redirects page (post-fix)
+   and (b) the hPanel Directory Privacy / Index Manager page
+   (post-fix) into the v1.7.2.3 GitHub release notes. This is the
+   durable audit trail that the prod was verified end-to-end on
+   every deploy.
+
+### What this catches
+
+This step was added after the v1.7.2.2 release shipped correctly but
+surfaced a fresh bug: hitting `https://project.lorwongam.com/`
+redirects to `https://project.lorwongam.com/login.php` instead of
+rendering the public landing form (`index.php`). The cause is NOT in
+the code or the `.htaccess` — it is a cPanel hPanel setting (either
+a Redirects UI rule or an Index Manager override on the
+`project.lorwongam.com` subdomain). The dev-side test in step 5
+(`database/probe_diag_test.php`) only does source-grep checks; the
+prod sanity probe in step 5.5 only checks file md5s and lang keys.
+Neither catches a vhost-level redirect. The hPanel sanity check is
+the only place where the dev can verify the bug is not present on
+prod.
+
+The 1-line defensive `DirectoryIndex index.php index.html` added to
+`.htaccess` in v1.7.2.3 is a belt-and-braces safety net for the case
+where cPanel has no Index Manager set (e.g. on a future hosting
+migration). It does **not** override an active cPanel Index Manager,
+which has higher precedence than `.htaccess`. The real fix is in the
+hPanel UI above; the `.htaccess` change is documented but not
+load-bearing for the fix.
+
 ## 6. Smoke-test the About popup in the browser
 
 Open the app in a browser and verify the `?` icon in the navbar reveals the

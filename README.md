@@ -4,24 +4,107 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.2.1 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.3.1 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.3.1** is a hotfix for
+> [issue-032](docs/issues/issue-032.md): the public landing
+> (`/`) was logging
+> `Executing inline script violates the following Content
+> Security Policy directive 'script-src 'self'
+> https://cdnjs.cloudflare.com
+> https://static.cloudflareinsights.com'…` in the browser
+> console because the page shipped with an inline `<script>`
+> block (the share-code auto-format IIFE) but `/` is served
+> with the **client-portal** CSP (no `'unsafe-inline'` in
+> `script-src` — the issue-020 invariant), so the browser
+> blocks it. Fixed by extracting the inline IIFE to the
+> external file `assets/js/share-code-format.js` and loading
+> it via `<script src="…">`. A new check #9 in
+> `database/probe_diag_test.php` asserts `index.php` has no
+> inline `<script>` block and at least one
+> `<script src="assets/js/…">` tag, so a future dev who adds
+> a new inline script to `/` (or reverts the externalise
+> edit) is caught at test time. No schema / no public-API
+> change. No CSP change. v1.7.3.1 is a 1-file
+> externalise + 1 new test check; the v1.7.3 favicon
+> release is preserved below as historical.
+>
+> **v1.7.3** adds the project favicon
+> ([issue-031](docs/issues/issue-031.md)). The browser
+> console was logging `GET /favicon.ico 404 (Not Found)`
+> on every page because no `<link rel="icon">` tag was
+> declared in any `<head>`, so browsers fell back to
+> requesting the default `/favicon.ico`. Fixed by:
+> (1) adding the new asset `assets/image/project-favicon.png`
+> (a 41 KB PNG); (2) inserting
+> `<link rel="icon" type="image/png" href="…">` into
+> every `<head>` in the project — `includes/header.php`,
+> `index.php`, `install.php`, and the 3 styled heads of
+> `client/dashboard.php` (which uses a `../assets/…` href
+> because it is served from `/client/`); (3) a 2-section
+> favicon assertion in `database/probe_diag_test.php`
+> that catches a future dev who removes the link tag or
+> the PNG file. No schema / no public-API change.
+>
+> **v1.7.2.3** is a prod hotfix for
+> [issue-030](docs/issues/issue-030.md): hitting
+> `https://project.lorwongam.com/` was silently
+> redirecting to `https://project.lorwongam.com/login.php`
+> instead of rendering the public landing form
+> (`index.php`). The cause is **not** in the code or
+> `.htaccess` — it is a cPanel hPanel setting on the
+> `project.lorwongam.com` subdomain (either a Redirects
+> UI rule or an Index Manager override), which has higher
+> precedence than `.htaccess` `DirectoryIndex`. Fixed by:
+> (1) the user (or dev) removing the hPanel Redirects
+> rule and/or adding `index.php` to the Index Manager
+> default list on the prod host's hPanel UI — see the
+> new "step 5.6" in the release process; (2) a 1-line
+> defensive `DirectoryIndex index.php index.html` in
+> `.htaccess` so a future hosting migration does not
+> re-introduce the same bug; (3) a new live-URL probe
+> ("Landing page (`/`)" sub-section) in `_diag.php` that
+> does `curl https://project.lorwongam.com/`, asserts
+> the response is HTTP 200 (not 301/302 to `/login.php`)
+> and the body contains the public landing form
+> (`name="code"`), and prints an actionable hPanel fix
+> message if the assertion fails; (4) 2 new assertions
+> in `database/probe_diag_test.php` that catch a future
+> dev who removes the new probe or weakens its
+> assertion. No schema / no public-API change.
+>
+> **v1.7.2.2** is a prod hotfix for
+> [issue-029](docs/issues/issue-029.md): the public client
+> portal was returning 500 on
+> `/client/dashboard.php?code=…&lang=en` after the v1.7.2 ship
+> to `https://project.lorwongam.com` (Cloudflare-fronted
+> shared hosting), and the Cloudflare Web Analytics beacon
+> was producing a CSP violation in the browser console on
+> every page. The 500 is fixed defensively: `client/dashboard.php`
+> now opens an `ob_start()` at the top, guards the empty-code
+> redirect with `headers_sent()`, reorders the `client/lang.php`
+> `require_once` to be above the headers emission, and writes
+> a one-line `[v1.7.2.2 deploy]` marker to the PHP error log
+> so the dev can confirm the new file ran (vs an
+> opcache-served old version). The CSP violation is fixed by
+> adding `https://static.cloudflareinsights.com` to the
+> `script-src` directive in **both** the internal-app and
+> client-portal CSPs (Path B in the spec — Path A
+> "disable Web Analytics on the zone" is a dashboard-only
+> change that does not require a code commit and is left
+> to the dev to flip from the Cloudflare UI). A new
+> read-only prod sanity probe at `_diag.php` (blocked from
+> public HTTP by the new `.htaccess` `<FilesMatch>` rule,
+> runnable from the prod shell) lets the dev compare the
+> md5sum of the files on prod against the v1.7.2.2-shipped
+> versions and confirm the `about.*` lang keys are present
+> in both `en` and `zh` catalogs. A new "step 5.5" in the
+> release process makes the probe a mandatory post-deploy
+> gate. No schema / no public-API change.
 >
 > **v1.7.2.1** is a hotfix for the v1.7.2 "?" About popup (tester-note-002):
 > fixes the Close-button click re-toggle, replaces the broken /RELEASE.md
 > link with an inline release summary, and adds regression nets.
-> and a documented release-process checklist. The disclosure
-> is a zero-JS `<details>`/`<summary>` popup that appears in
-> the internal-app navbar, on the public client-portal
-> header, on the domain-root landing page, and as a floating
-> trigger on logged-out pages so any visitor can verify the
-> build they are looking at. The version string is sourced
-> from the new `APP_VERSION` constant in `config.php` (kept
-> in lock-step with `config.template.php`, the top entry in
-> [RELEASE.md](RELEASE.md), and this banner) and surfaced
-> through a new regression test
-> (`database/about_popup_test.php`). A new
-> [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) is the
-> canonical 6-step release checklist.
 >
 > **v1.7.1.1** aligns parent status with parent completion
 > percentage (issue-026): the parent's `status` is now

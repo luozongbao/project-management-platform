@@ -176,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (int)$step === 3) {
         // drift guard in database/about_popup_test.php will fail the
         // build if this literal drifts away from config.php /
         // config.template.php.
-        $current_version = 'v1.7.2.1';
+        $current_version = 'v1.7.3.1';
 
         // Issue-021 §2: var_export() produces a valid PHP literal for
         // the value. Far safer than addslashes() against hostile
@@ -231,6 +231,7 @@ $csrf_token = getCsrfToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Install - Project Management System</title>
+    <link rel="icon" type="image/png" href="assets/image/project-favicon.png">
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
         .install-container {
