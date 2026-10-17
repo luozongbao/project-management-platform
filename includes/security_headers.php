@@ -41,9 +41,14 @@ if (!function_exists('sendSecurityHeaders')) {
         // CSP for the internal app. The public client portal overrides
         // script-src via sendClientPortalSecurityHeaders() below (drops
         // 'unsafe-inline' because the toggle JS is in an external file).
+        // Issue-029 v1.7.2.2 (Path B): adds https://static.cloudflareinsights.com
+        // to script-src so the Cloudflare Web Analytics beacon
+        // (auto-injected at the edge when the zone has Web Analytics
+        // enabled) does not produce a CSP violation in the browser
+        // console. See docs/issues/issue-029.md §5.1.
         header("Content-Security-Policy: "
             . "default-src 'self'; "
-            . "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+            . "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; "
             . "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
             . "img-src 'self' data:; "
             . "font-src 'self' https://cdnjs.cloudflare.com data:; "
@@ -81,9 +86,16 @@ if (!function_exists('sendClientPortalSecurityHeaders')) {
         }
         $sent = true;
 
+        // Issue-029 v1.7.2.2 (Path B): also allow
+        // https://static.cloudflareinsights.com in script-src so the
+        // Cloudflare Web Analytics beacon does not produce a CSP
+        // violation in the browser console. The client portal
+        // (this helper) still drops 'unsafe-inline' from script-src
+        // because the toggle JS is in an external file (issue-020
+        // invariant preserved).
         header("Content-Security-Policy: "
             . "default-src 'self'; "
-            . "script-src 'self' https://cdnjs.cloudflare.com; "
+            . "script-src 'self' https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; "
             . "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
             . "img-src 'self' data:; "
             . "font-src 'self' https://cdnjs.cloudflare.com data:; "

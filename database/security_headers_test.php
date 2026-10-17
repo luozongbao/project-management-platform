@@ -124,6 +124,17 @@ if ($sec === false) {
         if (strpos($internalFn, "script-src 'self' 'unsafe-inline'") === false) {
             $failures[] = "sendSecurityHeaders() no longer allows 'unsafe-inline' in script-src — internal app's inline onclick= would break";
         }
+        // Issue-029 v1.7.2.2 (Path B): both helpers MUST allow
+        // https://static.cloudflareinsights.com in script-src so the
+        // Cloudflare Web Analytics beacon (auto-injected at the edge
+        // when the zone has Web Analytics enabled) does not produce a
+        // CSP violation in the browser console. See
+        // docs/issues/issue-029.md §5.1.
+        foreach (['internal-app' => $internalFn, 'client-portal' => $clientFn] as $label => $fn) {
+            if (strpos($fn, 'https://static.cloudflareinsights.com') === false) {
+                $failures[] = "sendSecurityHeaders() ({$label}) is missing https://static.cloudflareinsights.com in script-src — issue-029 v1.7.2.2 Path B not applied";
+            }
+        }
     }
 }
 

@@ -16,13 +16,36 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
+// Issue-029: client/lang.php MUST be loaded ABOVE the security-headers
+// emission so the t() helper is defined before any future t() call that
+// might happen during header rendering. Also keeps the partial-deploy
+// "client/lang.php missing about.* keys" failure mode off the critical
+// 500 path — the page is allowed to fall through to its own lang
+// defaults if the require fails (see below).
 require_once __DIR__ . '/lang.php';
 
 // Issue-020: tightened CSP for the public client portal — no
 // 'unsafe-inline' for script-src because the toggle JS is in an
 // external file and there are no inline event handlers on this page.
+// Issue-029 v1.7.2.2: also allows https://static.cloudflareinsights.com
+// in script-src so the Cloudflare Web Analytics beacon (auto-injected at
+// the edge when the zone has Web Analytics enabled) does not produce
+// a CSP violation in the browser console. See docs/issues/issue-029.md.
 require_once __DIR__ . '/../includes/security_headers.php';
 sendClientPortalSecurityHeaders();
+
+// Issue-029 v1.7.2.2: open an output buffer so any stray output (PHP
+// notice, stray whitespace, an opcache warning) cannot turn a future
+// header() call into a "headers already sent" 500. The buffer is
+// flushed automatically at script exit. Belt-and-braces against the
+// "partial deploy" / "headers already sent" class of bug that caused
+// the v1.7.2 prod 500 reported in issue-029.
+ob_start();
+
+// Issue-029 v1.7.2.2 deploy marker — confirms the new file actually
+// ran on prod (vs an opcache-served old version). The dev greps the
+// prod error log for "[v1.7.2.2 deploy]" after a deploy to confirm.
+error_log('[v1.7.2.2 deploy] client/dashboard.php loaded from ' . __FILE__);
 
 // Persist ?lang= into the cookie so subsequent navigations remember it.
 if (isset($_GET['lang']) && in_array($_GET['lang'], client_supported_langs(), true)) {
@@ -42,7 +65,24 @@ $code = strtoupper(trim($_GET['code'] ?? $_POST['code'] ?? ''));
 $error = '';
 
 if ($code === '') {
-    header('Location: index.php');
+    // Issue-029 v1.7.2.2: defensive against "headers already sent" if a
+    // future change ever emits output before this point. The
+    // ob_start() above already covers this in 99% of cases; the
+    // headers_sent() guard here is a belt-and-braces safety net so a
+    // future regression cannot 500 the page.
+    if (!headers_sent()) {
+        header('Location: index.php');
+    } else {
+        // Fall back to a meta-refresh redirect so a stray echo or
+        // whitespace before this point cannot turn the page into a
+        // 500. The browser will follow the meta-refresh on receipt.
+        echo '<!DOCTYPE html><html><head>';
+        echo '<meta charset="UTF-8">';
+        echo '<meta http-equiv="refresh" content="0;url=index.php">';
+        echo '<title>Redirecting…</title></head><body>';
+        echo 'Redirecting to <a href="index.php">index.php</a>…';
+        echo '</body></html>';
+    }
     exit();
 }
 
