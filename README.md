@@ -4,7 +4,24 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.2.3 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.3 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.3** adds the project favicon
+> ([issue-031](docs/issues/issue-031.md)). The browser
+> console was logging `GET /favicon.ico 404 (Not Found)`
+> on every page because no `<link rel="icon">` tag was
+> declared in any `<head>`, so browsers fell back to
+> requesting the default `/favicon.ico`. Fixed by:
+> (1) adding the new asset `assets/image/project-favicon.png`
+> (a 41 KB PNG); (2) inserting
+> `<link rel="icon" type="image/png" href="…">` into
+> every `<head>` in the project — `includes/header.php`,
+> `index.php`, `install.php`, and the 3 styled heads of
+> `client/dashboard.php` (which uses a `../assets/…` href
+> because it is served from `/client/`); (3) a 2-section
+> favicon assertion in `database/probe_diag_test.php`
+> that catches a future dev who removes the link tag or
+> the PNG file. No schema / no public-API change.
 >
 > **v1.7.2.3** is a prod hotfix for
 > [issue-030](docs/issues/issue-030.md): hitting
