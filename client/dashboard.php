@@ -251,6 +251,16 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         </div>
         <div class="client-header-right">
             <span class="text-muted"><?= e(t('dash.code_label')) ?>: <code><?= e($project['share_code']) ?></code></span>
+            <details class="app-about" aria-label="<?= e(t('about.trigger_aria')) ?>">
+                <summary class="app-about-trigger" aria-label="<?= e(t('about.trigger_aria')) ?>" title="<?= e(t('about.trigger_aria')) ?>">?</summary>
+                <div class="app-about-panel" role="dialog" aria-label="<?= e(t('about.trigger_aria')) ?>">
+                    <h3><?= e(t('about.title')) ?></h3>
+                    <p><?= e(t('about.version')) ?>: <strong><?= e(APP_VERSION) ?></strong></p>
+                    <p><?= e(t('about.built_by')) ?>: Me</p>
+                    <p><?= e(t('about.attribution')) ?></p>
+                    <p class="text-muted"><small><?= e(t('about.foot_note')) ?></small></p>
+                </div>
+            </details>
             <div class="lang-switch inline" aria-label="<?= e(t('landing.lang_label')) ?>">
                 <?php foreach (client_other_langs() as $code2 => $label): ?>
                     <a href="<?= e(client_lang_url($code2)) ?>" class="lang-switch-link"><?= e($label) ?></a>

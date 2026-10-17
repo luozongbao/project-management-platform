@@ -39,6 +39,17 @@ sendSecurityHeaders();
             <a href="contacts.php" class="nav-link">
                 <i class="fas fa-address-book"></i> Contacts
             </a>
+            <details class="app-about" aria-label="About this application">
+                <summary class="app-about-trigger" aria-label="About this application" title="About this application">?</summary>
+                <div class="app-about-panel" role="dialog" aria-label="About this application">
+                    <h3>About</h3>
+                    <p>Version: <strong><?= e(APP_VERSION) ?></strong></p>
+                    <p>Built by: Me</p>
+                    <p>Vibe coding with AI agent (MiniMaxM3)</p>
+                    <p class="app-about-release"><?= e(getLatestReleaseSummary()) ?></p>
+                    <button type="button" onclick="event.stopPropagation(); this.closest('details').open=false">Close</button>
+                </div>
+            </details>
             <div class="nav-dropdown">
                 <a href="#" class="nav-link dropdown-toggle">
                     <i class="fas fa-user-circle"></i>
@@ -57,6 +68,26 @@ sendSecurityHeaders();
         </div>
     </nav>
     <?php endif; ?>
-    
+
+    <?php // Floating About trigger for logged-out pages (login/register/
+          // forgot/reset_password). The navbar above is hidden when the
+          // visitor is not signed in, but per issue-028 §4.1 the trigger
+          // must still be reachable so anyone can verify what build they
+          // are looking at. Anchored bottom-right; uses the same zero-JS
+          // <details> pattern so it is CSP-safe. ?>
+    <?php if (!isLoggedIn()): ?>
+    <details class="app-about app-about--floating" aria-label="About this application">
+        <summary class="app-about-trigger" aria-label="About this application" title="About this application">?</summary>
+        <div class="app-about-panel" role="dialog" aria-label="About this application">
+            <h3>About</h3>
+            <p>Version: <strong><?= e(APP_VERSION) ?></strong></p>
+            <p>Built by: Me</p>
+            <p>Vibe coding with AI agent (MiniMaxM3)</p>
+            <p class="app-about-release"><?= e(getLatestReleaseSummary()) ?></p>
+            <button type="button" onclick="event.stopPropagation(); this.closest('details').open=false">Close</button>
+        </div>
+    </details>
+    <?php endif; ?>
+
     <main class="main-content <?= (isset($show_nav) && $show_nav && isLoggedIn()) ? 'with-nav' : 'no-nav' ?>">
         <?= displayMessage() ?>

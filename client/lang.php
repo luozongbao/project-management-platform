@@ -39,6 +39,15 @@ function client_translations() {
             'landing.try_again'      => 'Try another code',
             'landing.lang_label'     => 'Language',
             'landing.owner_login'    => 'Owner sign in',
+            // About / version disclosure (issue-028). The attribution
+            // string is the same in both locales per the issue's NG6
+            // non-goal (no extra localization for the dev attribution).
+            'about.trigger_aria'     => 'About this application',
+            'about.title'            => 'About',
+            'about.version'          => 'Version',
+            'about.built_by'         => 'Built by',
+            'about.attribution'      => 'Vibe coding with AI agent (MiniMaxM3)',
+            'about.foot_note'        => 'Have feedback? Please contact your project manager.',
             // Errors
             'err.empty_code'         => 'Please enter your project code.',
             'err.bad_format'         => "That doesn't look like a valid project code. Codes look like AX498-99ZB2-92C3J.",
@@ -110,6 +119,15 @@ function client_translations() {
             'landing.try_again'      => '重新输入代码',
             'landing.lang_label'     => '语言',
             'landing.owner_login'    => '管理员登录',
+            // 关于 / 版本披露 (issue-028)。归属声明在两种语言中
+            // 保持一致(issue-028 的非目标 NG6:不为开发者署名做额外
+            // 本地化)。
+            'about.trigger_aria'     => '关于本应用',
+            'about.title'            => '关于',
+            'about.version'          => '版本',
+            'about.built_by'         => '构建者',
+            'about.attribution'      => 'Vibe coding with AI agent (MiniMaxM3)',
+            'about.foot_note'        => '如有反馈,请联系您的项目经理。',
             // Errors
             'err.empty_code'         => '请输入您的项目代码。',
             'err.bad_format'         => '代码格式不正确,示例:AX498-99ZB2-92C3J。',

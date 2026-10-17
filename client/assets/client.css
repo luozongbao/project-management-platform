@@ -347,3 +347,83 @@
     background: #f6f8fa;
     text-decoration: none;
 }
+
+/* Application About / Version disclosure on the public client portal
+   (issue-028). Uses the same <details>/<summary> zero-JS approach as
+   the internal app so it is compatible with the tightened client CSP
+   (issue-020). The client portal deliberately omits the "View full
+   changelog" link so internal milestones are not leaked. */
+.client-header-right .app-about {
+    position: relative;
+    /* Inline-flex so the <details> sits in the flex .client-header-right
+       row (issue-028 tester-note-001: without this, the UA default of
+       display: block on <details> makes the trigger wrap onto its own
+       row inside the client header). */
+    display: inline-flex;
+    align-items: center;
+}
+.client-header-right .app-about-trigger {
+    list-style: none;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0,123,255,0.10);
+    color: #007bff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    user-select: none;
+}
+.client-header-right .app-about-trigger::-webkit-details-marker { display: none; }
+.client-header-right .app-about-trigger:hover { background: rgba(0,123,255,0.18); }
+.client-header-right .app-about[open] .app-about-trigger { background: rgba(0,123,255,0.25); }
+.client-header-right .app-about-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 260px;
+    background: #fff;
+    color: #333;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    padding: 14px 16px;
+    z-index: 1100;
+}
+.client-header-right .app-about-panel h3 {
+    font-size: 0.95rem;
+    margin: 0 0 8px 0;
+    color: #007bff;
+}
+.client-header-right .app-about-panel p { margin: 3px 0; font-size: 0.88rem; }
+.client-header-right .app-about-panel a { color: #007bff; text-decoration: none; }
+.client-header-right .app-about-panel a:hover { text-decoration: underline; }
+
+/* Foot-anchored variant on the public landing page (root index.php). */
+.client-foot .app-about { display: inline-block; }
+.client-foot .app-about-trigger {
+    list-style: none;
+    cursor: pointer;
+    background: transparent;
+    color: #007bff;
+    font-size: 0.85rem;
+    padding: 0;
+    margin-left: 4px;
+    text-decoration: underline dotted;
+}
+.client-foot .app-about-trigger::-webkit-details-marker { display: none; }
+.client-foot .app-about-panel {
+    margin-top: 8px;
+    text-align: left;
+    background: #fff;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 12px 14px;
+    color: #333;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+.client-foot .app-about-panel h3 { margin: 0 0 6px 0; font-size: 0.9rem; color: #007bff; }
+.client-foot .app-about-panel p { margin: 3px 0; }
