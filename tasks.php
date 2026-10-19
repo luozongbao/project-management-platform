@@ -18,11 +18,29 @@ if ($project_id) {
     $params[] = $project_id;
 }
 
-// Filter by status
+// Filter by status. Issue-034 (v1.8.0) adds a computed "delayed"
+// pseudo-status: tasks whose expected_completion_date is in the past
+// AND whose real status is not 'completed'. Because it is *computed*
+// (not a real enum value), it gets its own WHERE clause branch instead
+// of `t.status = ?`.
 $status_filter = $_GET['status'] ?? '';
 if ($status_filter && $status_filter !== 'all') {
-    $where_conditions[] = "t.status = ?";
-    $params[] = $status_filter;
+    if ($status_filter === 'delayed') {
+        $where_conditions[] = "t.expected_completion_date IS NOT NULL";
+        $where_conditions[] = "t.expected_completion_date < CURDATE()";
+        $where_conditions[] = "t.status != 'completed'";
+    } else {
+        $where_conditions[] = "t.status = ?";
+        $params[] = $status_filter;
+    }
+}
+
+// Issue-034 v1.8.0: optional `missing_reason=1` query param narrows
+// the delayed list to the rows that still need a reason recorded.
+// The dashboard backfill banner links here.
+$missing_reason = $_GET['missing_reason'] ?? '';
+if ($missing_reason === '1' && $status_filter === 'delayed') {
+    $where_conditions[] = "(t.delay_reason IS NULL OR TRIM(t.delay_reason) = '')";
 }
 
 // Search functionality
@@ -134,6 +152,20 @@ $show_nav = true;
     </div>
 
     <!-- Task Statistics -->
+    <?php // Issue-034 v1.8.0 — backfill banner when the user lands on the
+          // delayed+missing_reason view from dashboard.php. ?>
+    <?php if ($status_filter === 'delayed' && $missing_reason === '1'): ?>
+        <div class="owner-backfill-banner">
+            <div>
+                <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+                Showing delayed tasks still missing a reason. Edit each one or set the reason inline.
+            </div>
+            <a href="tasks.php?status=delayed">
+                Show all delayed &rarr;
+            </a>
+        </div>
+    <?php endif; ?>
+
     <div class="task-stats-grid">
         <div class="stat-card">
             <div class="stat-icon bg-primary">
@@ -214,6 +246,12 @@ $show_nav = true;
                             <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
                             <option value="completed" <?= $status_filter == 'completed' ? 'selected' : '' ?>>Completed</option>
                             <option value="on_hold" <?= $status_filter == 'on_hold' ? 'selected' : '' ?>>On Hold</option>
+                            <?php // Issue-034 v1.8.0 — computed "delayed" filter.
+                                  // The option is always rendered so users can
+                                  // intentionally land on it; the WHERE-clause
+                                  // builder special-cases the value (see top
+                                  // of this file). ?>
+                            <option value="delayed" <?= $status_filter == 'delayed' ? 'selected' : '' ?>>Delayed</option>
                         </select>
                     </div>
                     
@@ -303,6 +341,19 @@ $show_nav = true;
                             <div class="meta-group">
                                 <span class="status status-<?= $task['status'] ?>">
                                     <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
+                                    <?php // Issue-034 v1.8.0 — superscript "reason missing"
+                                          // mark. Shown next to the status badge so the
+                                          // project manager can spot the backfill set at
+                                          // a glance in the task list. ?>
+                                    <?php if (($_is_on_hold ?? false) && ($_on_hold_reason ?? '') === ''): ?>
+                                        <i class="fas fa-exclamation-circle status-reason-required"
+                                           title="On-hold reason missing"
+                                           aria-label="On-hold reason missing"></i>
+                                    <?php elseif (($_is_delayed ?? false) && ($_delay_reason ?? '') === ''): ?>
+                                        <i class="fas fa-exclamation-circle status-reason-required"
+                                           title="Delay reason missing"
+                                           aria-label="Delay reason missing"></i>
+                                    <?php endif; ?>
                                 </span>
                                 
                                 <span class="responsible-person">
@@ -378,6 +429,34 @@ $show_nav = true;
                                 <div class="progress-fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
                             </div>
                         </div>
+
+                        <?php // Issue-034 v1.8.0 — status reason chip + missing-reason
+                              // superscript icon. Re-uses the same "computed delayed"
+                              // rule as dashboard.php; the on-hold chip renders when
+                              // status = on_hold. The status badge gets a small red
+                              // `!` mark whenever the chip would have been there but
+                              // reason is still NULL — this is the affordance that
+                              // drove the dashboard backfill banner. ?>
+                        <?php
+                            $_is_delayed = ($task['status'] ?? '') !== 'completed'
+                                && !empty($task['expected_completion_date'])
+                                && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+                            $_is_on_hold = ($task['status'] ?? '') === 'on_hold';
+                            $_delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
+                            $_on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
+                        ?>
+                        <?php if ($_is_on_hold && $_on_hold_reason !== ''): ?>
+                            <div class="task-reason on-hold">
+                                <span class="task-reason-label">On Hold:</span>
+                                <?= e($_on_hold_reason) ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($_is_delayed && $_delay_reason !== ''): ?>
+                            <div class="task-reason delay">
+                                <span class="task-reason-label">Delayed:</span>
+                                <?= e($_delay_reason) ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>

@@ -4,7 +4,27 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.3.2 (2026-10-19) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.8.0 (2026-10-19) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.8.0** is a minor release for
+> [issue-034](docs/issues/issue-034.md) — adds a
+> `on_hold_reason` and a `delay_reason` TEXT column to
+> `tasks`, with enforced-on-write validation (non-empty
+> trimmed, ≤2000 chars) on every path that can land a row
+> in `on_hold` or `delay` state. The owner app surfaces
+> the reasons as chips on the dashboard and tasks list,
+> with a superscript "reason missing" mark on the
+> status badge and a one-click "fill the missing reason"
+> inline editor on `task_detail.php`. The client portal
+> shows the same chips on the per-task cards and a
+> project-level counter row in the Info panel. New
+> `delayed` filter on `tasks.php` and two new stat-cards
+> on `dashboard.php` ("Delayed Tasks", "On Hold Tasks").
+> One backwards-incompatible schema migration
+> (`database/migrations/20261019_add_task_status_reasons.sql`,
+> idempotent). Re-upload of `config.php` to prod is
+> required (`APP_VERSION` bump). The v1.7.3.2 hotfix is
+> preserved below as historical.
 >
 > **v1.7.3.2** is a hotfix for
 > [issue-033](docs/issues/issue-033.md) — the
@@ -776,7 +796,12 @@ portal** that lets stakeholders view read-only progress without logging in.
   fallback when any sibling is unestimated or zero), expected + actual
   completion dates, optional **effort estimate** in hours or mandays
   (1 manday = 8 hours, stored canonically as hours), responsible person,
-  contact person.
+  contact person. v1.8.0 adds **on-hold and delay reasons**: a
+  non-empty reason is required when a task moves to `on_hold` or
+  lands in a delayed state (expected completion date in the past and
+  status != completed), shown as chips on the dashboard, task list
+  and task detail, and as inline-fillable "missing" marks on the
+  status badge.
 - **Contacts** — global contact database shared across projects, with
   email, phone, mobile, company, position, address, WeChat / Line / Facebook
   / LinkedIn.

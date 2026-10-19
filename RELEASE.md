@@ -1,5 +1,37 @@
 # Release Notes
 
+## v1.8.0 — 2026-10-19
+
+**Minor release: on-hold and delay reasons for tasks.** Closes [issue-034](docs/issues/issue-034.md). Adds a non-empty, ≤2000-char **on-hold reason** and **delay reason** to every task, with enforced validation on every write path. One backwards-incompatible schema migration; no public API change; no CSP change.
+
+- **`on_hold_reason TEXT NULL` and `delay_reason TEXT NULL` columns** added to `tasks` via `database/migrations/20261019_add_task_status_reasons.sql`. Idempotent migration (uses the standard `information_schema.COLUMNS` count guard pattern, no transaction wrapper). The `database/schema.sql` CREATE TABLE block for fresh installs carries both columns too.
+- **Validation on every status-flip path:**
+  - `task_edit.php` (POST handler) — when `$status === 'on_hold'` the `<textarea name="on_hold_reason">` is required and trimmed non-empty; when the task is delayed (expected_completion_date in the past, status != completed) the `<textarea name="delay_reason">` is required and trimmed non-empty; each capped at 2000 chars. Reasons are normalized at write time: on-hold reason is `NULL` unless status is on-hold; delay reason is `NULL` unless the row is currently delayed.
+  - `ajax/update_task_status.php` — accepts an optional `on_hold_reason` JSON field; returns HTTP 400 with `{field: "on_hold_reason"}` when the new status is `on_hold` and the reason is empty/too long. Persists verbatim on success, clears to `NULL` on any other status.
+  - `ajax/parent_hold.php` — when `action=hold`, requires a non-empty trimmed `on_hold_reason` POST field (≤2000 chars); persists on success. On `action=resume`, clears the on-hold reason (`NULL`).
+  - `ajax/update_status_reason.php` — **new** inline-edit endpoint for the `task_detail.php` sidebar card. Accepts `task_id`, `field` (`on_hold_reason` | `delay_reason`), `value` (≤2000 chars), and the standard CSRF token. Refuses (HTTP 409) to write a non-empty on-hold reason unless the row's status is `on_hold`, and a non-empty delay reason unless the row is delayed — same invariant as the task-edit normalizer.
+- **Dashboard:** two new stat-cards ("Delayed Tasks", "On Hold Tasks") with `$delayed_tasks_count` / `$on_hold_tasks_count` queries and matching `.stat-card-delayed` / `.stat-card-on-hold` gradient hooks in the inline `<style>`. A backfill banner appears above the stats grid whenever a delayed or on-hold row is missing its reason.
+- **`tasks.php`:** a new `?status=delayed` filter (computed, not an enum value) returns rows with `expected_completion_date < CURDATE() AND status != 'completed'`; a `?missing_reason=1` query parameter narrows the delayed list to rows with `NULL`/empty reason. New `<option value="delayed">` in the status filter dropdown, an orange "X tasks need a delay reason — backfill" banner at the top when missing_reason is set, and a per-task `.task-reason` chip plus a "reason missing" `fa-exclamation-circle` superscript on the status badge.
+- **`task_detail.php`:** new sidebar **Status Reason** card (between Task Details and Recent Activity) renders the populated chip + collapsed `<details>` editor, or an open `<details>` with an inline textarea + Save button + status span. Pairs with `data-update-reason` / `data-save-reason` / `data-save-status` data attributes. The Task Overview status badge gains the same "reason missing" superscript icon for a top-of-page affordance.
+- **Client portal (`client/dashboard.php`):** per-task cards now include `.reason-pill` (`.delay` / `.on-hold`) chips next to the status badge. A new project-summary chip row in the Info panel shows the project-level delayed + on-hold counters with `<i class="fas fa-flag">`. The two new client lang keys (`dash.delayed`, `dash.on_hold`) are added in both `en` and `zh`.
+- **JS:** `assets/js/subtask-manager.js` now (a) prompts synchronously for an on-hold reason when the manager moves a leaf task to `on_hold` via the status dropdown, (b) wires the `[data-save-reason]` buttons on `task_detail.php` to POST to `/ajax/update_status_reason.php`, refreshes the chip in place, and shows the success / failure toast. CSRF token exposed via a new `<meta name="csrf-token">` in `includes/header.php` so the controller can read it without scraping form inputs.
+- **Version bump:** `APP_VERSION` v1.7.3.2 → v1.8.0 in `config.template.php`, `config.php`, `install.php`, `database/about_popup_test.php`, and `database/install_wizard_test.php`. The 5 source-file md5s in `_diag.php` are re-bumped to the post-v1.8.0 bytes.
+- **New regression test:** `database/task_status_reasons_test.php` — 8 source-grep drift-guard assertions mirroring `task_layout_issue013_test.php` (schema columns, migration file, `isTaskDelayed()` helper, dashboard stat-cards, client dashboard reason-pill, `tasks.php` delayed filter option, `task_edit.php` reason validation, `task_detail.php` inline editor).
+
+### Upgrade notes
+
+- Pull the latest code, then re-upload **the following to prod**:
+  - The new migration `database/migrations/20261019_add_task_status_reasons.sql` — applies on first DB access (idempotent; safe to run multiple times)
+  - `config.php` — bump `APP_VERSION` from `'v1.7.3.2'` to `'v1.8.0'`. **Fourth time in 4 releases** — please remember to re-upload from `config.template.php`.
+  - `database/schema.sql` — only matters for new installs; existing installs get the columns from the migration.
+  - `client/dashboard.php`, `client/lang.php`, `includes/header.php`, `includes/functions.php` — bring the new reason rendering + chips + helpers.
+  - `_diag.php` — the 5 source-file md5s are re-bumped to the v1.8.0 bytes; running the §3.6 all-pages probe will return green.
+- The new `database/task_status_reasons_test.php` is dev-side only — no need to upload to prod.
+- `docs/issues/issue-034.md` and the bump to `docs/RELEASE_PROCESS.md` step 5.7 (the v1.7.3.2 all-pages gate) carry over unchanged — v1.8.0 doesn't change the deploy workflow.
+- Manual smoke: create a task with `expected_completion_date = yesterday, status ≠ 'completed'`, hit `task_edit.php`, observe the orange "missing delay reason" mark; fill in the textarea, save; visit `dashboard.php`, observe the new "Delayed Tasks" stat-card increments; visit `client/dashboard.php?code=…`, observe the per-task chip and project counter. Reverse the date so the row is no longer delayed; the delay reason column normalizes to `NULL` on the next status flip.
+
+---
+
 ## v1.7.3.2 — 2026-10-19
 
 **Hotfix for the v1.7.3 + v1.7.3.1 stale-`config.php` 500 on `/dashboard.php` and `/client/dashboard.php`.** Closes [issue-033](docs/issues/issue-033.md). The v1.7.3.0 + v1.7.3.1 ship was correct (no code bug), but the deploy workflow left the prod `config.php` stale relative to `config.template.php` — a regression class not caught by any of the existing release-process gates (step 5.5 md5 probe, step 5.6 cPanel hPanel check, dev-side drift-guards). The user already applied the prod-side fix (re-uploaded `config.php` from `config.template.php`); this release adds **three layers of guardrails** so this class of regression is caught at release time next time, not after the user hits the page:

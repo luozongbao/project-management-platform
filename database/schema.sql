@@ -143,6 +143,8 @@ CREATE TABLE tasks (
     inherit_subtask_hours TINYINT(1) NULL DEFAULT NULL,  -- issue-011: when 1, parent's effort is sum of sub-task estimates
     completion_percentage DECIMAL(5,2) DEFAULT 0.00,
     status ENUM('not_started', 'in_progress', 'completed', 'on_hold') DEFAULT 'not_started',
+    on_hold_reason TEXT NULL,             -- issue-034 (v1.8.0): free-text reason for being on hold
+    delay_reason TEXT NULL,               -- issue-034 (v1.8.0): free-text reason for being delayed past expected_completion_date
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,

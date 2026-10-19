@@ -99,6 +99,14 @@ function client_translations() {
             'dash.subtasks_show_top' => 'Show top-level only',
             'dash.subtasks_toggle_aria' => 'Toggle sub-tasks visibility',
 
+            // Status reason chips (issue-034 v1.8.0). Rendered on the
+            // client portal alongside each task that has an on-hold or
+            // delayed reason populated, and as the section heading for
+            // the inline "X delayed, Y on hold" project summary.
+            'dash.delayed'           => 'delayed',
+            'dash.on_hold'           => 'on hold',
+            'dash.reason'            => 'Reason',
+
             // Statuses
             'status.not_started'     => 'Not started',
             'status.in_progress'     => 'In progress',
@@ -173,6 +181,13 @@ function client_translations() {
             'dash.subtasks_show_all' => '显示所有子任务',
             'dash.subtasks_show_top' => '仅显示顶级任务',
             'dash.subtasks_toggle_aria' => '切换子任务显示',
+
+            // 状态原因 (issue-034 v1.8.0)。在客户门户上,若某任务
+            // 包含已填写的暂停或延期原因,会在该任务旁显示对应
+            // 标签,同时也是项目摘要中 "X 项延期、Y 项暂停" 的用词。
+            'dash.delayed'           => '项已延期',
+            'dash.on_hold'           => '项已暂停',
+            'dash.reason'            => '原因',
 
             // Statuses
             'status.not_started'     => '未开始',

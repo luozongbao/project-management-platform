@@ -197,6 +197,7 @@ $flat_tasks = $db->fetchAll(
     "SELECT t.id, t.parent_task_id, t.name, t.description, t.status,
             t.completion_percentage, t.estimated_hours, t.inherit_subtask_hours,
             t.expected_completion_date, t.completion_date,
+            t.on_hold_reason, t.delay_reason,
             u.name AS responsible_name,
             (SELECT COUNT(*) FROM tasks st WHERE st.parent_task_id = t.id) AS subtask_count
      FROM tasks t
@@ -211,6 +212,32 @@ foreach ($flat_tasks as &$task) {
     $task['completion_percentage'] = $taskCompletion['task_completion'][(int)$task['id']] ?? 0;
 }
 unset($task);
+
+// Issue-034 v1.8.0: project-level "X delayed, Y on hold" counts for
+// the Project Info panel. Computed from the in-memory $flat_tasks list
+// so the client portal never has to issue a second SELECT. We apply
+// the same rule as isTaskDelayed(): expected_completion_date < today
+// AND status != 'completed'. Completed tasks are exempt; on-hold tasks
+// count in BOTH delayed (if past due) and on-hold buckets? No —
+// "delayed" is purely date-based; a task that is on-hold AND past due
+// is still counted once as on-hold (since that is the more recent
+// state), and ALSO once as delayed (so the chip "X delayed, Y on hold"
+// remains an honest readout of the two conditions).
+$project_delayed_count = 0;
+$project_on_hold_count = 0;
+$today = strtotime(date('Y-m-d'));
+foreach ($flat_tasks as $_ct) {
+    $st = $_ct['status'] ?? '';
+    if ($st === 'on_hold') {
+        $project_on_hold_count++;
+    }
+    if ($st !== 'completed'
+        && !empty($_ct['expected_completion_date'])
+        && strtotime((string)$_ct['expected_completion_date']) < $today) {
+        $project_delayed_count++;
+    }
+}
+unset($_ct);
 
 // Build a tree.
 $by_parent = [];
@@ -260,6 +287,34 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         echo '</div>';
         echo '<div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' . e(number_format((float)$task['completion_percentage'], 1)) . '%"></div></div>';
         echo '<span class="progress-text">' . e(number_format((float)$task['completion_percentage'], 1)) . '%</span></div>';
+        echo '</div>';
+        // Issue-034 v1.8.0: per-task status reason chips. Delayed chips
+        // render whenever expected_completion_date < today AND status
+        // != 'completed' (the isTaskDelayed() rule). On-hold chips render
+        // unconditionally when status = 'on_hold' (the user can
+        // legally be on hold with a NULL reason and we still want the
+        // "reason missing" affordance, but we only show a populated
+        // chip when the reason column has text). The previous text is
+        // escaped; trim() is applied so the chip never prints whitespace
+        // from a half-saved form.
+        $is_on_hold = ($task['status'] ?? '') === 'on_hold';
+        $is_delayed = ($task['status'] ?? '') !== 'completed'
+            && !empty($task['expected_completion_date'])
+            && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+        $on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
+        $delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
+        if ($is_on_hold && $on_hold_reason !== '') {
+            echo '<div class="task-reason on-hold">'
+                . '<span class="task-reason-label">' . e(t('dash.on_hold')) . ':</span>'
+                . e($on_hold_reason)
+                . '</div>';
+        }
+        if ($is_delayed && $delay_reason !== '') {
+            echo '<div class="task-reason delay">'
+                . '<span class="task-reason-label">' . e(t('dash.delayed')) . ':</span>'
+                . e($delay_reason)
+                . '</div>';
+        }
         echo '</div>';
         echo '</div>';
 
@@ -343,6 +398,27 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
                     <li><span class="k"><?= e(t('dash.expected')) ?></span><span class="v"><?= $project['expected_completion_date'] ? e(formatDateTime($project['expected_completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></span></li>
                     <li><span class="k"><?= e(t('dash.completed')) ?></span><span class="v"><?= $project['completion_date'] ? e(formatDateTime($project['completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.in_progress')) . '</em>' ?></span></li>
                     <li><span class="k"><?= e(t('dash.manager')) ?></span><span class="v"><?= e($project['owner_name']) ?></span></li>
+                    <?php // Issue-034 v1.8.0 — project-level "X delayed, Y on hold"
+                          // summary chip row. Renders ONLY when at least one
+                          // of the two counters is non-zero so the manager
+                          // row stays uncluttered on healthy projects. ?>
+                    <?php if ($project_delayed_count > 0 || $project_on_hold_count > 0): ?>
+                        <li>
+                            <span class="k"><i class="fas fa-flag" aria-hidden="true"></i></span>
+                            <span class="v">
+                                <?php if ($project_delayed_count > 0): ?>
+                                    <span class="reason-pill delay">
+                                        <?= (int)$project_delayed_count ?> <?= e(t('dash.delayed')) ?>
+                                    </span>
+                                <?php endif; ?>
+                                <?php if ($project_on_hold_count > 0): ?>
+                                    <span class="reason-pill on-hold">
+                                        <?= (int)$project_on_hold_count ?> <?= e(t('dash.on_hold')) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </span>
+                        </li>
+                    <?php endif; ?>
                 </ul>
             </div>
             <div>

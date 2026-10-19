@@ -129,11 +129,11 @@ $files_to_check = [
 // §6.4). The probe_diag_test.php test asserts that no
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
-    'config.php'              => 'd49cded5810c411facc66084eb859195',
-    'client/dashboard.php'    => '4c87b97107c8856f62f269d0bfd08576',
-    'client/lang.php'         => '795a1c1363a82612dde97fde24c616f6',
-    'includes/header.php'     => '8053b5363a8bdb2496b9cc60933b7586',
-    'includes/functions.php'  => '6821e5ec01eced298a5f196ecbb802c0',
+    'config.php'              => 'e3de126d55f2e2f16c397384cba1456b',
+    'client/dashboard.php'    => '88decc9975659690de1a7325f427df77',
+    'client/lang.php'         => 'c1377682444842f7b3772a8b2b2a1c12',
+    'includes/header.php'     => 'fa27d8b758ad935eb671a2e9836e0d02',
+    'includes/functions.php'  => '9bc12011df6050d4e1ebb16fd15ec576',
 ];
 
 // --- CSP probe -------------------------------------------------------

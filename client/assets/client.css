@@ -427,3 +427,47 @@
 }
 .client-foot .app-about-panel h3 { margin: 0 0 6px 0; font-size: 0.9rem; color: #007bff; }
 .client-foot .app-about-panel p { margin: 3px 0; }
+
+/* ============================================================================
+ * Issue-034 (v1.8.0) — client-portal status reasons.
+ *
+ * Mirrors the owner-app .task-reason / .task-reason.delay / .task-reason.on-hold
+ * triplet (assets/css/style.css) so the same chip language shows up on both
+ * surfaces, and so an inline edit in task_detail.php can style-mark a
+ * "Reasons missing" badge in the same way as the client portal.
+ *
+ * Cross-reference: docs/issues/issue-034.md §9 (CSS).
+ * ============================================================================ */
+.task-reason {
+    margin: 8px 0 6px 0;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: #f6f8fa;
+    border-left: 3px solid #d0d7de;
+    font-size: 0.86rem;
+    color: #24292f;
+    line-height: 1.4;
+}
+.task-reason.delay   { border-left-color: #cf222e; background: #fff5f5; }
+.task-reason.on-hold { border-left-color: #d4a72c; background: #fff8e1; }
+.task-reason .task-reason-label {
+    font-weight: 600;
+    color: #57606a;
+    margin-right: 4px;
+}
+
+/* Project-summary line: "3 delayed, 2 on hold" rendered between the
+ * Manager row and the Budget row inside the Project Info kv-list. The
+ * span accepts the same .reason-pill class so the chip colour matches
+ * the per-task reason block. */
+.reason-pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-right: 4px;
+    border: 1px solid transparent;
+}
+.reason-pill.delay   { background: #fff5f5; color: #cf222e; border-color: #f1c0c4; }
+.reason-pill.on-hold { background: #fff8e1; color: #7d5b00; border-color: #f0d77a; }

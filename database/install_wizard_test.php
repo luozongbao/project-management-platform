@@ -392,7 +392,7 @@ if (is_string($config_from_install) && $config_from_install !== '') {
         'SMTP_USER'   => var_export($input['smtp_user'], true),
         'SMTP_PASS'   => var_export($input['smtp_pass'], true),
         'APP_NAME'    => "'Project Management System'",
-        'APP_VERSION' => "'v1.7.3.2'",
+        'APP_VERSION' => "'v1.8.0'",
         'TIMEZONE'    => "'UTC'",
         'SESSION_LIFETIME' => '3600',
         'PASSWORD_RESET_EXPIRY' => '3600',
@@ -428,7 +428,7 @@ if (is_string($config_from_install) && $config_from_install !== '') {
     ok(
         'install.php wrote APP_VERSION via var_export() (issue-028 drift guard)',
         isset($parsed_install['APP_VERSION'])
-            && $parsed_install['APP_VERSION'] === "'v1.7.3.2'"
+            && $parsed_install['APP_VERSION'] === "'v1.8.0'"
     );
 
     ok(

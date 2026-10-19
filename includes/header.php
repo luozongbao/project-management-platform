@@ -33,6 +33,13 @@ sendSecurityHeaders();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php // Issue-034 v1.8.0: inline reason editor on the task sidebar
+          // POSTs JSON to /ajax/update_status_reason.php. That endpoint
+          // validates the CSRF token; we expose it via <meta> so the JS
+          // controller can read it without scraping a form input. ?>
+    <?php if (function_exists('getCsrfToken')): ?>
+        <meta name="csrf-token" content="<?= e(getCsrfToken()) ?>">
+    <?php endif; ?>
     <title><?= $title ?? APP_NAME ?></title>
     <link rel="icon" type="image/png" href="assets/image/project-favicon.png">
     <link rel="stylesheet" href="assets/css/style.css">

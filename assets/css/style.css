@@ -874,3 +874,79 @@ body {
     top: auto;
     bottom: calc(100% + 8px);
 }
+/* ============================================================================
+ * Issue-034 (v1.8.0) — delayed / on-hold status reasons.
+ *
+ * Three rules:
+ *   1. .task-reason              — base chip (yellow accent stripe + body)
+ *   2. .task-reason.delay        — red accent  (past expected_completion_date)
+ *   3. .task-reason.on-hold      — amber accent (status = on_hold)
+ *
+ * Used by: tasks.php (task card meta line), task_detail.php (sidebar
+ * "Status Reason" card), and the parent Put-on-Hold form. The styles
+ * are deliberately narrow so they share a visual lane with .status
+ * badges already in the codebase. They never visually dominate the task
+ * title (intentionally muted colour pair per spec §9).
+ *
+ * Cross-reference: docs/issues/issue-034.md §9 (CSS).
+ * ============================================================================ */
+.task-reason {
+    margin: 6px 0 10px 0;
+    padding: 8px 12px 8px 14px;
+    border-radius: 6px;
+    background: #f8f9fa;
+    border-left: 4px solid #adb5bd;
+    font-size: 0.92rem;
+    color: #333;
+    line-height: 1.35;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.task-reason .task-reason-label {
+    font-weight: 600;
+    margin-right: 4px;
+}
+.task-reason.delay {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+}
+.task-reason.on-hold {
+    border-left-color: #fd7e14;
+    background: #fff8ef;
+}
+.status-reason-required {
+    display: inline-block;
+    margin-left: 6px;
+    color: #dc3545;
+    font-size: 0.85em;
+    cursor: help;
+}
+
+/* Owner-app supplementary "backfill" banner shown at the top of
+ * dashboard.php / tasks.php when the user owns delayed or on-hold tasks
+ * that still need a reason. The banner is a single inline alert row —
+ * no per-task iteration — and links to the pre-filtered tasks list
+ * (tasks.php?status=delayed&missing_reason=1) so the project manager
+ * can resolve them in one pass. */
+.owner-backfill-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    background: #fff8ef;
+    border-left: 4px solid #fd7e14;
+    color: #4a3004;
+    font-size: 0.95rem;
+}
+.owner-backfill-banner a {
+    color: #b3500b;
+    font-weight: 600;
+    text-decoration: none;
+}
+.owner-backfill-banner a:hover {
+    text-decoration: underline;
+}
