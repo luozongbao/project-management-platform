@@ -58,6 +58,21 @@
  *      the externalised file. Catches a future dev who adds a
  *      new inline <script> to index.php or reverts the
  *      externalise edit.
+ *  10. Issue-033 v1.7.3.2: _diag.php must contain the new
+ *      §3.6 all-pages HTTP probe sub-section (which does a
+ *      curl GET against all 7 public pages and asserts each
+ *      returns the expected status code). This is the
+ *      regression detector for the v1.7.3.0 + v1.7.3.1 class
+ *      of bug (prod-side state change — stale config.php —
+ *      that the existing §3.5 landing-only probe and the .htaccess
+ *      / cPanel checks do not catch).
+ *  11. Issue-033 v1.7.3.2: includes/header.php must contain
+ *      the new 5-line defined('APP_VERSION') guard at the top
+ *      of the file. The guard detects a stale config.php
+ *      (missing APP_NAME / APP_VERSION / TIMEZONE constants)
+ *      and emits a clear "re-upload config.php" message instead
+ *      of a generic 500. Catches a future dev who removes the
+ *      guard without understanding why it is there.
  *
  * This is a dev-side test, not a prod-side one. The dev runs it
  * once per release to verify the _diag.php template is well-formed
@@ -284,6 +299,78 @@ if (!is_readable($index_path)) {
         $failures[] = 'inline-script check: index.php has no <script src="assets/js/…"> reference — the externalised share-code-format.js (or equivalent) must be loaded via <script src=…> (issue-032 v1.7.3.1)';
     }
 }
+// 10. Issue-033 v1.7.3.2: _diag.php must contain the new §3.6
+//     all-pages HTTP probe sub-section. The probe is the
+//     regression detector for the v1.7.3.0 + v1.7.3.1 class
+//     of bug (prod-side state change — stale config.php —
+//     that the existing §3.5 landing-only probe and the .htaccess
+//     / cPanel checks do not catch). The 7 pages that must be
+//     probed (with their expected status codes) are:
+//         /                                  → 200
+//         /login.php                          → 200
+//         /dashboard.php (no session)         → 302
+//         /projects.php (no session)          → 302
+//         /tasks.php (no session)             → 302
+//         /client/dashboard.php?code=INVALID-CODE&lang=en → 200
+//         /_diag.php                          → 403
+//     The check is source-grep on _diag.php (mirrors the
+//     existing #6 landing-probe check). Catches a future dev
+//     who removes the all-pages probe or strips any of the
+//     7 entries.
+$all_pages_probe_required = [
+    '<h2>3.6. All-pages HTTP probe'                                        => '<h2>3.6. All-pages HTTP probe (issue-033 v1.7.3.2)</h2>',
+    "'/'"                                                                  => "'/'",
+    "'/login.php'"                                                         => "'/login.php'",
+    "'/dashboard.php'"                                                     => "'/dashboard.php'",
+    "'/projects.php'"                                                      => "'/projects.php'",
+    "'/tasks.php'"                                                         => "'/tasks.php'",
+    "'/client/dashboard.php?code=INVALID-CODE&lang=en'"                    => "'/client/dashboard.php?code=INVALID-CODE&lang=en'",
+    "'/_diag.php'"                                                         => "'/_diag.php'",
+    '[200]'                                                                => '[200]',
+    '[302]'                                                                => '[302]',
+    '[403]'                                                                => '[403]',
+    '_diag/1.0 (issue-033 all-pages probe)'                                => '_diag/1.0 (issue-033 all-pages probe)',
+];
+$diag_src = $diag; // already loaded at the top of this script.
+$missing_probe_entries = [];
+foreach ($all_pages_probe_required as $needle => $_required_label) {
+    if (strpos($diag_src, $needle) === false) {
+        $missing_probe_entries[] = $needle;
+    }
+}
+if (!empty($missing_probe_entries)) {
+    $failures[] = 'all-pages probe check (_diag.php §3.6): the following sub-section markers are missing — _diag.php does not include the v1.7.3.2 all-pages HTTP probe (issue-033). Missing: ' . implode(' | ', $missing_probe_entries);
+}
+
+// 11. Issue-033 v1.7.3.2: includes/header.php must contain the
+//     new 5-line defined('APP_VERSION') guard at the top of the
+//     file. The guard detects a stale config.php (missing
+//     APP_NAME / APP_VERSION / TIMEZONE constants) and emits a
+//     clear "re-upload config.php" message instead of a generic
+//     500. The 3 constants are the ones the current header.php
+//     references directly (APP_NAME in the navbar brand link,
+//     APP_VERSION in the about popup, TIMEZONE in date-format
+//     helpers). The check is source-grep on includes/header.php
+//     and asserts:
+//       - 'required constant' (the literal guard message)
+//       - 'APP_VERSION'       (one of the 3 constants checked)
+//       - 're-upload'         (the "How to fix" copy in the
+//                              guard message — must point the
+//                              dev at the right action)
+//     Catches a future dev who removes the guard without
+//     understanding why it is there.
+$header_path = __DIR__ . '/../includes/header.php';
+if (!is_readable($header_path)) {
+    $failures[] = 'header.php guard check: includes/header.php is missing entirely (cannot verify v1.7.3.2 defined() guard)';
+} else {
+    $header_src = file_get_contents($header_path);
+    $has_guard = strpos($header_src, 'required constant') !== false
+        && strpos($header_src, 'APP_VERSION') !== false
+        && strpos($header_src, 're-upload') !== false;
+    if (!$has_guard) {
+        $failures[] = 'header.php guard check: includes/header.php is missing the v1.7.3.2 defined(\'APP_VERSION\') guard — without it, a stale config.php on prod produces a generic 500 instead of a clear "re-upload your config.php" message (issue-033 v1.7.3.2 §7)';
+    }
+}
 // Result.
 if (!empty($failures)) {
     fwrite(STDERR, "probe_diag_test failed:\n");
@@ -293,4 +380,4 @@ if (!empty($failures)) {
     exit(1);
 }
 
-echo "probe_diag_test passed (issue-029 v1.7.2.2 _diag.php contract holds; issue-031 v1.7.3 favicon linked; issue-032 v1.7.3.1 inline script externalised).\n";
+echo "probe_diag_test passed (issue-029 v1.7.2.2 _diag.php contract holds; issue-031 v1.7.3 favicon linked; issue-032 v1.7.3.1 inline script externalised; issue-033 v1.7.3.2 all-pages probe present + header.php stale-config guard present).\n";
