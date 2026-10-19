@@ -1,7 +1,7 @@
 <?php
 /**
  * _diag.php — read-only prod sanity probe (issue-029 v1.7.2.2,
- *              extended in issue-030 v1.7.2.3).
+ *              extended in issue-030 v1.7.2.3 + issue-033 v1.7.3.2).
  *
  * Browsable only from the prod shell (the .htaccess deny rule in the
  * repo root blocks public HTTP access). Prints a self-contained HTML
@@ -18,15 +18,25 @@
  *     owner login form). The probe also prints actionable guidance
  *     pointing the dev to the cPanel hPanel Redirects UI and the
  *     Index Manager (Directory Privacy) page.
+ *   - All-pages HTTP probe (issue-033 v1.7.3.2) — does a curl GET
+ *     against every public HTTP page in the app (7 pages: /, login,
+ *     dashboard, projects, tasks, client/dashboard, _diag) and
+ *     asserts each returns the expected status code (200 for public
+ *     pages, 302 for owner pages without a session, 403 for the
+ *     .htaccess-denied _diag.php itself). This is the regression
+ *     detector for the v1.7.3.0 + v1.7.3.1 class of bug (stale
+ *     config.php on prod).
  *   - The actual CSP that the public client portal emits
  *   - An "ALL CHECKS PASSED" / "N CHECKS FAILED" banner at the top
  *
  * The v1.7.2.2 invariant is preserved: no DB calls, no SMTP calls.
  * The v1.7.2.3 release adds ONE outbound HTTP call to the public
- * prod URL ($public_base) for the landing-page probe. $public_base
- * is overridable for the dev-side test in
+ * prod URL ($public_base) for the landing-page probe. The v1.7.3.2
+ * release extends that to all 7 pages (still gated by the same
+ * $public_base ?? override, and the same DIAG_SKIP_LIVE env var).
+ * $public_base is overridable for the dev-side test in
  * database/landing_page_probe_test.php (which points it at a local
- * php -S server).
+ * php -S server). The 7-page all-pages probe reuses the same hook.
  *
  * Run from the prod shell:
  *   php /home/u162912405/public_html/_diag.php
@@ -106,16 +116,23 @@ $files_to_check = [
 // second time in 2 releases. The other 3 (client/dashboard.php,
 // client/lang.php, includes/functions.php) keep their
 // v1.7.3 / v1.7.2.2 md5s because the v1.7.3.1 edit did not
+// change them. v1.7.3.2 ALSO touches 2 of the 5 files: the
+// new defined('APP_VERSION') guard at the top of
+// includes/header.php changes its md5, and the APP_VERSION
+// v1.7.3.1 → v1.7.3.2 bump changes the md5 of the local
+// config.php for the third time in 3 releases. The other 3
+// (client/dashboard.php, client/lang.php, includes/functions.php)
+// keep their v1.7.3 / v1.7.2.2 md5s because v1.7.3.2 did not
 // change them. The placeholder FILL_IN_AT_RELEASE_TIME is
 // replaced by the actual md5sum at release time (see
 // docs/RELEASE_PROCESS.md step 5.5 and docs/issues/issue-029.md
 // §6.4). The probe_diag_test.php test asserts that no
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
-    'config.php'              => '5fd8dd94dba418b06c551c729580d13f',
+    'config.php'              => 'd49cded5810c411facc66084eb859195',
     'client/dashboard.php'    => '4c87b97107c8856f62f269d0bfd08576',
     'client/lang.php'         => '795a1c1363a82612dde97fde24c616f6',
-    'includes/header.php'     => '1c686e4f6e502f85a0586e7c1dd85c12',
+    'includes/header.php'     => '8053b5363a8bdb2496b9cc60933b7586',
     'includes/functions.php'  => '6821e5ec01eced298a5f196ecbb802c0',
 ];
 
@@ -189,7 +206,7 @@ if (is_readable(__DIR__ . '/client/lang.php')) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>_diag.php &mdash; prod sanity probe (issue-030 v1.7.2.3)</title>
+    <title>_diag.php &mdash; prod sanity probe (issue-033 v1.7.3.2)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 1100px; margin: 20px auto; padding: 0 20px; color: #333; }
         h1 { font-size: 1.3rem; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
@@ -205,7 +222,7 @@ if (is_readable(__DIR__ . '/client/lang.php')) {
 <body>
 
 <h1>_diag.php &mdash; prod sanity probe</h1>
-<p>Read-only diagnostic for the v1.7.2.3 release (extended from the v1.7.2.2 original). See <code>docs/issues/issue-029.md</code> and <code>docs/issues/issue-030.md</code>.</p>
+<p>Read-only diagnostic for the v1.7.3.2 release (extended from the v1.7.2.3 + v1.7.2.2 originals). See <code>docs/issues/issue-029.md</code>, <code>docs/issues/issue-030.md</code>, and <code>docs/issues/issue-033.md</code>.</p>
 
 __DIAG_BANNER__
 
@@ -412,6 +429,95 @@ if (!$landing_ok && is_string($body)) {
     environment to skip the live HTTP probe (dev-side runs only).
 </p>
 <?php if (!$landing_ok) { $failed++; } ?>
+
+<h2>3.6. All-pages HTTP probe (issue-033 v1.7.3.2)</h2>
+<?php
+// $pages_base is the same default as $public_base above (the public
+// prod URL). Issue-033 v1.7.3.2: the new all-pages probe reuses the
+// same $public_base override hook so the dev-side test (if written)
+// can point it at a local php -S server via ??.
+$pages_base = $public_base ?? 'https://project.lorwongam.com';
+
+// Issue-033 v1.7.3.2: the all-pages probe is a regression detector
+// for the "code looks fine, prod is broken" class of bug that the
+// v1.7.3.0 + v1.7.3.1 deploy shipped. It does a curl GET against
+// every public HTTP page in the app and asserts the response code
+// is in the expected set (200 for the public pages, 302 for the
+// owner pages that redirect-to-login when not logged in, 403 for
+// _diag.php itself). The probe is gated by the same $diag_skip_live
+// flag as section 3.5.
+$pages_to_probe = [
+    ['label' => 'GET /',                               'path' => '/',                                               'expect' => [200]],
+    ['label' => 'GET /login.php',                      'path' => '/login.php',                                      'expect' => [200]],
+    ['label' => 'GET /dashboard.php (no session)',     'path' => '/dashboard.php',                                  'expect' => [302]],
+    ['label' => 'GET /projects.php (no session)',      'path' => '/projects.php',                                   'expect' => [302]],
+    ['label' => 'GET /tasks.php (no session)',         'path' => '/tasks.php',                                      'expect' => [302]],
+    ['label' => 'GET /client/dashboard.php (bad code)', 'path' => '/client/dashboard.php?code=INVALID-CODE&lang=en', 'expect' => [200]],
+    ['label' => 'GET /_diag.php (should be 403)',      'path' => '/_diag.php',                                      'expect' => [403]],
+];
+
+$pages_ok   = true;
+$pages_rows = '';
+
+foreach ($pages_to_probe as $page) {
+    if ($diag_skip_live) {
+        $pages_rows .= probe_row($page['label'], 'SKIPPED (DIAG_SKIP_LIVE=1)', false);
+        continue;
+    }
+    $ch = curl_init($pages_base . $page['path']);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER         => true,
+        CURLOPT_NOBODY         => true,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_USERAGENT      => '_diag/1.0 (issue-033 all-pages probe)',
+    ]);
+    $out  = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $status_ok     = in_array($code, $page['expect'], true);
+    $pages_ok      = $pages_ok && $status_ok;
+    $expected_list = implode(' or ', $page['expect']);
+    $pages_rows .= probe_row(
+        $page['label'],
+        $status_ok ? "OK (HTTP $code)" : "FAIL (HTTP $code, expected $expected_list)",
+        !$status_ok,
+        $status_ok ? null : "The page at " . $page['path'] . " returned HTTP $code "
+            . "instead of the expected $expected_list. This is the v1.7.3.0 + v1.7.3.1 "
+            . "class of regression — the code on prod may be stale, the file may "
+            . "be missing, or a deploy-side state issue. Read the prod error log "
+            . "(grep -E 'PHP Fatal|PHP Parse' /home/u162912405/public_html/error_log | tail -40) "
+            . "and apply the fix per docs/issues/issue-033.md §3.4."
+    );
+}
+?>
+<table>
+    <tr>
+        <th style="width:55%;">Page</th>
+        <th style="width:25%;">Result</th>
+        <th style="width:20%;">Status</th>
+    </tr>
+    <?= $pages_rows ?>
+</table>
+<p style="font-size:0.85em;color:#666;">
+    This sub-section was added in v1.7.3.2 (issue-033) as a regression
+    detector for the "code looks fine, prod is broken" class of bug
+    that the v1.7.3.0 + v1.7.3.1 deploy shipped: the v1.7.3.0 +
+    v1.7.3.1 code was correct, the prod sanity probe (step 5.5)
+    returned green, the cPanel hPanel check (step 5.6) was fine —
+    but the actual public pages returned 500 on every visit
+    because the prod <code>config.php</code> was stale. This probe
+    does a <code>curl</code> GET against every public HTTP page in
+    the app and asserts the response code is in the expected set,
+    so any future prod-side state issue is caught at release time
+    instead of after the user hits the page. See
+    <code>docs/issues/issue-033.md &sect;6</code> for the design.
+    Set <code>DIAG_SKIP_LIVE=1</code> in the environment to skip
+    the live HTTP probe (dev-side runs only).
+</p>
+<?php if (!$pages_ok) { $failed++; } ?>
 
 <h2>4. Expected Content-Security-Policy</h2>
 <p>The two CSPs the app sends (internal + client portal):</p>

@@ -4,7 +4,38 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.7.3.1 (2026-10-17) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v1.7.3.2 (2026-10-19) — see [RELEASE.md](RELEASE.md) for the full changelog.
+>
+> **v1.7.3.2** is a hotfix for
+> [issue-033](docs/issues/issue-033.md) — the
+> "code looks fine, prod is broken" stale-`config.php`
+> 500 regression that the v1.7.3.0 + v1.7.3.1 release
+> introduced. The v1.7.3 + v1.7.3.1 code was correct, but
+> the deploy workflow left the prod `config.php` stale
+> relative to `config.template.php` (a class of regression
+> not caught by any of the existing release-process gates).
+> Fixed with **three layers of guardrails**: (1) a new
+> §3.6 all-pages HTTP probe in `_diag.php` that does a
+> `curl` GET against all 7 public pages and asserts each
+> returns the expected status code (200 / 302 / 403),
+> fail-fast — catches the regression at release time on the
+> prod shell, not after the user hits the page; (2) a 5-line
+> `defined()` guard at the top of `includes/header.php`
+> that detects a stale `config.php` (missing `APP_NAME`,
+> `APP_VERSION`, or `TIMEZONE`) and emits a clear
+> "re-upload your `config.php`" red banner instead of a
+> generic 500 — direct mitigation for the failure mode the
+> user just hit; (3) a new step 5.7 in
+> `docs/RELEASE_PROCESS.md` that requires the all-pages
+> probe to return green before a release is declared
+> "shipped" (hard gate, fail-fast). Two new assertions in
+> `database/probe_diag_test.php` (checks #10 and #11) catch
+> a future dev who removes either guardrail. No schema / no
+> public-API / no CSP change. Re-upload of `config.php` to
+> prod is required (third `APP_VERSION` bump in 3 releases
+> — please remember to re-upload from `config.template.php`).
+> The v1.7.3.1 inline-script externalise and v1.7.3
+> favicon releases are preserved below as historical.
 >
 > **v1.7.3.1** is a hotfix for
 > [issue-032](docs/issues/issue-032.md): the public landing
