@@ -592,11 +592,23 @@ $show_nav = true;
                             && !empty($expected_for_render)
                             && strtotime((string)$expected_for_render) < strtotime(date('Y-m-d'));
                     ?>
-                    <?php if ($show_on_hold_reason): ?>
+                    <?php // Issue-034 v1.8.0 — the two reason <textarea>s are wrapped in
+                          // <div id="…_group"> so handleStatusChange() below can show
+                          // and hide them in response to a status / date flip. The
+                          // textareas are ALWAYS rendered (so the JS handler always
+                          // finds an element to show); the wrapper's initial
+                          // display is set by the PHP condition (so the first paint
+                          // matches the row state without waiting for JS). The
+                          // server-side normalizer above re-evaluates the condition
+                          // at save time, so flipping status back to not_started
+                          // will null out a non-empty reason in the same UPDATE. ?>
+                    <?php $on_hold_group_style = $show_on_hold_reason ? '' : ' style="display: none;"'; ?>
+                    <?php $delay_group_style   = $show_delay_reason   ? '' : ' style="display: none;"'; ?>
+                    <div id="on_hold_reason_group" class="form-group-wrap"<?= $on_hold_group_style ?>>
                         <div class="form-group">
                             <label for="on_hold_reason" class="required">On-hold reason:</label>
                             <textarea id="on_hold_reason" name="on_hold_reason" rows="3"
-                                      maxlength="2000" required
+                                      maxlength="2000"
                                       placeholder="Why is this task on hold? (Required when status is On Hold.)"><?= e($rendered_on_hold) ?></textarea>
                             <p class="field-help">
                                 <i class="fas fa-info-circle"></i>
@@ -604,12 +616,12 @@ $show_nav = true;
                                 portal so the manager and the client can scan it at a glance.
                             </p>
                         </div>
-                    <?php endif; ?>
-                    <?php if ($show_delay_reason): ?>
+                    </div>
+                    <div id="delay_reason_group" class="form-group-wrap"<?= $delay_group_style ?>>
                         <div class="form-group">
                             <label for="delay_reason" class="required">Delay reason:</label>
                             <textarea id="delay_reason" name="delay_reason" rows="3"
-                                      maxlength="2000" required
+                                      maxlength="2000"
                                       placeholder="Why is this task past its expected completion date? (Required when the task is delayed.)"><?= e($rendered_delay) ?></textarea>
                             <p class="field-help">
                                 <i class="fas fa-info-circle"></i>
@@ -619,7 +631,7 @@ $show_nav = true;
                                 task is no longer delayed.
                             </p>
                         </div>
-                    <?php endif; ?>
+                    </div>
                 </div>
 
                 <div class="form-section">
@@ -754,8 +766,9 @@ $show_nav = true;
                     
                     <div class="form-group">
                         <label for="expected_completion_date">Expected Completion:</label>
-                        <input type="date" id="expected_completion_date" name="expected_completion_date" 
-                               value="<?= $_POST['expected_completion_date'] ?? (isset($task['expected_completion_date']) && $task['expected_completion_date'] ? date('Y-m-d', strtotime($task['expected_completion_date'])) : '') ?>">
+                        <input type="date" id="expected_completion_date" name="expected_completion_date"
+                               value="<?= $_POST['expected_completion_date'] ?? (isset($task['expected_completion_date']) && $task['expected_completion_date'] ? date('Y-m-d', strtotime($task['expected_completion_date'])) : '') ?>"
+                               onchange="handleStatusChange(document.getElementById('status').value)">
                     </div>
                     
                     <div class="form-group" id="completion_date_group" style="display: none;">
@@ -809,12 +822,12 @@ function handleStatusChange(status) {
     const completionDateGroup = document.getElementById('completion_date_group');
     const completionPercentage = document.getElementById('completion_percentage');
     const completionSlider = document.getElementById('completion_slider');
-    
+
     if (status === 'completed') {
         completionDateGroup.style.display = 'block';
         completionPercentage.value = 100;
         completionSlider.value = 100;
-        
+
         // Set completion date to now if empty
         const completionDateInput = document.getElementById('completion_date');
         if (!completionDateInput.value) {
@@ -826,6 +839,31 @@ function handleStatusChange(status) {
     } else {
         completionDateGroup.style.display = 'none';
         document.getElementById('completion_date').value = '';
+    }
+
+    // Issue-034 v1.8.0 — reveal / hide the on-hold reason and delay
+    // reason textareas so the manager is not surprised by a server-
+    // side error after click-save. The two wrapper <div id="…_group">
+    // elements live just below the Status & Progress section; the JS
+    // flips only their display so the underlying <textarea> render
+    // path (controlled by $show_on_hold_reason / $show_delay_reason)
+    // stays authoritative for the first paint.
+    //
+    // Delay condition mirrors the PHP rule (task_edit.php lines around
+    // $show_delay_reason): status !== 'completed' AND
+    // expected_completion_date is set AND in the past.
+    const onHoldGroup = document.getElementById('on_hold_reason_group');
+    if (onHoldGroup) {
+        onHoldGroup.style.display = (status === 'on_hold') ? 'block' : 'none';
+    }
+    const delayGroup = document.getElementById('delay_reason_group');
+    if (delayGroup) {
+        const expectedRaw = (document.getElementById('expected_completion_date') || {}).value || '';
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const isDelayed = status !== 'completed'
+            && expectedRaw !== ''
+            && expectedRaw < todayIso;
+        delayGroup.style.display = isDelayed ? 'block' : 'none';
     }
 }
 

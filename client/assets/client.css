@@ -447,6 +447,16 @@
     font-size: 0.86rem;
     color: #24292f;
     line-height: 1.4;
+    /* Issue-034 (v1.8.0) tester note Bug 9 — drop to own row inside
+     * the .task-line flex container so the chip never overlaps the
+     * title row. flex-basis: 100% forces full width, min-width: 0
+     * keeps the body content from forcing the row to overflow, and
+     * word-wrap: break-word prevents long un-spaced reasons from
+     * blowing out the layout on narrow client-portal viewports. */
+    flex-basis: 100%;
+    min-width: 0;
+    word-wrap: break-word;
+    align-self: stretch;
 }
 .task-reason.delay   { border-left-color: #cf222e; background: #fff5f5; }
 .task-reason.on-hold { border-left-color: #d4a72c; background: #fff8e1; }

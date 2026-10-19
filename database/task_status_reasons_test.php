@@ -26,6 +26,14 @@
  *      non-empty trimmed checks that gate the UPDATE/INSERT).
  *   8. task_detail.php renders the new Status Reason card with the
  *      inline-edit data attributes used by subtask-manager.js.
+ *   9. [tester-note-001 Bug 8] task_edit.php's <script> block toggles
+ *      the on-hold + delay reason groups in response to status / date
+ *      changes, so the manager isn't surprised by a server-side error
+ *      after click-save.
+ *  10. [tester-note-001 Bug 9] .task-reason in BOTH CSS files declares
+ *      a flex-basis: 100% / width: 100% / align-self: stretch rule so
+ *      the chip drops to its own row inside .task-line instead of
+ *      overlapping the title row.
  *
  * Run:
  *   docker compose exec -T app php /var/www/html/database/task_status_reasons_test.php
@@ -198,6 +206,51 @@ ok(strpos($tdetail, 'on_hold_reason') !== false,
     'task_detail.php is missing the on_hold_reason column reference');
 ok(strpos($tdetail, 'delay_reason') !== false,
     'task_detail.php is missing the delay_reason column reference');
+
+// ---------------------------------------------------------------------
+// 9. [tester-note-001 Bug 8] task_edit.php script block toggles the
+//     on-hold + delay reason groups in response to status changes.
+//     Without this JS, the textareas would stay hidden after the
+//     manager picked "on_hold" or past-dated the expected_completion
+//     date, surfacing only at save-time as a server-side error.
+//     Anchored on the <script> block so we don't accidentally match
+//     comments that just mention the names.
+// ---------------------------------------------------------------------
+preg_match(
+    '/<script\b[\s\S]*?<\/script>/is',
+    $edit,
+    $taskEditScript
+);
+$taskEditScriptBlock = $taskEditScript[0] ?? '';
+ok(strpos($taskEditScriptBlock, 'on_hold_reason_group') !== false
+    && (bool)preg_match('/on_hold_reason_group[^"]*\.style\.display/s', $taskEditScriptBlock),
+    'task_edit.php <script> block is missing the on_hold_reason_group.style.display toggle (tester-note-001 Bug 8)');
+ok(strpos($taskEditScriptBlock, 'delay_reason_group') !== false
+    && (bool)preg_match('/delay_reason_group[^"]*\.style\.display/s', $taskEditScriptBlock),
+    'task_edit.php <script> block is missing the delay_reason_group.style.display toggle (tester-note-001 Bug 8)');
+
+// ---------------------------------------------------------------------
+// 10. [tester-note-001 Bug 9] .task-reason in both CSS files declares
+//     a flex-basis: 100% / width: 100% / align-self: stretch rule that
+//     drops the chip onto its own row inside the .task-line flex
+//     container. Without one of these the chip overlapped the title
+//     row on tasks.php (manager) and client/dashboard.php (portal).
+// ---------------------------------------------------------------------
+$clientCss = read($root . '/client/assets/client.css');
+preg_match('/\.task-reason\s*\{[\s\S]*?\}/is', $clientCss, $clientCssRule);
+$clientCssTaskReason = $clientCssRule[0] ?? '';
+ok(strpos($clientCssTaskReason, 'flex-basis: 100%') !== false
+    || strpos($clientCssTaskReason, 'width: 100%') !== false
+    || strpos($clientCssTaskReason, 'align-self: stretch') !== false,
+    'client/assets/client.css .task-reason is missing flex-basis: 100% / width: 100% / align-self: stretch layout fix (tester-note-001 Bug 9)');
+
+$ownerCss = read($root . '/assets/css/style.css');
+preg_match('/\.task-reason\s*\{[\s\S]*?\}/is', $ownerCss, $ownerCssRule);
+$ownerCssTaskReason = $ownerCssRule[0] ?? '';
+ok(strpos($ownerCssTaskReason, 'flex-basis: 100%') !== false
+    || strpos($ownerCssTaskReason, 'width: 100%') !== false
+    || strpos($ownerCssTaskReason, 'align-self: stretch') !== false,
+    'assets/css/style.css .task-reason is missing flex-basis: 100% / width: 100% / align-self: stretch layout fix (tester-note-001 Bug 9)');
 
 // ---------------------------------------------------------------------
 // Summary
