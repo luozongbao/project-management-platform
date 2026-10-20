@@ -145,6 +145,39 @@ function resolveTaskEstimateHours(array $task, array $childTasks): ?float {
 }
 
 /**
+ * True if a task row is "delayed" by the issue-034 (v1.8.0) definition:
+ *
+ *   1. `expected_completion_date` is set (NULL => not delayed — the
+ *      user has not committed to a deadline).
+ *   2. Strictly before today (CURDATE() comparison is inclusive of "on
+ *      the due date is on time").
+ *   3. Status is NOT 'completed' (anything else, including 'on_hold',
+ *      'not_started', 'in_progress', still counts as delayed — the user
+ *      wants to know the deadline is blown regardless of where in the
+ *      lifecycle we are).
+ *
+ * Pure, deterministic, no DB I/O — safe to call from inside a render
+ * loop in dashboard.php / tasks.php / client/dashboard.php.
+ *
+ * Cross-references: docs/issues/issue-034.md §4 (Delayed semantics).
+ */
+function isTaskDelayed(array $task): bool {
+    $date = $task['expected_completion_date'] ?? null;
+    if ($date === null || $date === '') {
+        return false;
+    }
+    $ts = strtotime((string)$date);
+    if ($ts === false) {
+        return false;
+    }
+    if ($ts >= strtotime(date('Y-m-d'))) {
+        return false;
+    }
+    $status = $task['status'] ?? null;
+    return $status !== 'completed';
+}
+
+/**
  * Derive a parent task's status from its sub-task statuses.
  * Pure, deterministic, unit-testable.
  *

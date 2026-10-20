@@ -211,6 +211,63 @@ which has higher precedence than `.htaccess`. The real fix is in the
 hPanel UI above; the `.htaccess` change is documented but not
 load-bearing for the fix.
 
+## 5.7. All-pages HTTP probe (issue-033 v1.7.3.2)
+
+Added in v1.7.3.2. After the cPanel hPanel sanity check (step 5.6)
+returns green, the dev runs the new all-pages HTTP probe sub-section
+in `_diag.php` (section 3.6, added in this issue). The probe does a
+`curl` GET against every public HTTP page in the app and asserts the
+response code is in the expected set:
+
+| Page | Expected status (no session) |
+| --- | --- |
+| `/` | 200 |
+| `/login.php` | 200 |
+| `/dashboard.php` | 302 (redirect to `/login.php`) |
+| `/projects.php` | 302 |
+| `/tasks.php` | 302 |
+| `/client/dashboard.php?code=INVALID-CODE&lang=en` | 200 (renders the "code not found" page) |
+| `/_diag.php` | 403 (denied by .htaccess) |
+
+The probe runs from the prod shell:
+
+```sh
+ssh u162912405@sg-nme-web607
+php /home/u162912405/public_html/_diag.php
+```
+
+The dev inspects the **section 3.6 output** in the diag page.
+All 7 rows must be green (✓ OK). If any row is red (✗ FAIL), the
+dev MUST investigate before proceeding to step 6 — the regression
+is on prod, not in the code, and a code-only fix will not address it
+(see `docs/issues/issue-033.md §3.4` for the triage table).
+
+### What this catches
+
+This step was added after the v1.7.3.0 + v1.7.3.1 release shipped
+correctly to the dev repo and the prod shell ran the v1.7.2.2 prod
+sanity probe green, but BOTH owner and client dashboards returned
+500 on the first user visit. Root cause: the dev made a deploy-side
+state change to prod (a partial upload, a direct prod edit, an
+opcache staleness) that the existing prod sanity probe (step 5.5)
+and the cPanel hPanel check (step 5.6) do not detect — both checks
+validate specific files and the hPanel UI, but neither does a full
+end-to-end HTTP probe of every page in the app. The all-pages probe
+is the durable fix for that gap.
+
+The 7 URLs in the probe are the complete public HTTP surface of the
+app. The probe is fail-fast: any non-expected status code aborts
+the release.
+
+### Dev-side equivalent
+
+For dev-side runs of the probe (e.g. as part of an optional
+`database/all_pages_probe_test.php` test that the dev may write in
+a future issue), the dev spins up a local `php -S` server and
+points `$public_base` at it via the existing `??` override hook
+in `_diag.php`. The dev-side test asserts the probe returns green
+for all 7 pages.
+
 ## 6. Smoke-test the About popup in the browser
 
 Open the app in a browser and verify the `?` icon in the navbar reveals the
