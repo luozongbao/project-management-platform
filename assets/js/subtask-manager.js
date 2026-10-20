@@ -11,14 +11,25 @@ class SubtaskManager {
                 this.updateSubtaskProgress(e.target);
             }
         });
-        
+
         // Bind status change events
         document.addEventListener('change', (e) => {
             if (e.target.matches('.subtask-status-select')) {
                 this.updateSubtaskStatus(e.target);
             }
         });
-        
+
+        // Issue-034 v1.8.0 — inline reason editor on the
+        // task_detail.php sidebar. Each `[data-save-reason]` button is
+        // paired with a sibling `[data-update-reason]` textarea and a
+        // `[data-save-status]` placeholder for the response message.
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-save-reason]');
+            if (!btn) return;
+            e.preventDefault();
+            this.saveInlineReason(btn);
+        });
+
         // Initialize progress circles
         this.initializeProgressCircles();
     }
@@ -70,7 +81,21 @@ class SubtaskManager {
     async updateSubtaskStatus(select) {
         const taskId = select.dataset.taskId;
         const status = select.value;
-        
+
+        // Issue-034 v1.8.0: when moving a task into 'on_hold' the spec
+        // requires a non-empty reason. The leaf-row dropdown has no
+        // inline editor, so we prompt synchronously. Server-side also
+        // rejects empty reasons for defense in depth.
+        let onHoldReason = '';
+        if (status === 'on_hold') {
+            onHoldReason = (window.prompt('Why is this task going on hold? (required)', '') || '').trim();
+            if (onHoldReason === '') {
+                select.value = select.dataset.previousValue || 'not_started';
+                this.showNotification('On-hold reason is required to change status to On Hold.', 'error');
+                return;
+            }
+        }
+
         try {
             const response = await fetch('/ajax/update_task_status.php', {
                 method: 'POST',
@@ -79,16 +104,17 @@ class SubtaskManager {
                 },
                 body: JSON.stringify({
                     task_id: taskId,
-                    status: status
+                    status: status,
+                    on_hold_reason: onHoldReason
                 })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 // Update status indicator
                 this.updateStatusIndicator(taskId, status);
-                
+
                 // If completed, set progress to 100%
                 if (status === 'completed') {
                     this.updateProgressBar(taskId, 100);
@@ -97,16 +123,27 @@ class SubtaskManager {
                         progressInput.value = 100;
                     }
                 }
-                
+
                 // Update parent task progress if needed
                 if (result.parent_progress !== undefined) {
                     this.updateProgressBar(result.parent_task_id, result.parent_progress);
                 }
-                
+
+                // On task_detail.php reload so the new reason chip /
+                // sidebar card appear. The dedicated inline editor
+                // covers the no-reload path on that same page.
+                if (window.location.pathname.includes('task_detail.php')) {
+                    window.location.reload();
+                    return;
+                }
+
                 this.showNotification('Status updated successfully', 'success');
             } else {
-                this.showNotification('Failed to update status: ' + result.error, 'error');
-                // Reset select to previous value
+                if (result.field === 'on_hold_reason') {
+                    this.showNotification(result.error || 'On-hold reason is required.', 'error');
+                } else {
+                    this.showNotification('Failed to update status: ' + result.error, 'error');
+                }
                 select.value = select.dataset.previousValue || 'not_started';
             }
         } catch (error) {
@@ -115,6 +152,101 @@ class SubtaskManager {
             // Reset select to previous value
             select.value = select.dataset.previousValue || 'not_started';
         }
+    }
+
+    // Issue-034 v1.8.0 — save a status reason from the inline editor
+    // on task_detail.php. Pairs with [data-save-reason] /
+    // [data-update-reason] / [data-save-status] markup rendered in PHP.
+    async saveInlineReason(btn) {
+        const taskId = parseInt(btn.dataset.taskId, 10) || 0;
+        const field = btn.dataset.field;
+        const card = btn.closest('.task-reason-card') || document;
+        const textarea = card.querySelector(`[data-update-reason][data-field="${field}"]`);
+        const statusSpan = card.querySelector('[data-save-status]');
+
+        if (!textarea) return;
+
+        const value = textarea.value.trim();
+        const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfTokenEl ? csrfTokenEl.getAttribute('content')
+            : (document.querySelector('input[name="csrf_token"]')?.value || '');
+
+        if (statusSpan) {
+            statusSpan.textContent = 'Saving…';
+        }
+
+        try {
+            const response = await fetch('/ajax/update_status_reason.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    csrf_token: csrfToken,
+                    task_id: taskId,
+                    field: field,
+                    value: value
+                })
+            });
+            const result = await response.json();
+
+            if (!result.success) {
+                if (statusSpan) {
+                    statusSpan.textContent = result.error || 'Failed to save.';
+                }
+                this.showNotification(result.error || 'Failed to save reason.', 'error');
+                return;
+            }
+
+            const detailItem = btn.closest('.detail-item');
+            if (detailItem) {
+                detailItem.innerHTML = this.renderReasonBlock(field, result.value);
+            }
+            this.showNotification('Reason saved.', 'success');
+        } catch (error) {
+            console.error('Error saving reason:', error);
+            if (statusSpan) {
+                statusSpan.textContent = 'Network error.';
+            }
+            this.showNotification('Network error occurred', 'error');
+        }
+    }
+
+    // Issue-034 v1.8.0 — small renderer for the refreshed chip block
+    // so the inline editor can swap populated ⇄ missing without a full
+    // page reload. Returns raw HTML for `el.innerHTML = ...`.
+    renderReasonBlock(field, value) {
+        const safeValue = value == null ? '' : String(value);
+        const isEmpty = safeValue === '';
+        const kindClass = field === 'on_hold_reason' ? 'on-hold' : 'delay';
+        const escape = (s) => s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        const taskId = this.getCurrentTaskId() || '';
+        const escapedValue = escape(safeValue);
+        if (isEmpty) {
+            return `
+                <span class="status-reason-required">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Missing — fill in to explain this to the client.
+                </span>
+                <details class="reason-inline-edit" open>
+                    <summary>Add reason</summary>
+                    <textarea data-update-reason data-task-id="${taskId}" data-field="${field}" rows="2" maxlength="2000" placeholder="Add reason..."></textarea>
+                    <button type="button" data-save-reason data-task-id="${taskId}" data-field="${field}">Save</button>
+                    <span data-save-status aria-live="polite"></span>
+                </details>
+            `;
+        }
+        return `
+            <span class="task-reason ${kindClass}" style="display:block;margin:0;">${escapedValue}</span>
+            <details class="reason-inline-edit">
+                <summary>Edit</summary>
+                <textarea data-update-reason data-task-id="${taskId}" data-field="${field}" rows="2" maxlength="2000">${escapedValue}</textarea>
+                <button type="button" data-save-reason data-task-id="${taskId}" data-field="${field}">Save</button>
+                <span data-save-status aria-live="polite"></span>
+            </details>
+        `;
     }
     
     // Update progress bar visual

@@ -218,6 +218,15 @@
     gap: 8px;
     align-items: flex-start;
     padding: 12px 14px;
+    /* Issue-034 (v1.8.0) tester-note-003 Bug 9 (revised) — without
+     * `flex-wrap: wrap;` the chip's `flex-basis: 100%` is silently
+     * treated as a basis request inside a `nowrap` row, and the
+     * chip ends up on the same row as the task title, covering it.
+     * W3C CSS Flexible Box §9 — flex-basis only requests a main size;
+     * whether the item actually wraps depends on the parent's
+     * `flex-wrap`. Adding wrap here is what makes the chip's
+     * flex-basis: 100% (round-1 fix in .task-reason) meaningful. */
+    flex-wrap: wrap;
 }
 .tree-indent {
     color: #c7ccd1;
@@ -427,3 +436,57 @@
 }
 .client-foot .app-about-panel h3 { margin: 0 0 6px 0; font-size: 0.9rem; color: #007bff; }
 .client-foot .app-about-panel p { margin: 3px 0; }
+
+/* ============================================================================
+ * Issue-034 (v1.8.0) — client-portal status reasons.
+ *
+ * Mirrors the owner-app .task-reason / .task-reason.delay / .task-reason.on-hold
+ * triplet (assets/css/style.css) so the same chip language shows up on both
+ * surfaces, and so an inline edit in task_detail.php can style-mark a
+ * "Reasons missing" badge in the same way as the client portal.
+ *
+ * Cross-reference: docs/issues/issue-034.md §9 (CSS).
+ * ============================================================================ */
+.task-reason {
+    margin: 8px 0 6px 0;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: #f6f8fa;
+    border-left: 3px solid #d0d7de;
+    font-size: 0.86rem;
+    color: #24292f;
+    line-height: 1.4;
+    /* Issue-034 (v1.8.0) tester note Bug 9 — drop to own row inside
+     * the .task-line flex container so the chip never overlaps the
+     * title row. flex-basis: 100% forces full width, min-width: 0
+     * keeps the body content from forcing the row to overflow, and
+     * word-wrap: break-word prevents long un-spaced reasons from
+     * blowing out the layout on narrow client-portal viewports. */
+    flex-basis: 100%;
+    min-width: 0;
+    word-wrap: break-word;
+    align-self: stretch;
+}
+.task-reason.delay   { border-left-color: #cf222e; background: #fff5f5; }
+.task-reason.on-hold { border-left-color: #d4a72c; background: #fff8e1; }
+.task-reason .task-reason-label {
+    font-weight: 600;
+    color: #57606a;
+    margin-right: 4px;
+}
+
+/* Project-summary line: "3 delayed, 2 on hold" rendered between the
+ * Manager row and the Budget row inside the Project Info kv-list. The
+ * span accepts the same .reason-pill class so the chip colour matches
+ * the per-task reason block. */
+.reason-pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-right: 4px;
+    border: 1px solid transparent;
+}
+.reason-pill.delay   { background: #fff5f5; color: #cf222e; border-color: #f1c0c4; }
+.reason-pill.on-hold { background: #fff8e1; color: #7d5b00; border-color: #f0d77a; }

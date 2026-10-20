@@ -98,13 +98,22 @@ $show_nav = true;
                     Complete Task
                 </button>
             <?php endif; ?>
-            <?php // Issue-012: On Hold / Resume button for parents with sub-tasks. ?>
+            <?php // Issue-012: On Hold / Resume button for parents with sub-tasks.
+                  // Issue-034 v1.8.0: the on-hold path requires a non-empty
+                  // reason. Rather than opening a modal, we just render a
+                  // lightweight stacked form: an inline text input followed
+                  // by the submit button. The page is always server-rendered
+                  // (no JS framework), so this is the simplest affordance. ?>
             <?php if ($task['parent_task_id'] === null && count($subtasks) > 0): ?>
                 <?php if ($task['status'] !== 'on_hold'): ?>
-                    <form method="POST" action="ajax/parent_hold.php" class="inline-form">
+                    <form method="POST" action="ajax/parent_hold.php" class="inline-form parent-hold-form">
                         <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
                         <input type="hidden" name="task_id" value="<?= (int)$task_id ?>">
                         <input type="hidden" name="action" value="hold">
+                        <input type="text" name="on_hold_reason" required maxlength="2000"
+                               placeholder="On-hold reason (required)"
+                               class="parent-hold-reason-input"
+                               aria-label="On-hold reason">
                         <button class="btn btn-outline" type="submit"
                                 onclick="return confirm('Put this parent task on hold? Sub-tasks are not affected.')">
                             <i class="fas fa-pause"></i> Put on Hold
@@ -144,6 +153,22 @@ $show_nav = true;
                     <div>
                         <span class="status status-<?= $task['status'] ?>">
                             <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
+                            <?php // Issue-034 v1.8.0 — superscript "reason missing"
+                                  // mark on the Task Overview status badge so the
+                                  // affordance is visible at the very top of the
+                                  // page (it pairs with the detail card just below). ?>
+                            <?php if (($task['status'] ?? '') === 'on_hold' && trim((string)($task['on_hold_reason'] ?? '')) === ''): ?>
+                                <i class="fas fa-exclamation-circle status-reason-required"
+                                   title="On-hold reason missing"
+                                   aria-label="On-hold reason missing"></i>
+                            <?php elseif (($task['status'] ?? '') !== 'completed'
+                                          && !empty($task['expected_completion_date'])
+                                          && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'))
+                                          && trim((string)($task['delay_reason'] ?? '')) === ''): ?>
+                                <i class="fas fa-exclamation-circle status-reason-required"
+                                   title="Delay reason missing"
+                                   aria-label="Delay reason missing"></i>
+                            <?php endif; ?>
                         </span>
                         <?php if (!empty($subtasks)): ?>
                             <span class="derived-pill" title="Status follows sub-tasks automatically">
@@ -403,6 +428,108 @@ $show_nav = true;
                     <?php endif; ?>
                 </div>
             </div>
+
+            <?php // Issue-034 v1.8.0 — Status Reason card. Renders the
+                  // current on-hold / delay reason (populated, missing,
+                  // or absent) and an inline-edit <details> form so the
+                  // manager can fill in a missing reason without leaving
+                  // the page. The card only appears when at least one of
+                  // the two reasons could be relevant (status=on_hold OR
+                  // task is delayed) so it stays out of the sidebar on
+                  // healthy tasks. ?>
+            <?php
+                $detail_on_hold = trim((string)($task['on_hold_reason'] ?? ''));
+                $detail_delay   = trim((string)($task['delay_reason']   ?? ''));
+                $detail_is_on_hold = ($task['status'] ?? '') === 'on_hold';
+                $detail_is_delayed = ($task['status'] ?? '') !== 'completed'
+                    && !empty($task['expected_completion_date'])
+                    && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+            ?>
+            <?php if ($detail_is_on_hold || $detail_is_delayed): ?>
+                <div class="card task-reason-card">
+                    <div class="card-header">
+                        <h3>Status Reason</h3>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($detail_is_on_hold): ?>
+                            <div class="detail-item">
+                                <label>On-hold reason:</label>
+                                <?php if ($detail_on_hold !== ''): ?>
+                                    <span class="task-reason on-hold" style="display:block;margin:0;"><?= e($detail_on_hold) ?></span>
+                                    <details class="reason-inline-edit">
+                                        <summary>Edit</summary>
+                                        <textarea data-update-reason
+                                                  data-task-id="<?= (int)$task_id ?>"
+                                                  data-field="on_hold_reason"
+                                                  rows="2" maxlength="2000"><?= e($detail_on_hold) ?></textarea>
+                                        <button type="button"
+                                                data-save-reason
+                                                data-task-id="<?= (int)$task_id ?>"
+                                                data-field="on_hold_reason">Save</button>
+                                        <span data-save-status aria-live="polite"></span>
+                                    </details>
+                                <?php else: ?>
+                                    <span class="status-reason-required">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        Missing — fill in to explain the hold to the client.
+                                    </span>
+                                    <details class="reason-inline-edit" open>
+                                        <summary>Add reason</summary>
+                                        <textarea data-update-reason
+                                                  data-task-id="<?= (int)$task_id ?>"
+                                                  data-field="on_hold_reason"
+                                                  rows="2" maxlength="2000"
+                                                  placeholder="Why is this task on hold?"></textarea>
+                                        <button type="button"
+                                                data-save-reason
+                                                data-task-id="<?= (int)$task_id ?>"
+                                                data-field="on_hold_reason">Save</button>
+                                        <span data-save-status aria-live="polite"></span>
+                                    </details>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($detail_is_delayed): ?>
+                            <div class="detail-item">
+                                <label>Delay reason:</label>
+                                <?php if ($detail_delay !== ''): ?>
+                                    <span class="task-reason delay" style="display:block;margin:0;"><?= e($detail_delay) ?></span>
+                                    <details class="reason-inline-edit">
+                                        <summary>Edit</summary>
+                                        <textarea data-update-reason
+                                                  data-task-id="<?= (int)$task_id ?>"
+                                                  data-field="delay_reason"
+                                                  rows="2" maxlength="2000"><?= e($detail_delay) ?></textarea>
+                                        <button type="button"
+                                                data-save-reason
+                                                  data-task-id="<?= (int)$task_id ?>"
+                                                  data-field="delay_reason">Save</button>
+                                        <span data-save-status aria-live="polite"></span>
+                                    </details>
+                                <?php else: ?>
+                                    <span class="status-reason-required">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        Missing — fill in to explain the slip to the client.
+                                    </span>
+                                    <details class="reason-inline-edit" open>
+                                        <summary>Add reason</summary>
+                                        <textarea data-update-reason
+                                                  data-task-id="<?= (int)$task_id ?>"
+                                                  data-field="delay_reason"
+                                                  rows="2" maxlength="2000"
+                                                  placeholder="Why is this task past its expected completion date?"></textarea>
+                                        <button type="button"
+                                                data-save-reason
+                                                data-task-id="<?= (int)$task_id ?>"
+                                                data-field="delay_reason">Save</button>
+                                        <span data-save-status aria-live="polite"></span>
+                                    </details>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <!-- Recent Activity -->
             <?php if (!empty($activities)): ?>

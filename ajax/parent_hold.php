@@ -13,14 +13,15 @@
  *                    current sub-task statuses (per deriveParentStatus()).
  *
  * Request: application/x-www-form-urlencoded
- *   csrf_token  (required)
- *   task_id     (required, int)
- *   action      (required, 'hold' | 'resume')
+ *   csrf_token     (required)
+ *   task_id        (required, int)
+ *   action         (required, 'hold' | 'resume')
+ *   on_hold_reason (required, non-empty trimmed, only when action='hold')
  *
  * Response: text/html (200/302) for browser-driven flow; JSON for AJAX.
  *
  * Errors:
- *   400 invalid CSRF, invalid action, non-parent target
+ *   400 invalid CSRF, invalid action, non-parent target, missing on-hold reason
  *   403 task not found or not owned by the current user
  *   404 task has no sub-tasks (only parents with children are valid targets)
  */
@@ -102,13 +103,35 @@ if ($child_count === 0) {
         'task_detail.php?id=' . $task_id);
 }
 
+// Issue-034 v1.8.0: the on-hold path requires a non-empty trimmed
+// reason. The page-form on task_detail.php uses `required` on the
+// `<input>` but we re-validate server-side so a forged POST cannot
+// bypass it. The reason is stored verbatim (already trimmed).
+$on_hold_reason = '';
+if ($action === 'hold') {
+    $on_hold_reason = isset($_POST['on_hold_reason']) && is_string($_POST['on_hold_reason'])
+        ? trim($_POST['on_hold_reason'])
+        : '';
+    if ($on_hold_reason === '') {
+        send_error($is_ajax, 400, 'On-hold reason is required when putting a task on hold.',
+            'task_detail.php?id=' . $task_id);
+    }
+    if (strlen($on_hold_reason) > 2000) {
+        send_error($is_ajax, 400, 'On-hold reason must be 2000 characters or less.',
+            'task_detail.php?id=' . $task_id);
+    }
+}
+
 if ($action === 'hold') {
     $db->execute(
-        "UPDATE tasks SET status = 'on_hold', updated_at = NOW() WHERE id = ?",
-        [$task_id]
+        "UPDATE tasks SET status = 'on_hold', on_hold_reason = ?, updated_at = NOW() WHERE id = ?",
+        [$on_hold_reason, $task_id]
     );
 } else {
-    // resume: derive the new status from current sub-task statuses.
+    // resume: derive the new status from current sub-task statuses and
+    // clear the on-hold reason. Issue-034 v1.8.0: reason must NOT survive
+    // a resume — the row was un-held, so the previous reason is no
+    // longer relevant.
     $child_rows = $db->fetchAll(
         "SELECT status FROM tasks WHERE parent_task_id = ?",
         [$task_id]
@@ -126,7 +149,7 @@ if ($action === 'hold') {
         $set_completion_date = ', completion_date = NULL';
     }
     $db->execute(
-        "UPDATE tasks SET status = ?, updated_at = NOW() $set_completion_date WHERE id = ?",
+        "UPDATE tasks SET status = ?, on_hold_reason = NULL, updated_at = NOW() $set_completion_date WHERE id = ?",
         $params
     );
 }

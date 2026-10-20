@@ -1,4 +1,23 @@
 <?php
+// Issue-033 v1.7.3.2: detect a stale config.php early. If any of
+// the constants header.php references are not defined, emit a
+// clear "re-upload config.php" message instead of a generic 500.
+// This addresses the v1.7.3.0 + v1.7.3.1 regression where the
+// prod config.php was not re-uploaded and pages fatalled at the
+// APP_VERSION reference. See docs/issues/issue-033.md §3.3.3 and §7.
+$__required = ['APP_NAME', 'APP_VERSION', 'TIMEZONE'];
+foreach ($__required as $__c) {
+    if (!defined($__c)) {
+        http_response_code(500);
+        echo '<div style="background:#dc3545;color:#fff;padding:30px;font-family:sans-serif;font-size:16px;margin:20px;border-radius:6px;">';
+        echo '<h2 style="margin:0 0 10px 0;">&#9888; Configuration error</h2>';
+        echo '<p>The required constant <code>' . htmlspecialchars($__c) . '</code> is not defined. This usually means <code>config.php</code> on the server is stale (it was not re-uploaded from <code>config.template.php</code> during a recent deploy).</p>';
+        echo '<p><strong>How to fix:</strong> re-upload <code>config.php</code> from <code>config.template.php</code>, fill in the DB and SMTP credentials, and refresh this page.</p>';
+        echo '</div>';
+        exit(1);
+    }
+}
+unset($__required, $__c);
 // Issue-020: send security response headers (CSP, X-Frame-Options,
 // X-Content-Type-Options, Referrer-Policy, Permissions-Policy).
 // Safe to call from multiple include points — has a static $sent guard.
@@ -14,6 +33,13 @@ sendSecurityHeaders();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php // Issue-034 v1.8.0: inline reason editor on the task sidebar
+          // POSTs JSON to /ajax/update_status_reason.php. That endpoint
+          // validates the CSRF token; we expose it via <meta> so the JS
+          // controller can read it without scraping a form input. ?>
+    <?php if (function_exists('getCsrfToken')): ?>
+        <meta name="csrf-token" content="<?= e(getCsrfToken()) ?>">
+    <?php endif; ?>
     <title><?= $title ?? APP_NAME ?></title>
     <link rel="icon" type="image/png" href="assets/image/project-favicon.png">
     <link rel="stylesheet" href="assets/css/style.css">

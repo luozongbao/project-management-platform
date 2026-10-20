@@ -35,6 +35,57 @@ $uncompleted_tasks = $db->fetchOne(
     [$user_id]
 )['count'] ?? 0;
 
+// Issue-034 (v1.8.0): count "delayed" tasks across all projects owned by
+// this user. "Delayed" = expected_completion_date IS NOT NULL AND
+// expected_completion_date < CURDATE() AND status != 'completed'. We
+// keep this as a SQL-side computation rather than a per-row PHP scan
+// because the dashboard cost must stay O(projects) for a workspace
+// with thousands of tasks. The backfill banner below uses the same
+// WHERE clause plus `delay_reason IS NULL` to surface the
+// "unexplained delay" set in one pass.
+$delayed_tasks_count = $db->fetchOne(
+    "SELECT COUNT(*) as count FROM tasks t 
+     JOIN projects p ON t.project_id = p.id 
+     WHERE p.responsible_person_id = ?
+       AND t.expected_completion_date IS NOT NULL
+       AND t.expected_completion_date < CURDATE()
+       AND t.status != 'completed'",
+    [$user_id]
+)['count'] ?? 0;
+
+$on_hold_tasks_count = $db->fetchOne(
+    "SELECT COUNT(*) as count FROM tasks t 
+     JOIN projects p ON t.project_id = p.id 
+     WHERE p.responsible_person_id = ? AND t.status = 'on_hold'",
+    [$user_id]
+)['count'] ?? 0;
+
+// Issue-034 backfill banner: count tasks that are delayed/on-hold
+// WITHOUT a reason recorded. These are the one-off cases the project
+// manager should resolve first; the link goes to the pre-filtered
+// tasks list (tasks.php?status=delayed&missing_reason=1).
+$missing_delay_reason_count = $db->fetchOne(
+    "SELECT COUNT(*) as count FROM tasks t 
+     JOIN projects p ON t.project_id = p.id 
+     WHERE p.responsible_person_id = ?
+       AND t.expected_completion_date IS NOT NULL
+       AND t.expected_completion_date < CURDATE()
+       AND t.status != 'completed'
+       AND (t.delay_reason IS NULL OR TRIM(t.delay_reason) = '')",
+    [$user_id]
+)['count'] ?? 0;
+
+$missing_on_hold_reason_count = $db->fetchOne(
+    "SELECT COUNT(*) as count FROM tasks t 
+     JOIN projects p ON t.project_id = p.id 
+     WHERE p.responsible_person_id = ?
+       AND t.status = 'on_hold'
+       AND (t.on_hold_reason IS NULL OR TRIM(t.on_hold_reason) = '')",
+    [$user_id]
+)['count'] ?? 0;
+
+$missing_reason_total = (int)$missing_delay_reason_count + (int)$missing_on_hold_reason_count;
+
 // Calculate each project's weighted task completion, then retain the existing
 // equal average across projects for the account-wide dashboard statistic.
 $user_project_ids = $db->fetchAll(
@@ -126,6 +177,28 @@ $show_nav = true;
         <p>Welcome back, <?= e(getCurrentUser()['name']) ?>!</p>
     </div>
 
+    <?php // Issue-034 v1.8.0 — backfill banner. One row, no per-task iteration.
+          // Single inline alert pointing at the pre-filtered task list. ?>
+    <?php if ($missing_reason_total > 0): ?>
+        <div class="owner-backfill-banner">
+            <div>
+                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                <strong><?= (int)$missing_reason_total ?></strong> task<?= $missing_reason_total === 1 ? '' : 's' ?>
+                need a status reason
+                <?php if ($missing_delay_reason_count > 0 && $missing_on_hold_reason_count > 0): ?>
+                    (<?= (int)$missing_delay_reason_count ?> delayed, <?= (int)$missing_on_hold_reason_count ?> on hold).
+                <?php elseif ($missing_delay_reason_count > 0): ?>
+                    (all delayed).
+                <?php else: ?>
+                    (all on hold).
+                <?php endif; ?>
+            </div>
+            <a href="tasks.php?status=delayed&amp;missing_reason=1">
+                Review &rarr;
+            </a>
+        </div>
+    <?php endif; ?>
+
     <!-- Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card">
@@ -157,6 +230,30 @@ $show_nav = true;
                 <h3><?= $uncompleted_tasks ?></h3>
                 <p>Pending Tasks</p>
                 <small><?= $total_tasks ?> total</small>
+            </div>
+        </div>
+
+        <?php // Issue-034 v1.8.0 — Delayed Tasks stat card. ?>
+        <div class="stat-card stat-card-delayed">
+            <div class="stat-icon">
+                <i class="fas fa-hourglass-half"></i>
+            </div>
+            <div class="stat-content">
+                <h3><?= (int)$delayed_tasks_count ?></h3>
+                <p>Delayed Tasks</p>
+                <small>past expected completion date</small>
+            </div>
+        </div>
+
+        <?php // Issue-034 v1.8.0 — On Hold Tasks stat card. ?>
+        <div class="stat-card stat-card-on-hold">
+            <div class="stat-icon">
+                <i class="fas fa-pause-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3><?= (int)$on_hold_tasks_count ?></h3>
+                <p>On Hold Tasks</p>
+                <small>status set to on hold</small>
             </div>
         </div>
 
@@ -373,7 +470,14 @@ $show_nav = true;
 .stat-card:nth-child(1) .stat-icon { background: linear-gradient(45deg, #007bff, #0056b3); }
 .stat-card:nth-child(2) .stat-icon { background: linear-gradient(45deg, #28a745, #1e7e34); }
 .stat-card:nth-child(3) .stat-icon { background: linear-gradient(45deg, #ffc107, #e0a800); }
+/* Issue-034 v1.8.0: nth-child slots 4-6 are the new stat-cards
+ * (Delayed, On Hold, Upcoming Deadlines). Use explicit class hooks
+ * (.stat-card-delayed, .stat-card-on-hold) instead of nth-child
+ * selectors so the icon palette is decoupled from the card order
+ * in the markup. */
 .stat-card:nth-child(4) .stat-icon { background: linear-gradient(45deg, #dc3545, #c82333); }
+.stat-card-delayed .stat-icon { background: linear-gradient(45deg, #e35d6a, #b02a37); }
+.stat-card-on-hold .stat-icon { background: linear-gradient(45deg, #fd7e14, #c46400); }
 
 .stat-content h3 {
     margin: 0 0 5px 0;
