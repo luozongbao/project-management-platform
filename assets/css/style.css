@@ -878,9 +878,12 @@ body {
  * Issue-034 (v1.8.0) — delayed / on-hold status reasons.
  *
  * Three rules:
- *   1. .task-reason              — base chip (yellow accent stripe + body)
- *   2. .task-reason.delay        — red accent  (past expected_completion_date)
- *   3. .task-reason.on-hold      — amber accent (status = on_hold)
+ *   1. .task-line                — parent flex container, must declare
+ *                                  flex-wrap:wrap so the chip's
+ *                                  flex-basis:100% lands it on its own row.
+ *   2. .task-reason              — base chip (yellow accent stripe + body)
+ *   3. .task-reason.delay        — red accent  (past expected_completion_date)
+ *   4. .task-reason.on-hold      — amber accent (status = on_hold)
  *
  * Used by: tasks.php (task card meta line), task_detail.php (sidebar
  * "Status Reason" card), and the parent Put-on-Hold form. The styles
@@ -888,8 +891,27 @@ body {
  * badges already in the codebase. They never visually dominate the task
  * title (intentionally muted colour pair per spec §9).
  *
- * Cross-reference: docs/issues/issue-034.md §9 (CSS).
+ * Cross-reference: docs/issues/issue-034.md §9 (CSS),
+ * docs/issues/issue-034/tester-note-003.md §5 (round-3 fix).
  * ============================================================================ */
+.task-line {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    /* Issue-034 (v1.8.0) tester-note-003 Bug 9 (revised) — without
+     * `flex-wrap: wrap;` the chip's `flex-basis: 100%` is silently
+     * treated as a basis request inside a `nowrap` row, and the
+     * chip ends up on the same row as the task title, covering it.
+     * W3C CSS Flexible Box §9 — flex-basis only requests a main size;
+     * whether the item actually wraps depends on the parent's
+     * `flex-wrap`. This rule was MISSING entirely from style.css
+     * before round 3, which is why the same bug was latent on
+     * tasks.php even though the user only reported it on the client
+     * dashboard. The flex-basis / min-width / word-wrap fix on
+     * .task-reason below only takes effect once this rule is here. */
+    flex-wrap: wrap;
+}
 .task-reason {
     margin: 6px 0 10px 0;
     padding: 8px 12px 8px 14px;

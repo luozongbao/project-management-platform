@@ -218,6 +218,15 @@
     gap: 8px;
     align-items: flex-start;
     padding: 12px 14px;
+    /* Issue-034 (v1.8.0) tester-note-003 Bug 9 (revised) — without
+     * `flex-wrap: wrap;` the chip's `flex-basis: 100%` is silently
+     * treated as a basis request inside a `nowrap` row, and the
+     * chip ends up on the same row as the task title, covering it.
+     * W3C CSS Flexible Box §9 — flex-basis only requests a main size;
+     * whether the item actually wraps depends on the parent's
+     * `flex-wrap`. Adding wrap here is what makes the chip's
+     * flex-basis: 100% (round-1 fix in .task-reason) meaningful. */
+    flex-wrap: wrap;
 }
 .tree-indent {
     color: #c7ccd1;
