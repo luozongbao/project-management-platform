@@ -149,10 +149,14 @@ def screen_landing():
 
       <form action="#" method="post" style="text-align:left;">
         <div class="field" style="margin-bottom:1rem;">
-          <label for="share_code">Share Code</label>
-          <input class="input landing__code-input" type="text" id="share_code" name="code"
-                 placeholder="ABC123" maxlength="12" autocomplete="off" required>
-          <span class="hint">Share codes are 6&ndash;12 characters, case-insensitive.</span>
+          <label for="code">Project Code</label>
+          <input class="input landing__code-input" type="text" id="code" name="code"
+                 placeholder="AAAAA-AAAAA-AAAAA" maxlength="17" autocomplete="off" required
+                 autofocus
+                 pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"
+                 title="Format: 5-5-5 alphanumeric, e.g. AX498-99ZB2-92C3J"
+                 style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.15rem;">
+          <span class="hint">Format: 5 characters, dash, 5, dash, 5.</span>
         </div>
         <button class="btn btn--primary btn--lg btn--block" type="submit">
           <i class="fas fa-arrow-right"></i> View Project

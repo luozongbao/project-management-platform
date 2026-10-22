@@ -292,13 +292,13 @@ def screen_projects():
                 <i class="fas fa-triangle-exclamation"></i>
                 <div class="alert__body">
                   <div class="alert__title">This action cannot be undone</div>
-                  Type the project code <strong>HRP-2026-014</strong> to confirm.
+                  Type the project code <strong>AX498-99ZB2-92C3J</strong> to confirm.
                 </div>
               </div>
               <div class="field">
                 <label for="delete-project-confirmation">Project Code <span class="req" aria-hidden="true">*</span></label>
                 <input class="input text-mono" type="text" id="delete-project-confirmation"
-                       name="delete-project-confirmation" placeholder="HRP-2026-014" required>
+                       name="delete-project-confirmation" placeholder="AX498-99ZB2-92C3J" required>
               </div>
             </div>
             <div class="modal__footer">
@@ -368,7 +368,7 @@ def screen_project_detail():
             <p class="page-header__sub">Full interior renovation of a 4-storey heritage building.</p>
             <div class="chip-row" style="margin-top:.5rem;">
               {status_badge("in_progress")}
-              <span class="badge badge--outline">Code HRP-2026-014</span>
+              <span class="badge badge--outline">Code AX498-99ZB2-92C3J</span>
               <span class="badge badge--outline"><i class="fas fa-calendar"></i> Due Nov 30, 2026</span>
             </div>
           </div>
@@ -384,21 +384,21 @@ def screen_project_detail():
               <div class="card__header">
                 <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Client share code</h2>
                 <div class="card__actions">
-                  <button class="btn btn--sm btn--secondary" type="button" data-copy="HRP-2026-014">
+                  <button class="btn btn--sm btn--secondary" type="button" data-copy="AX498-99ZB2-92C3J">
                     <i class="far fa-copy"></i> Copy code
                   </button>
                 </div>
               </div>
               <div class="card__body">
                 <div class="share-box">
-                  <code id="shareCode">HRP-2026-014</code>
-                  <button class="btn btn--sm btn--secondary" type="button" data-copy="https://project.lorwongam.com/?code=HRP-2026-014">
+                  <code id="shareCode">AX498-99ZB2-92C3J</code>
+                  <button class="btn btn--sm btn--secondary" type="button" data-copy="https://project.lorwongam.com/?code=AX498-99ZB2-92C3J">
                     <i class="far fa-copy"></i> Copy link
                   </button>
                 </div>
                 <p class="text-xs text-muted" style="margin:.75rem 0 0;">
                   <i class="fas fa-globe"></i>
-                  Client view: <a href="client-dashboard.html" class="text-mono">https://project.lorwongam.com/?code=HRP-2026-014</a>
+                  Client view: <a href="client-dashboard.html" class="text-mono">https://project.lorwongam.com/?code=AX498-99ZB2-92C3J</a>
                 </p>
                 <div class="alert alert--warning" style="margin-top:1rem;margin-bottom:0;">
                   <i class="fas fa-triangle-exclamation"></i>
