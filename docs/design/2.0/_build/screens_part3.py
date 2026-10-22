@@ -193,11 +193,13 @@ def screen_tasks():
             "st": "on_hold", "pct": "0%", "resp": "Zongbao M.", "contact": "Anan Suwan",
             "due": "Oct 05, 2026", "completed": "—", "subs": "0 subtasks",
             "flag": reason_chip("on-hold", "fas fa-pause", "On hold",
-                                "Awaiting municipal authority scheduling."),
+                                "Awaiting municipal authority scheduling.",
+                                title=True),
             "extra_status": "delayed",
             "delay_flag": reason_chip("delay", "fas fa-clock-rotate-left", "Delayed",
                                        "Permit window closed before the authority "
-                                       "replied; submission pushed to the next cycle."),
+                                       "replied; submission pushed to the next cycle.",
+                                       title=True),
             "reason_missing": "on_hold",
         },
         {
@@ -210,11 +212,13 @@ def screen_tasks():
             "st": "on_hold", "pct": "0%", "resp": "Somchai P.", "contact": "—",
             "due": "Oct 10, 2026", "completed": "—", "subs": "0 subtasks",
             "flag": reason_chip("on-hold", "fas fa-pause", "On hold",
-                                "Client postponed signage sign-off to next budget cycle."),
+                                "Client postponed signage sign-off to next budget cycle.",
+                                title=True),
             "extra_status": "delayed",
             "delay_flag": reason_chip("delay", "fas fa-clock-rotate-left", "Delayed",
                                        "Site access was restricted by the building "
-                                       "management for two weeks."),
+                                       "management for two weeks.",
+                                       title=True),
             "reason_missing": "on_hold",
         },
         {
@@ -240,14 +244,25 @@ def screen_tasks():
         overdue = "text-danger fw-semibold" if is_delayed else "text-muted"
         delay_badge = status_badge("delayed") if is_delayed else ""
         delay_chip = r.get("delay_flag", "")
+        hold_chip = r.get("flag", "")
+        reasons = hold_chip + delay_chip
+        # Reasons are critical (see the "missing delay reason" banner), so they
+        # are shown in full on a dedicated full-width sub-row beneath the task
+        # rather than being truncated or hidden behind a hover tooltip.
+        reason_row = ""
+        if reasons:
+            reason_row = f"""
+              <tr class="reason-row">
+                <td colspan="9" class="reason-row__cell">
+                  <div class="reason-stack">{reasons}</div>
+                </td>
+              </tr>"""
         body_rows.append(f"""              <tr>
                 <td>
                   <div class="chip-row" style="flex-wrap:wrap;">
                     <a href="task-detail.html"><strong>{r["name"]}</strong></a>
                     {delay_badge}
-                    {r["flag"]}
                   </div>
-                  {delay_chip}
                 </td>
                 <td class="text-sm text-muted nowrap">{r["proj"]}</td>
                 <td>{status_badge(r["st"], reason_missing=r.get("reason_missing"))}</td>
@@ -262,7 +277,7 @@ def screen_tasks():
                     <a class="btn btn--sm btn--ghost btn--icon" href="task-detail.html" title="Open"><i class="fas fa-arrow-right"></i></a>
                   </div>
                 </td>
-              </tr>""")
+              </tr>{reason_row}""")
 
     body = f"""        <div class="page-header">
           <div class="page-header__text">

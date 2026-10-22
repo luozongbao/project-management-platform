@@ -241,8 +241,12 @@ def status_badge(status, label=None, *, reason_missing=None):
     return f'<span class="status status--{status}">{text}{marker}</span>'
 
 
-def reason_chip(kind, icon, label, text):
-    return (f'<div class="reason-chip reason-chip--{kind}">'
+def reason_chip(kind, icon, label, text, *, title=False):
+    """Reason chip. Set title=True where the chip is rendered inside a table
+    cell and may be visually truncated, so the full text stays reachable on
+    hover and for assistive tech."""
+    title_attr = f' title="{escape(label + ": " + text)}"' if title else ""
+    return (f'<div class="reason-chip reason-chip--{kind}"{title_attr}>'
             f'<i class="{icon}"></i><span><strong>{label}:</strong> {text}</span></div>')
 
 

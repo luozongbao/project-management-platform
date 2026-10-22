@@ -51,7 +51,7 @@
 
     /* --- Semantic -------------------------------------------------------- */
     --success-100: #d7f5e3;  --success-500: #16a34a;  --success-700: #12783a;
-    --warning-100: #fdf0c9;  --warning-500: #d99000;  --warning-700: #9a6500;
+    --warning-100: #fdf0c9;  --warning-500: #b37400;  --warning-700: #7d5100;
     --danger-100:  #fbdcdc;  --danger-500:  #dc2626;  --danger-700:  #a01b1b;
     --info-100:    #d6ecfb;  --info-500:    #0284c7;  --info-700:    #075985;
 
@@ -658,7 +658,14 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 
 /* --- Tables ------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+/* Data tables have several nowrap columns. Without a min-width the browser
+ * satisfies width:100% by crushing the one flexible column (the task/project
+ * name) into a tall stack of wrapped words. A min-width lets .table-wrap
+ * scroll horizontally instead, so every name stays readable on one line. */
+.table { width: 100%; min-width: 1280px; border-collapse: collapse; font-size: var(--fs-sm); }
+/* The first column carries the record's name and is the only column allowed
+ * to grow; the rest are nowrap values sized by their content. */
+.table th:first-child, .table td:first-child { min-width: 300px; }
 .table th {
     text-align: left; font-weight: var(--fw-semibold);
     color: var(--gray-500); font-size: var(--fs-xs);
@@ -668,7 +675,11 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     background: var(--gray-25);
     white-space: nowrap;
 }
-.table td { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+.table td {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
 .table tbody tr { transition: background var(--dur-fast) var(--ease); }
 .table tbody tr:hover { background: var(--gray-25); }
 .table tbody tr:last-child td { border-bottom: none; }
@@ -676,11 +687,15 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .table--compact td, .table--compact th { padding: var(--sp-2) var(--sp-3); }
 
 /* --- Grid layouts ------------------------------------------------------- */
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-5); }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); }
-.grid-sidebar { display: grid; grid-template-columns: 1fr 340px; gap: var(--sp-5); align-items: start; }
-.grid-sidebar--wide { grid-template-columns: 1fr 400px; }
-.grid-sidebar--left { grid-template-columns: 300px 1fr; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-5); }
+.grid-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--sp-5); align-items: start; }
+.grid-sidebar--wide { grid-template-columns: minmax(0, 1fr) 400px; }
+.grid-sidebar--left { grid-template-columns: 300px minmax(0, 1fr); }
+/* A bare 1fr track has an automatic minimum size, so a wide child (a table
+ * with min-width) would grow the track and push the sibling column off-screen.
+ * minmax(0,…) lets the track shrink and hand the overflow to .table-wrap. */
+.grid-2 > *, .grid-3 > *, .grid-sidebar > * { min-width: 0; }
 
 /* --- Alerts / banners ---------------------------------------------------- */
 .alert {
@@ -742,6 +757,53 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .reason-chip i { margin-top: 2px; flex-shrink: 0; }
 .reason-chip--block { display: flex; width: 100%; }
+
+/* --- Reason sub-row ------------------------------------------------------
+ * A task's on-hold / delayed reasons are important, recordable information
+ * (the list can even warn about MISSING reasons), so they are never hidden
+ * behind a hover tooltip. They render in full on a dedicated sub-row that
+ * spans every column, directly beneath the task it belongs to. The task row
+ * itself therefore keeps a single uniform height and stays aligned. */
+.reason-row__cell {
+    padding: 0 var(--sp-4) var(--sp-3) !important;
+    border-bottom: 1px solid var(--gray-100);
+    background: var(--gray-25);
+    vertical-align: top;
+}
+/* A reason sub-row is never the visual last row of the table body, so the
+ * standard :last-child border reset must not apply to it. */
+.table tbody tr.reason-row:last-child td { border-bottom: 1px solid var(--gray-100); }
+/* Hovering either the task row or its sub-row highlights the whole group. */
+.table tbody tr:has(+ .reason-row):hover td,
+.table tbody tr.reason-row:hover td { background: var(--gray-100); }
+.reason-row:hover .reason-row__cell { background: var(--gray-100); }
+.reason-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    border-left: 2px solid var(--gray-200);
+    padding-left: var(--sp-3);
+    margin-left: 2px;
+}
+/* Side-by-side when there is room, stacked when the table is narrow. */
+@media (min-width: 1100px) {
+    .reason-stack { flex-direction: row; flex-wrap: wrap; align-items: stretch; }
+}
+/* Full text is shown, so the chip may wrap across lines. */
+.reason-row .reason-chip,
+.reason-row .reason-chip--block {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    width: auto;
+    max-width: 100%;
+    padding: var(--sp-1) var(--sp-3);
+    line-height: 1.5;
+}
+.reason-row .reason-chip > span { min-width: 0; }
+.reason-row .reason-chip i { margin-top: 2px; }
+/* Last sub-row in the group carries the divider; keeps spacing even. */
+.reason-row:last-child .reason-row__cell { border-bottom: 1px solid var(--gray-100); }
 
 /* Missing-reason marker (v1.8.0). Parity with production
  * .status-reason-required (assets/css/style.css). Rendered as a
@@ -1257,6 +1319,12 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
         --brand-50: #14203c;
         --brand-100:#17294d;
         --brand-200:#1e3a69;
+        /* Tinted surfaces go dark; the -700 text tones go light so chips and
+         * callouts stay legible instead of glowing on a dark table. */
+        --warning-100: #33280c;
+        --warning-700: #f2c460;
+        --danger-100:  #3a1717;
+        --danger-700:  #f28b8b;
     }
     body { background: var(--gray-50); color: var(--gray-800); }
     .card, .stat, .filter-bar, .input, .select, .textarea { background: var(--gray-0); }

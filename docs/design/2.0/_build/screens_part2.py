@@ -108,7 +108,7 @@ def screen_dashboard():
 {stats}
         </div>
 
-        <div class="grid-sidebar--wide" style="display:grid;grid-template-columns:1fr 400px;gap:1.25rem;align-items:start;">
+        <div class="grid-sidebar--wide">
           <div>
             <div class="card">
               <div class="card__header">
