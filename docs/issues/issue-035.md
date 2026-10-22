@@ -18,7 +18,7 @@
 > | Path | What it is |
 > |---|---|
 > | `docs/design/2.0/index.html` | **Design index / gallery** — start here |
-> | `docs/design/2.0/*.html` | 18 screens + 2 reference sheets (browsable mockup) |
+> | `docs/design/2.0/*.html` | 19 screens + 2 reference sheets (browsable mockup) |
 > | `docs/design/2.0/v2-tokens.css` | The design system (tokens + components) |
 > | `docs/design/2.0/v2-mockup.js` | Interaction patterns the production JS must reproduce |
 > | `docs/design/2.0/_build/` | Generator source (Python) — regenerates the mockup |
@@ -41,7 +41,7 @@
 4. The design system (`v2-tokens.css`)
 5. Layout architecture
 6. Component library
-7. Screen-by-screen specification (all 18 screens)
+7. Screen-by-screen specification (all 19 screens)
 8. Responsive, accessibility, i18n and theming rules
 9. **Traceability Matrix** (v1.8.0 → v2.0, feature by feature)
 10. Implementation guidance for the dev
@@ -197,12 +197,35 @@ AJAX endpoints (contract must not change, even if the visual affordance does):
 | Neutrals | `--gray-0` … `--gray-950` | `--gray-0` = page surface, `--gray-50` = app background |
 | Semantic | `--success-100/500/700`, `--warning-…`, `--danger-…`, `--info-…` | Always use the **700** variant for text on the **100** variant |
 | Status | `--status-{not_started,in_progress,completed,on_hold,delayed}-{bg,fg}` | Derived from the semantic palette; the only status colours allowed |
+| Semantic values | See §4.1.1 below | The `--100`/`--500`/`--700` triples are **fixed**, not free choices |
 | Typography | `--font-sans`, `--font-mono`, `--fs-xs..3xl`, `--lh-*`, `--fw-*` | 7 sizes, 4 weights |
 | Spacing | `--sp-1` … `--sp-20` | 4px base: `1=4px`, `2=8px`, `3=12px`, `4=16px`, `5=20px`, `6=24px`, `8=32px`, `10=40px`, `12=48px`, `16=64px`, `20=80px` |
 | Radii | `--r-sm` 6px, `--r-md` 10px, `--r-lg` 14px, `--r-xl` 20px, `--r-full` | |
 | Shadows | `--sh-xs` … `--sh-xl` | 5 levels, all low-alpha so they read on both themes |
 | Layout | `--sidebar-w` 260px, `--sidebar-w-collapsed` 76px, `--topbar-h` 64px, `--content-max-w` 1440px | |
 | Motion | `--ease`, `--dur-fast` 120ms, `--dur` 200ms, `--dur-slow` 320ms | Honour `prefers-reduced-motion` |
+
+#### 4.1.1 Semantic token values (normative)
+
+These are the shipped values. `--warning-700` in particular was darkened from
+a lighter orange that measured **4.36:1** — a pre-existing AA failure — to
+`#7d5100`.
+
+| Token | Light | Dark (`prefers-color-scheme`) |
+|---|---|---|
+| `--success-100` / `--500` / `--700` | `#d7f5e3` / `#16a34a` / `#12783a` | unchanged |
+| `--warning-100` / `--500` / `--700` | `#fdf0c9` / `#b37400` / `#7d5100` | `#33280c` / `#b37400` / `#f2c460` |
+| `--danger-100` / `--500` / `--700` | `#fbdcdc` / `#dc2626` / `#a01b1b` | `#3a1717` / `#dc2626` / `#f28b8b` |
+| `--info-100` / `--500` / `--700` | `#d6ecfb` / `#0284c7` / `#075985` | unchanged |
+
+> **Why dark mode remaps the tints.** Without this, `--warning-100` and
+> `--danger-100` stay near-white in dark mode, producing glowing chips on a
+> dark table. Inverting the pair (dark surface + light text) restores legibility:
+> the delay chip measures **8.86:1** and the on-hold chip **6.72:1** on dark,
+> against **6.14:1** and **6.06:1** on light.
+
+> Any surface that is **fixed dark in both schemes** (see §5.1.1) must not rely
+> on these tokens for text — use a fixed light colour there.
 
 ### 4.2 Status colour contract
 
@@ -245,6 +268,33 @@ The client portal uses the same two chips (`.reason-pill` in v1.8.0 becomes
     ├── .content                max-width 1440px, token padding
     └── .footer
 ```
+
+#### 5.1.1 The sidebar is dark in **both** colour schemes — text colours are fixed
+
+`.sidebar { background: #080b12; }` is applied **outside** any
+`prefers-color-scheme` block. This has one consequence that must be respected
+by every sidebar rule:
+
+> **A theme-dependent token must never be used for text on the sidebar.** In
+> dark mode the neutral ramp inverts (`--gray-0` → `#0c1018`, `--gray-300` →
+> `#384155`), so a sidebar rule written as `color: var(--gray-0)` renders
+> near-black text on a near-black surface. This shipped as a real WCAG AA
+> failure — the app name measured **1.03:1** and was invisible.
+
+Use these fixed values instead (all verified ≥ 4.5:1 in **both** schemes):
+
+| Element | Colour | Light | Dark |
+|---|---|---|---|
+| `.sidebar__brand` (app name) | `#fff` | 17.35:1 | 19.68:1 |
+| `.sidebar__brand small` (version) | `#a9b3c6` | 8.22:1 | 9.33:1 |
+| `.sidebar__section-label` | `#97a2b8` | 6.76:1 | 7.66:1 |
+| `.sidebar__link` (inactive) | `#cbd3e1` | 11.52:1 | 13.07:1 |
+| `.sidebar__link:hover` | `#fff` | — | — |
+| `.sidebar__user-name` | `#fff` | 17.35:1 | 19.68:1 |
+| `.sidebar__user-role` | `#97a2b8` | 6.76:1 | 7.66:1 |
+
+The same rule applies to any future fixed-dark surface (the auth aside, the
+share box and the client hero are already `#fff`-on-dark for the same reason).
 
 ### 5.2 Client portal shell (public)
 
@@ -328,6 +378,54 @@ orange), restyled.
 - `.timeline` — the Recent Activity feed.
 - `.detail-list` / `.detail-row` — key/value readouts (`.detail-row__k` / `--v`).
 
+#### 6.6.1 Table sizing — `min-width` is required, not optional
+
+```css
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; min-width: 1280px; }
+.table th:first-child, .table td:first-child { min-width: 300px; }
+```
+
+Data tables carry several `nowrap` columns. With `width:100%` alone the
+browser has no floor, so it satisfies the declared width by **crushing the one
+flexible column** — the task/project name — into a tall stack of wrapped
+words. The `min-width` makes `.table-wrap` scroll horizontally instead, which
+keeps every name on a single readable line.
+
+The first column is the only column permitted to grow; the remainder are
+content-sized `nowrap` values.
+
+> **Acceptance:** at every viewport the first column renders **≥ 300px** and no
+> record name wraps onto a second line.
+
+#### 6.6.2 Task reasons — the `.reason-row` sub-row
+
+| Class | Element | Purpose |
+|---|---|---|
+| `.reason-row` | the `<tr>` | Marks the sub-row (used for hover + `:has()` targeting) |
+| `.reason-row__cell` | the `<td colspan>` | Padded, tinted (`--gray-25`), top-aligned |
+| `.reason-stack` | the wrapper `<div>` | `display:flex; flex-direction:column` |
+
+Rules:
+
+- **`flex-direction: column`, unconditionally.** There is deliberately **no**
+  `@media` override that switches the stack to `row`. On-hold and delayed are
+  distinct facts with different urgency, and two side-by-side chips of unequal
+  length read unevenly. A vertical stack also keeps the longest reason on one
+  predictable line at every width.
+- Chips inside a sub-row are `display:flex; width:auto; max-width:100%` — they
+  are **never** truncated. Long reasons wrap within the full table width.
+- Do **not** use `:has()` for the hover rule; target
+  `.table tbody tr:has(+ .reason-row):hover` only as a progressive
+  enhancement, with the `.reason-row:hover` rule as the baseline.
+- When a chip may still be visually constrained elsewhere (e.g. a table cell),
+  give it `title="<Label>: <text>"` so the full value stays reachable on
+  hover and to assistive tech.
+
+> **Acceptance:** a task carrying **both** an on-hold and a delayed reason
+> renders **two distinct baselines** (≈30px apart) at 1024px, 1280px and
+> 1600px. Task rows themselves stay a uniform height across the table.
+
 ### 6.7 Task tree
 
 `.task-tree` (nested) → `.task-node` (+ `--completed`, `--delayed`, `--on-hold`)
@@ -337,6 +435,20 @@ orange), restyled.
 
 > The nested tree is the **client portal's most important component**. It must
 > remain readable at depth 3+ on a phone.
+
+#### 6.7.1 Completed task names are dimmed, **never struck through**
+
+```css
+.task-node__name--done { color: var(--gray-500); }   /* no text-decoration */
+```
+
+A `line-through` on a completed task reads as *"cancelled / voided"* rather
+than *"done"*. It also draws a diagonal line through the descenders and across
+the Font Awesome icons sitting in the same row. The **Completed** status badge
+plus the **100%** progress bar already carry the state unambiguously, so
+dimming alone is sufficient and is what the mockup ships.
+
+> **Forbidden:** `text-decoration: line-through` on any element, in any screen.
 
 ### 6.8 Feedback
 
@@ -352,6 +464,28 @@ orange), restyled.
 `.grid-sidebar--left` (300px + 1fr), `.filter-bar` + `.filter-bar__actions`,
 `.page-header` + `.page-header__text` + `.page-actions`, `.breadcrumb`,
 `.chip-row`, `.project-grid` + `.project-card`, `.share-box`, `.kanban`.
+
+#### 6.9.1 Grid tracks MUST be `minmax(0, 1fr)`
+
+```css
+.grid-2   { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3   { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-sidebar      { grid-template-columns: minmax(0, 1fr) 340px; }
+.grid-sidebar--wide{ grid-template-columns: minmax(0, 1fr) 400px; }
+.grid-sidebar--left{ grid-template-columns: 300px minmax(0, 1fr); }
+.grid-2 > *, .grid-3 > *, .grid-sidebar > * { min-width: 0; }
+```
+
+> **This is a correctness rule, not a style preference.** A bare `1fr` track has
+> an *automatic minimum size* equal to its content's min-content width. A wide
+> table or long unbroken string inside the flexible track therefore **grows the
+> track** and pushes the sidebar off-screen, producing page-level horizontal
+> overflow. `minmax(0, 1fr)` sets that automatic minimum to zero so the track
+> shrinks and the inner `.table-wrap` scrolls instead.
+
+> **Also forbidden:** overriding a grid helper with an inline
+> `style="display:grid;grid-template-columns:1fr 400px"`. Inline styles beat
+> the stylesheet and reintroduce the bug. Use the modifier class.
 
 ---
 
@@ -457,8 +591,33 @@ card with the typed-confirmation delete + confirm modal.
 4. **Task rows** with: name, project, status badge, responsible person,
    contact person, due date (red when overdue and not completed), completed
    date, subtask count, actions.
-5. **v1.8.0 per-task reason chip** (`fa-exclamation-circle` superscript) and a
-   **Delayed** badge on delayed rows.
+5. **v1.8.0 reasons render as a full-width sub-row, not inside the task
+   name cell.** A delayed or on-hold task emits a second `<tr>` immediately
+   after its own row, carrying a single `<td colspan="9" class="reason-row__cell">`
+   that spans every column:
+
+   ```html
+   <tr> …the normal task row, 9 cells… </tr>
+   <tr class="reason-row">
+     <td colspan="9" class="reason-row__cell">
+       <div class="reason-stack">
+         <!-- on-hold chip, then delay chip — one per line -->
+       </div>
+     </td>
+   </tr>
+   ```
+
+   Both chips (when present) go inside the same `.reason-stack` and **each
+   occupies its own line** — see §6.6. A **Delayed** badge still appears in
+   the task row itself.
+
+   > **Why this is mandatory.** Reasons are recordable, auditable information
+   > and this very page can display a *"N delayed tasks are missing a delay
+   > reason"* banner. They must therefore be **persistently visible**. Putting
+   > the chip inside the name cell (the v1.8.0 placement) both broke row
+   > alignment and invited truncation; hiding it behind a hover tooltip was
+   > rejected for the same reason. If a task has no reason, the sub-row is
+   > omitted entirely — do not emit an empty `<tr>`.
 
 ### 7.11 `task_detail.php` → `task-detail.html`
 
@@ -575,7 +734,7 @@ task-assignment control. The portal is strictly read-only.
 | ≥ 1200px | Full layout; sidebar 260px; detail column 340px |
 | 992–1199px | Sidebar collapses to icons (76px); detail column drops below |
 | 768–991px | Sidebar becomes an off-canvas drawer; stat grid → 2 cols; filter bar wraps |
-| < 768px | Single column; tables scroll horizontally; stat grid → 1 col |
+| < 768px | Single column; tables scroll horizontally (floor `min-width: 1280px` per §6.6.1 — never drop it); stat grid → 1 col |
 | < 480px | Client hero stats stack; page actions go full width |
 
 ### 8.2 Accessibility (WCAG 2.1 AA)
@@ -597,6 +756,29 @@ task-assignment control. The portal is strictly read-only.
   1-year language cookie is unchanged.
 - The mockup demonstrates the mechanism with `data-i18n="English|中文"`; the
   production implementation uses the existing `t('dash.*')` keys.
+- **The zh side of every `data-i18n` value must be real Simplified Chinese.**
+  Use the strings that already exist in `client/lang.php` — do not invent
+  placeholder glyphs. The client dashboard mockup ships these exact pairs:
+
+  | English | `client/lang.php` key | 中文 |
+  |---|---|---|
+  | Overall Completion | `dash.overall` | 总体进度 |
+  | Tasks | `dash.tasks` | 任务 |
+  | Completed | `status.completed` | 已完成 |
+  | In Progress | `status.in_progress` | 进行中 |
+  | Delayed | `dash.delayed` | 已延期 |
+  | On Hold | `status.on_hold` | 已暂停 |
+  | Status | — | 状态 |
+  | Budget | `dash.budget` | 预算 |
+  | Started | `dash.started` | 开始日期 |
+  | Expected | `dash.expected` | 预计完成 |
+  | Manager | `dash.manager` | 项目经理 |
+  | Scope | `dash.scope` | 项目范围 |
+
+  > Characters in the CJK **Ext-A** block (`U+3400`–`U+4DBF`) are almost absent
+  > from system fonts and render as tofu. They are **not** acceptable
+  > placeholders; a placeholder must be the English string on both sides until
+  > the real translation is known.
 - New keys required in `client/lang.php` for the v1.8.0 reasons:
   `dash.delay_reason`, `dash.on_hold_reason`, `dash.delayed_count`,
   `dash.on_hold_count`.
@@ -607,9 +789,18 @@ task-assignment control. The portal is strictly read-only.
 ### 8.4 Theming
 
 - Light theme is the default and the only theme shipped in v2.0.
-- Dark mode is a `prefers-color-scheme` token override set — **no component
-  rule is duplicated**. Status pairs must be re-verified for AA on dark
-  surfaces before dark mode is enabled in production.
+- Dark mode is a `prefers-color-scheme` token override set. **Status pairs must
+  be re-verified for AA on dark surfaces** before dark mode is enabled in
+  production — see §4.1.1 for the remapped `--warning-*` / `--danger-*` triples.
+- **Exception — fixed-dark surfaces.** A surface that is dark in *both* schemes
+  (`.sidebar`, `.auth-aside`, `.share-box`, `.client-hero`) uses **fixed light
+  text colours**, never neutral-ramp tokens, because the ramp inverts under
+  dark mode. This is the deliberate exception to "no component rule is
+  duplicated"; the full table is in §5.1.1. Any such surface must be verified
+  for AA in **both** schemes, not just the default one.
+- A hardcoded literal in a component rule is acceptable **only** in these three
+  cases: (a) `#fff` on a fixed-dark surface, (b) the fixed sidebar tints in
+  §5.1.1, (c) `rgba(255,255,255,α)` overlays. Everything else must use a token.
 
 ---
 
@@ -923,7 +1114,7 @@ redesign second.
 
 | # | Check | Expected |
 |---|---|---|
-| V1 | Open `docs/design/2.0/index.html` | 18 screen cards + the red-line card |
+| V1 | Open `docs/design/2.0/index.html` | 19 screen cards + the red-line card |
 | V2 | Click every card | The corresponding screen renders with the shared shell |
 | V3 | Any screen at 375px | Single column; tables scroll; nav reachable |
 | V4 | Any screen at 1440px | Sidebar 260px; content ≤ 1440px and centred |
@@ -937,45 +1128,63 @@ redesign second.
 | V12 | `components.html` | Every token used by the app appears as a swatch |
 | V13 | Keyboard-only pass | Every action reachable; focus ring always visible |
 | V14 | OS dark mode | Mockup stays readable (tokens adapt) |
+| **V15** | **Tasks table at 1024/1280/1600px** | **Every data row is the same height; no record name wraps to a second line; first column ≥ 300px** |
+| **V16** | **A task with both on-hold and delayed reasons** | **Two chips on two distinct lines (≈30px apart) in the full-width sub-row; neither truncated** |
+| **V17** | **Sidebar in light *and* OS dark mode** | **App name, nav links, section label and user block all readable (≥ 4.5:1); nothing invisible** |
+| **V18** | **Any completed task name** | **Dimmed, no strikethrough; status badge still present** |
 
 ### 11.2 Scripted
 
 | # | Check | Command |
 |---|---|---|
-| V15 | Mockup regenerates cleanly | `python3 docs/design/2.0/_build/main.py` |
-| V16 | No un-interpolated placeholders | `grep -R "{stat\|{sub_rows" docs/design/2.0/*.html` → empty |
-| V17 | Balanced HTML | Parse each file with `html.parser` → 0 errors |
-| V18 | No broken internal links | Resolve every relative `href`/`src` → all exist |
-| V19 | Existing test suite still green | `php database/*_test.php` |
-| V20 | No hardcoded hex in component CSS | `grep -n "#[0-9a-f]\{3,6\}" assets/css/style.css` → only in `:root` / dark-mode block |
+| V19 | Mockup regenerates cleanly | `python3 docs/design/2.0/_build/main.py` |
+| V20 | No un-interpolated placeholders | `grep -R "{stat\|{sub_rows" docs/design/2.0/*.html` → empty |
+| V21 | Balanced HTML | Parse each file with `html.parser` → 0 errors |
+| V22 | No broken internal links | Resolve every relative `href`/`src` → all exist |
+| V23 | Existing test suite still green | `php database/*_test.php` |
+| **V24** | **No `line-through` anywhere** | In a headless browser: no element's computed `text-decoration-line` contains `line-through` → 0 matches, all 20 screens |
+| **V25** | **Contrast, not hex-grepping** | Compute the foreground/background contrast ratio for every `.sidebar__*`, `.status--*` and `.reason-chip` in **both** `light` and `dark` → every text pair ≥ 4.5:1 |
+| **V26** | **No page-level horizontal overflow** | For all 20 screens at 1600/1280/1024/768/375px → `document.scrollWidth ≤ window.innerWidth + 1` |
+| **V27** | **Grid tracks are shrinkable** | Assert no stylesheet rule declares `grid-template-columns` with a bare `1fr` (must be `minmax(0, 1fr)`) |
+| **V28** | **Every table has a `min-width`** | Assert `.table` resolves to `min-width ≥ 1024px` and `.table-wrap` to `overflow-x: auto` |
+
+> **V25 replaces the old hex-grep check.** A `grep` for `#rrggbb` in a component
+> rule cannot tell a legitimate fixed-on-dark literal (§8.4) from a genuine
+> mistake, and it silently ignores the actual failure mode — a rule that uses a
+> *token* which resolves to the wrong colour in one scheme. Contrast must be
+> **measured on the rendered page in both schemes**, not inferred from source.
+
+> **Numbering note.** §11.3 (routing) originally used V21–V43 and has been
+> renumbered to **V29–V51** to keep this section contiguous. Reference rows by
+> their current ID.
 
 ### 11.3 Routing & slug validation (Appendix C)
 
 | # | Check | Command / assertion |
 |---|---|---|
-| V21 | **Share-code format unchanged** | `generateShareCode()` output matches `/^[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/` and `strlen() === 17` |
-| V22 | **`share_code` column still `CHAR(17)`** | `SHOW COLUMNS FROM projects LIKE 'share_code'` → `CHAR(17)` |
-| V23 | **A pre-v2.0 share code still resolves** | Take a code issued before the release; `SELECT id FROM projects WHERE share_code = ?` still returns the same project |
-| V24 | **Client URL shape unchanged** | `buildClientShareUrl('AX498-99ZB2-92C3J')` → `<APP_URL>/?code=AX498-99ZB2-92C3J` (byte-identical) |
-| V25 | **Client entry point still works** | `curl -sI "http://host/?code=<valid>"` → 302 to the portal with the **same** code value |
-| V26 | **Format validator unchanged** | `isValidShareCodeFormat()` source-grep still shows the 5-5-5 regex |
-| V27 | **Share-code rate limiting intact** | `php database/client_share_code_protection_test.php` → passes **unchanged** |
-| V28 | **Slug migration is idempotent** | Run the migration twice → identical slug values (no renumbering) |
-| V29 | **Slug immutability** | Rename a project → its slug is unchanged; `/projects/<old-slug>` still resolves |
-| V30 | **Legacy URLs 301** | `curl -sI http://host/dashboard.php` → `301` + `Location: /dashboard`; repeat for every row of the §C.2 legacy map |
-| V31 | **Query strings preserved on 301** | `curl -sI "http://host/project_detail.php?id=12&foo=bar"` → `Location: /projects/<slug>?foo=bar` |
-| V32 | **Unknown slug → 404** | `curl -sI http://host/projects/does-not-exist` → `404` (not 500, not a 302 to the list) |
-| V33 | **Assets resolve on nested routes** | `curl -sI http://host/assets/css/style.css` → `200`; and the page at `/projects/<slug>/edit` loads the stylesheet (browser check) |
-| V34 | **No document-relative asset refs remain** | `grep -rn 'href="\(\.\./\)\?assets/\|src="\(\.\./\)\?assets/\|href="\(\.\./\)\?client/assets/' --include=*.php .` → empty |
-| V35 | **No hardcoded `.php` page links remain** | `grep -rn 'href="[a-z_]*\.php\|redirect(' --include=*.php .` → only AJAX endpoints, `client/dashboard.php`, and the `.htaccess`/nginx config |
-| V36 | **`/client/lang.php` still blocked** | `curl -sI http://host/client/lang.php` → `404` |
-| V37 | **Query parameter names unchanged** | `?code=`, `?token=`, `?id=`, `?project_id=`, `?status=`, `?parent_id=` all still honoured |
-| V38 | **AJAX endpoint paths unchanged** | All six `ajax/*.php` paths still return their expected responses |
-| V39 | **Rotation action still works after the slug migration** | Rotate a code → the new code is 5-5-5, `share_code_rotated_at` is set, the flash message appears, and the redirect lands on `/projects/<slug>/edit` |
-| V40 | **Rotation UI preserved** | The `.share-rotation-card`, "Last rotated: …", and the 90-day nudge are all present in the v2.0 project form |
-| V41 | **Share code in the UI is 5-5-5** | Every share code shown in the v2.0 UI matches `/^[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/` — no `HRP-2026-014`-style codes |
-| V42 | **Code input contract preserved** | `id="code"`, `name="code"`, `pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"`, `maxlength="17"`, `placeholder="AAAAA-AAAAA-AAAAA"` — all present on the landing page |
-| V43 | **The auto-format JS still binds** | Type a lowercase code into the landing input → it uppercases and inserts dashes at 5 and 10, capped at 15 alphanumerics |
+| V29 | **Share-code format unchanged** | `generateShareCode()` output matches `/^[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/` and `strlen() === 17` |
+| V30 | **`share_code` column still `CHAR(17)`** | `SHOW COLUMNS FROM projects LIKE 'share_code'` → `CHAR(17)` |
+| V31 | **A pre-v2.0 share code still resolves** | Take a code issued before the release; `SELECT id FROM projects WHERE share_code = ?` still returns the same project |
+| V32 | **Client URL shape unchanged** | `buildClientShareUrl('AX498-99ZB2-92C3J')` → `<APP_URL>/?code=AX498-99ZB2-92C3J` (byte-identical) |
+| V33 | **Client entry point still works** | `curl -sI "http://host/?code=<valid>"` → 302 to the portal with the **same** code value |
+| V34 | **Format validator unchanged** | `isValidShareCodeFormat()` source-grep still shows the 5-5-5 regex |
+| V35 | **Share-code rate limiting intact** | `php database/client_share_code_protection_test.php` → passes **unchanged** |
+| V36 | **Slug migration is idempotent** | Run the migration twice → identical slug values (no renumbering) |
+| V37 | **Slug immutability** | Rename a project → its slug is unchanged; `/projects/<old-slug>` still resolves |
+| V38 | **Legacy URLs 301** | `curl -sI http://host/dashboard.php` → `301` + `Location: /dashboard`; repeat for every row of the §C.2 legacy map |
+| V39 | **Query strings preserved on 301** | `curl -sI "http://host/project_detail.php?id=12&foo=bar"` → `Location: /projects/<slug>?foo=bar` |
+| V40 | **Unknown slug → 404** | `curl -sI http://host/projects/does-not-exist` → `404` (not 500, not a 302 to the list) |
+| V41 | **Assets resolve on nested routes** | `curl -sI http://host/assets/css/style.css` → `200`; and the page at `/projects/<slug>/edit` loads the stylesheet (browser check) |
+| V42 | **No document-relative asset refs remain** | `grep -rn 'href="\(\.\./\)\?assets/\|src="\(\.\./\)\?assets/\|href="\(\.\./\)\?client/assets/' --include=*.php .` → empty |
+| V43 | **No hardcoded `.php` page links remain** | `grep -rn 'href="[a-z_]*\.php\|redirect(' --include=*.php .` → only AJAX endpoints, `client/dashboard.php`, and the `.htaccess`/nginx config |
+| V44 | **`/client/lang.php` still blocked** | `curl -sI http://host/client/lang.php` → `404` |
+| V45 | **Query parameter names unchanged** | `?code=`, `?token=`, `?id=`, `?project_id=`, `?status=`, `?parent_id=` all still honoured |
+| V46 | **AJAX endpoint paths unchanged** | All six `ajax/*.php` paths still return their expected responses |
+| V47 | **Rotation action still works after the slug migration** | Rotate a code → the new code is 5-5-5, `share_code_rotated_at` is set, the flash message appears, and the redirect lands on `/projects/<slug>/edit` |
+| V48 | **Rotation UI preserved** | The `.share-rotation-card`, "Last rotated: …", and the 90-day nudge are all present in the v2.0 project form |
+| V49 | **Share code in the UI is 5-5-5** | Every share code shown in the v2.0 UI matches `/^[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/` — no `HRP-2026-014`-style codes |
+| V50 | **Code input contract preserved** | `id="code"`, `name="code"`, `pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"`, `maxlength="17"`, `placeholder="AAAAA-AAAAA-AAAAA"` — all present on the landing page |
+| V51 | **The auto-format JS still binds** | Type a lowercase code into the landing input → it uppercases and inserts dashes at 5 and 10, capped at 15 alphanumerics |
 
 ---
 
@@ -1071,7 +1280,7 @@ cd docs/design/2.0 && python3 -m http.server 8080
 xdg-open docs/design/2.0/index.html     # or just double-click index.html
 ```
 
-Start at `index.html`. It lists all 18 screens and links to the design-system
+Start at `index.html`. It lists all 19 screens and links to the design-system
 sheet and the implementation notes.
 
 ## Appendix B — Regenerating the mockup
