@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design System &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="spec-page">
+      <div class="spec-hero">
+        <h1>Design System &mdash; v2.0</h1>
+        <p>The single source of truth for the v2.0 look. Every colour, size and component
+        used across the 18 screens is declared here as a CSS custom property and
+        implemented as a reusable class. The dev transplants this file into
+        <code>assets/css/style.css</code>.</p>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-palette"></i> Brand palette</h2></div>
+        <div class="card__body">
+          <div class="token-grid">
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-50);"></div>
+              <div class="swatch__meta"><strong>Brand 50</strong><br><code>--brand-50</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-100);"></div>
+              <div class="swatch__meta"><strong>Brand 100</strong><br><code>--brand-100</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-200);"></div>
+              <div class="swatch__meta"><strong>Brand 200</strong><br><code>--brand-200</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-300);"></div>
+              <div class="swatch__meta"><strong>Brand 300</strong><br><code>--brand-300</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-400);"></div>
+              <div class="swatch__meta"><strong>Brand 400</strong><br><code>--brand-400</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-500);"></div>
+              <div class="swatch__meta"><strong>Brand 500</strong><br><code>--brand-500</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-600);"></div>
+              <div class="swatch__meta"><strong>Brand 600</strong><br><code>--brand-600</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-700);"></div>
+              <div class="swatch__meta"><strong>Brand 700</strong><br><code>--brand-700</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-800);"></div>
+              <div class="swatch__meta"><strong>Brand 800</strong><br><code>--brand-800</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--brand-900);"></div>
+              <div class="swatch__meta"><strong>Brand 900</strong><br><code>--brand-900</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-circle-half-stroke"></i> Neutrals</h2></div>
+        <div class="card__body">
+          <div class="token-grid">
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-0);"></div>
+              <div class="swatch__meta"><strong>Gray 0</strong><br><code>--gray-0</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-50);"></div>
+              <div class="swatch__meta"><strong>Gray 50</strong><br><code>--gray-50</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-100);"></div>
+              <div class="swatch__meta"><strong>Gray 100</strong><br><code>--gray-100</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-200);"></div>
+              <div class="swatch__meta"><strong>Gray 200</strong><br><code>--gray-200</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-300);"></div>
+              <div class="swatch__meta"><strong>Gray 300</strong><br><code>--gray-300</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-400);"></div>
+              <div class="swatch__meta"><strong>Gray 400</strong><br><code>--gray-400</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-500);"></div>
+              <div class="swatch__meta"><strong>Gray 500</strong><br><code>--gray-500</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-600);"></div>
+              <div class="swatch__meta"><strong>Gray 600</strong><br><code>--gray-600</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-700);"></div>
+              <div class="swatch__meta"><strong>Gray 700</strong><br><code>--gray-700</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-800);"></div>
+              <div class="swatch__meta"><strong>Gray 800</strong><br><code>--gray-800</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--gray-900);"></div>
+              <div class="swatch__meta"><strong>Gray 900</strong><br><code>--gray-900</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-traffic-light"></i> Semantic colours</h2></div>
+        <div class="card__body">
+          <div class="token-grid">
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--success-100);"></div>
+              <div class="swatch__meta"><strong>Success 100</strong><br><code>--success-100</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--success-500);"></div>
+              <div class="swatch__meta"><strong>Success 500</strong><br><code>--success-500</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--success-700);"></div>
+              <div class="swatch__meta"><strong>Success 700</strong><br><code>--success-700</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--warning-100);"></div>
+              <div class="swatch__meta"><strong>Warning 100</strong><br><code>--warning-100</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--warning-500);"></div>
+              <div class="swatch__meta"><strong>Warning 500</strong><br><code>--warning-500</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--warning-700);"></div>
+              <div class="swatch__meta"><strong>Warning 700</strong><br><code>--warning-700</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--danger-100);"></div>
+              <div class="swatch__meta"><strong>Danger 100</strong><br><code>--danger-100</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--danger-500);"></div>
+              <div class="swatch__meta"><strong>Danger 500</strong><br><code>--danger-500</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--danger-700);"></div>
+              <div class="swatch__meta"><strong>Danger 700</strong><br><code>--danger-700</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--info-100);"></div>
+              <div class="swatch__meta"><strong>Info 100</strong><br><code>--info-100</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--info-500);"></div>
+              <div class="swatch__meta"><strong>Info 500</strong><br><code>--info-500</code></div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__chip" style="background:var(--info-700);"></div>
+              <div class="swatch__meta"><strong>Info 700</strong><br><code>--info-700</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-i-cursor"></i> Typography</h2></div>
+        <div class="card__body">
+          <p class="text-sm text-muted" style="margin-top:0;">Font stack: <code>--font-sans</code> (Inter with system fallbacks).
+          Monospace: <code>--font-mono</code> for share codes and typed confirmations.</p>
+          <div style="margin-top:1rem;">
+            <div class="type-row">
+              <div class="type-row__spec">3xl · --fs-3xl<br>2.25rem</div>
+              <div style="font-size:var(--fs-3xl);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Display / hero numbers</div>
+            </div>
+            <div class="type-row">
+              <div class="type-row__spec">2xl · --fs-2xl<br>1.75rem</div>
+              <div style="font-size:var(--fs-2xl);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Page titles</div>
+            </div>
+            <div class="type-row">
+              <div class="type-row__spec">xl · --fs-xl<br>1.375rem</div>
+              <div style="font-size:var(--fs-xl);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Section headings, stat values</div>
+            </div>
+            <div class="type-row">
+              <div class="type-row__spec">lg · --fs-lg<br>1.125rem</div>
+              <div style="font-size:var(--fs-lg);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Card titles</div>
+            </div>
+            <div class="type-row">
+              <div class="type-row__spec">base · --fs-base<br>1rem</div>
+              <div style="font-size:var(--fs-base);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Body copy, inputs</div>
+            </div>
+            <div class="type-row">
+              <div class="type-row__spec">sm · --fs-sm<br>0.875rem</div>
+              <div style="font-size:var(--fs-sm);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Secondary text, table cells</div>
+            </div>
+            <div class="type-row">
+              <div class="type-row__spec">xs · --fs-xs<br>0.75rem</div>
+              <div style="font-size:var(--fs-xs);">The quick brown fox jumps over the lazy dog</div>
+              <div class="text-xs text-muted" style="margin-left:auto;">Labels, hints, meta</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-hand-pointer"></i> Buttons</h2></div>
+        <div class="card__body">
+          <div class="chip-row">
+            <button class="btn btn--primary" type="button"><i class="fas fa-floppy-disk"></i> Primary</button>
+            <button class="btn btn--secondary" type="button">Secondary</button>
+            <button class="btn btn--ghost" type="button">Ghost</button>
+            <button class="btn btn--success" type="button"><i class="fas fa-circle-check"></i> Success</button>
+            <button class="btn btn--warning" type="button"><i class="fas fa-pause"></i> Warning</button>
+            <button class="btn btn--danger" type="button"><i class="fas fa-trash"></i> Danger</button>
+          </div>
+          <div class="chip-row" style="margin-top:1rem;">
+            <button class="btn btn--primary btn--sm" type="button">Small</button>
+            <button class="btn btn--primary btn--lg" type="button">Large</button>
+            <button class="btn btn--secondary btn--icon" type="button"><i class="fas fa-pen"></i></button>
+            <button class="btn btn--secondary btn--block" type="button">Block</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-tags"></i> Status &amp; badges</h2></div>
+        <div class="card__body">
+          <div class="chip-row">
+            <span class="status status--not_started">Not Started</span>
+            <span class="status status--in_progress">In Progress</span>
+            <span class="status status--completed">Completed</span>
+            <span class="status status--on_hold">On Hold</span>
+            <span class="status status--delayed">Delayed</span>
+          </div>
+          <div class="chip-row" style="margin-top:1rem;">
+            <span class="badge badge--neutral">Neutral</span>
+            <span class="badge badge--info">Info</span>
+            <span class="badge badge--success">Success</span>
+            <span class="badge badge--warning">Warning</span>
+            <span class="badge badge--danger">Danger</span>
+            <span class="badge badge--brand">Brand</span>
+            <span class="badge badge--outline">Outline</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-comment-dots"></i> Reason chips (v1.8.0 parity)</h2></div>
+        <div class="card__body">
+          <p class="text-sm text-muted" style="margin-top:0;">Delay reasons render red; on-hold reasons render orange.
+          Both are shown on the internal task list and on the client portal.</p>
+          <div class="reason-chip reason-chip--delay"><i class="fas fa-clock-rotate-left"></i><span><strong>Delay:</strong> Heavy monsoon rainfall blocked the survey for 12 days.</span></div>
+          <div style="height:.5rem;"></div>
+          <div class="reason-chip reason-chip--on-hold"><i class="fas fa-pause"></i><span><strong>On hold:</strong> Awaiting municipal authority scheduling.</span></div>
+          <div style="height:1rem;"></div>
+          <p class="text-sm text-muted">A task that is delayed or on hold but has <strong>no reason recorded</strong>
+          carries the missing-reason marker next to its status badge.</p>
+          <div class="chip-row">
+            <span class="status status--on_hold">On Hold<i class="fas fa-exclamation-circle reason-missing" title="On-hold reason missing" aria-label="On-hold reason missing"></i></span>
+            <span class="status status--in_progress">In Progress<i class="fas fa-exclamation-circle reason-missing" title="Delay reason missing" aria-label="Delay reason missing"></i></span>
+          </div>
+          <div style="height:.75rem;"></div>
+          <span class="reason-missing reason-missing--inline"><i class="fas fa-exclamation-circle"></i> Missing &mdash; fill in to explain the slip to the client.</span>
+          <div style="height:.75rem;"></div>
+          <p class="text-sm text-muted">Inline editor for one reason field (production <code>.reason-inline-edit</code>).</p>
+          <details class="reason-inline-edit" open>
+            <summary>Add reason</summary>
+            <textarea class="textarea" rows="2" maxlength="2000" placeholder="Why is this task on hold?"></textarea>
+            <button class="btn btn--sm btn--primary" type="button"><i class="fas fa-floppy-disk"></i> Save</button>
+            <span data-save-status aria-live="polite"></span>
+          </details>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-hourglass-half"></i> Not-estimated marker (v1.8.0 parity)</h2></div>
+        <div class="card__body">
+          <p class="text-sm text-muted" style="margin-top:0;">Shown on a client-portal task whose estimate cannot be
+          resolved because no sub-task carries one.</p>
+          <span class="not-estimated"><i class="fas fa-clock"></i> Not estimated (no sub-task estimates)</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-list-check"></i> Task node</h2></div>
+        <div class="card__body">
+          <ul class="task-tree">
+              <li class="task-node">
+                <div class="task-node__head">
+                  
+                  <span class="task-node__name">MEP rough-in</span>
+                  <span class="status status--in_progress">In Progress</span>
+                </div>
+                <div class="task-node__meta"><span><i class="fas fa-user"></i> Nok Chantarak</span><span><i class="fas fa-calendar"></i> Due Oct 22, 2026</span></div>
+                <div class="task-node__progress">
+                  <div class="progress"><div class="progress__fill" style="width:55%"></div></div>
+                  <span class="task-node__pct">55%</span>
+                </div>
+                
+              </li>
+              <li class="task-node task-node--delayed task-node--on-hold">
+                <div class="task-node__head">
+                  
+                  <span class="task-node__name">Permit renewal</span>
+                  <span class="status status--on_hold">On Hold</span>
+                </div>
+                <div class="task-node__meta"><span><i class="fas fa-user"></i> Zongbao M.</span></div>
+                <div class="task-node__progress">
+                  <div class="progress"><div class="progress__fill" style="width:0%"></div></div>
+                  <span class="task-node__pct">0%</span>
+                </div>
+                <div class="reason-chip reason-chip--on-hold"><i class="fas fa-pause"></i><span><strong>On hold:</strong> Awaiting authority scheduling.</span></div>
+              </li>
+              <li class="task-node task-node--completed">
+                <div class="task-node__head">
+                  
+                  <span class="task-node__name task-node__name--done">Site survey</span>
+                  <span class="status status--completed">Completed</span>
+                </div>
+                <div class="task-node__meta"><span><i class="fas fa-user"></i> Zongbao M.</span></div>
+                <div class="task-node__progress">
+                  <div class="progress"><div class="progress__fill" style="width:100%"></div></div>
+                  <span class="task-node__pct">100%</span>
+                </div>
+                
+              </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-bell"></i> Alerts</h2></div>
+        <div class="card__body">
+          <div class="alert alert--info"><i class="fas fa-circle-info"></i><div class="alert__body"><div class="alert__title">Information</div>Neutral system message.</div></div>
+          <div class="alert alert--success"><i class="fas fa-circle-check"></i><div class="alert__body"><div class="alert__title">Success</div>Action completed.</div></div>
+          <div class="alert alert--warning"><i class="fas fa-triangle-exclamation"></i><div class="alert__body"><div class="alert__title">Warning</div>Action needs attention.</div></div>
+          <div class="alert alert--danger"><i class="fas fa-triangle-exclamation"></i><div class="alert__body"><div class="alert__title">Danger</div>Action is destructive.</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-list"></i> Table</h2></div>
+        <div class="card__body card__body--flush">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Task</th><th>Status</th><th>Progress</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>MEP rough-in</strong></td>
+                  <td><span class="status status--in_progress">In Progress</span></td>
+                  <td style="min-width:140px;"><div class="progress"><div class="progress__fill" style="width:55%"></div></div></td>
+                  <td><div class="row-actions"><button class="btn btn--sm btn--secondary btn--icon" type="button"><i class="fas fa-pen"></i></button></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-sliders"></i> Form controls</h2></div>
+        <div class="card__body">
+          <div class="form-grid form-grid--2">
+            <div class="field">
+              <label for="c-input">Input</label>
+              <input class="input" type="text" id="c-input" value="Harbour Point Renovation">
+            </div>
+            <div class="field">
+              <label for="c-select">Select</label>
+              <select class="select" id="c-select"><option>In Progress</option></select>
+            </div>
+            <div class="field form-section">
+              <label for="c-textarea">Textarea</label>
+              <textarea class="textarea" id="c-textarea" rows="3">Scope of work description.</textarea>
+            </div>
+            <div class="field form-section">
+              <label>Range slider</label>
+              <div class="range-row">
+                <input type="range" min="0" max="100" step="5" value="55" data-range-sync="#c-pct" data-range-out="#c-pct-out">
+                <input class="input" type="number" id="c-pct" value="55" style="width:90px;">
+                <span class="range-value" id="c-pct-out">55%</span>
+              </div>
+            </div>
+            <div class="field form-section">
+              <label class="checkbox"><input type="checkbox" checked><span>Inherit subtask hours</span></label>
+            </div>
+            <div class="field">
+              <label for="c-invalid">Invalid field</label>
+              <input class="input" type="email" id="c-invalid" value="not-an-email">
+              <span class="error-text"><i class="fas fa-circle-exclamation"></i> Enter a valid email address.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-inbox"></i> Empty state</h2></div>
+        <div class="card__body">
+          <div class="empty-state">
+            <div class="empty-state__icon"><i class="fas fa-folder-open"></i></div>
+            <h3>No Projects Yet</h3>
+            <p>Create your first project to start tracking tasks, contacts and client visibility.</p>
+            <button class="btn btn--primary" type="button"><i class="fas fa-plus"></i> Add Project</button>
+          </div>
+        </div>
+      </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

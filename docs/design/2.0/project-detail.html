@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Detail &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <span class="sidebar__brand-icon"><i class="fas fa-project-diagram"></i></span>
+        <span class="sidebar__brand-text">Project Management System<small>v2.0 redesign</small></span>
+      </div>
+      <nav class="sidebar__nav" aria-label="Main navigation">
+        <a class="sidebar__link" href="dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+        <a class="sidebar__link is-active" href="projects.html"><i class="fas fa-folder-open"></i><span>Projects</span></a>
+        <a class="sidebar__link" href="tasks.html"><i class="fas fa-tasks"></i><span>Tasks</span><span class="badge-count">3</span></a>
+        <a class="sidebar__link" href="contacts.html"><i class="fas fa-address-book"></i><span>Contacts</span></a>
+        <div class="sidebar__section-label">Account</div>
+        <a class="sidebar__link" href="profile.html"><i class="fas fa-user-edit"></i><span>My Profile</span></a>
+        <a class="sidebar__link" href="index.html"><i class="fas fa-palette"></i><span>Design Index</span></a>
+      </nav>
+      <div class="sidebar__footer">
+        <span class="sidebar__avatar">ZM</span>
+        <span class="sidebar__user">
+          <span class="sidebar__user-name">Zongbao M.</span>
+          <span class="sidebar__user-role">Owner</span>
+        </span>
+      </div>
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <button class="topbar__toggle" type="button" data-sidebar-toggle aria-label="Toggle navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar__search">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="search" placeholder="Search projects, tasks, contacts&hellip;" aria-label="Global search">
+        </div>
+        <div class="topbar__actions">
+          <button class="topbar__icon-btn" type="button" title="Notifications" data-toast="3 notifications" data-toast-kind="warning">
+            <i class="far fa-bell"></i><span class="dot" aria-hidden="true"></span>
+          </button>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" title="About" style="list-style:none;">
+              <i class="far fa-circle-question"></i>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <div style="padding:.6rem .75rem;border-bottom:1px solid var(--gray-100);">
+                <div class="text-sm fw-semibold">Version v2.0</div>
+                <div class="text-xs text-muted">Built by: Me</div>
+                <div class="text-xs text-muted">Vibe coding with AI agent</div>
+              </div>
+              <div class="dropdown__divider"></div>
+              <a class="dropdown__item" href="index.html"><i class="fas fa-rocket"></i> What&rsquo;s new in v2.0</a>
+            </div>
+          </details>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" style="list-style:none;">
+              <span class="avatar">ZM</span>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <a class="dropdown__item" href="profile.html"><i class="fas fa-user-edit"></i> Profile</a>
+              <a class="dropdown__item" href="login.html"><i class="fas fa-right-from-bracket"></i> Logout</a>
+            </div>
+          </details>
+        </div>
+      </header>
+      <main class="content">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="dashboard.html">Dashboard</a>
+          <span aria-hidden="true">/</span>
+          <a href="projects.html">Projects</a>
+          <span aria-hidden="true">/</span>
+          <span>Harbour Point Renovation</span>
+        </nav>
+
+        <div class="page-header">
+          <div class="page-header__text">
+            <h1><i class="fas fa-folder-open"></i> Harbour Point Renovation</h1>
+            <p class="page-header__sub">Full interior renovation of a 4-storey heritage building.</p>
+            <div class="chip-row" style="margin-top:.5rem;">
+              <span class="status status--in_progress">In Progress</span>
+              <span class="badge badge--outline">Code HRP-2026-014</span>
+              <span class="badge badge--outline"><i class="fas fa-calendar"></i> Due Nov 30, 2026</span>
+            </div>
+          </div>
+          <div class="page-actions">
+            <a class="btn btn--secondary" href="project-form.html"><i class="fas fa-pen"></i> Edit Project</a>
+            <a class="btn btn--primary" href="task-form.html"><i class="fas fa-plus"></i> Add Task</a>
+          </div>
+        </div>
+
+        <div class="grid-sidebar">
+          <div>
+            <div class="card">
+              <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Client share code</h2>
+                <div class="card__actions">
+                  <button class="btn btn--sm btn--secondary" type="button" data-copy="HRP-2026-014">
+                    <i class="far fa-copy"></i> Copy code
+                  </button>
+                </div>
+              </div>
+              <div class="card__body">
+                <div class="share-box">
+                  <code id="shareCode">HRP-2026-014</code>
+                  <button class="btn btn--sm btn--secondary" type="button" data-copy="https://project.lorwongam.com/?code=HRP-2026-014">
+                    <i class="far fa-copy"></i> Copy link
+                  </button>
+                </div>
+                <p class="text-xs text-muted" style="margin:.75rem 0 0;">
+                  <i class="fas fa-globe"></i>
+                  Client view: <a href="client-dashboard.html" class="text-mono">https://project.lorwongam.com/?code=HRP-2026-014</a>
+                </p>
+                <div class="alert alert--warning" style="margin-top:1rem;margin-bottom:0;">
+                  <i class="fas fa-triangle-exclamation"></i>
+                  <div class="alert__body">
+                    <div class="alert__title">Rotating the code invalidates the current link</div>
+                    Anyone holding the old code will lose access immediately.
+                  </div>
+                </div>
+                <button class="btn btn--secondary btn--sm" type="button"
+                        data-toast="Demo only &mdash; code not rotated" data-toast-kind="warning"
+                        style="margin-top:.75rem;">
+                  <i class="fas fa-rotate"></i> Rotate share code
+                </button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-list-check"></i> Project Tasks</h2>
+                <div class="card__actions">
+                  <a class="btn btn--sm btn--ghost" href="tasks.html">View all <i class="fas fa-arrow-right"></i></a>
+                </div>
+              </div>
+              <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr><th>Task</th><th>Status</th><th>Progress</th><th>Owner</th><th>%</th></tr>
+                    </thead>
+                    <tbody>
+              <tr>
+                <td><a href="task-detail.html"><strong>Site survey &amp; structural assessment</strong></a></td>
+                <td><span class="status status--completed">Completed</span></td>
+                <td style="min-width:120px;">
+                  <div class="progress"><div class="progress__fill" style="width:100"></div></div>
+                </td>
+                <td class="text-sm nowrap">Zongbao M.</td>
+                <td class="text-sm nowrap">100%</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>Demolition &amp; site clearance</strong></a></td>
+                <td><span class="status status--completed">Completed</span></td>
+                <td style="min-width:120px;">
+                  <div class="progress"><div class="progress__fill" style="width:100"></div></div>
+                </td>
+                <td class="text-sm nowrap">Somchai P.</td>
+                <td class="text-sm nowrap">100%</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>MEP rough-in</strong></a></td>
+                <td><span class="status status--in_progress">In Progress</span></td>
+                <td style="min-width:120px;">
+                  <div class="progress"><div class="progress__fill" style="width:55"></div></div>
+                </td>
+                <td class="text-sm nowrap">Nok Chantarak</td>
+                <td class="text-sm nowrap">55%</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>Structural steel erection</strong></a></td>
+                <td><span class="status status--in_progress">In Progress</span></td>
+                <td style="min-width:120px;">
+                  <div class="progress"><div class="progress__fill" style="width:30"></div></div>
+                </td>
+                <td class="text-sm nowrap">Anan S.</td>
+                <td class="text-sm nowrap">30%</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>Permit renewal</strong></a></td>
+                <td><span class="status status--on_hold">On Hold</span></td>
+                <td style="min-width:120px;">
+                  <div class="progress"><div class="progress__fill" style="width:0"></div></div>
+                </td>
+                <td class="text-sm nowrap">Zongbao M.</td>
+                <td class="text-sm nowrap">0%</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>Facade glazing install</strong></a></td>
+                <td><span class="status status--not_started">Not Started</span></td>
+                <td style="min-width:120px;">
+                  <div class="progress"><div class="progress__fill" style="width:0"></div></div>
+                </td>
+                <td class="text-sm nowrap">Somchai P.</td>
+                <td class="text-sm nowrap">0%</td>
+              </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-address-book"></i> Project Contacts</h2>
+                <div class="card__actions">
+                  <a class="btn btn--sm btn--ghost" href="contact-form.html">Add contact <i class="fas fa-plus"></i></a>
+                </div>
+              </div>
+              <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr><th>Name</th><th>Position</th><th>Company</th><th>Email</th><th>Phone</th></tr>
+                    </thead>
+                    <tbody>
+              <tr>
+                <td><a href="contact-detail.html"><strong>Surasak Wongchai</strong></a></td>
+                <td class="text-sm text-muted">Site Manager</td>
+                <td class="text-sm text-muted">Harbour Point Co., Ltd.</td>
+                <td><a href="mailto:sw@example.com"><i class="fas fa-envelope"></i> sw@example.com</a></td>
+                <td class="text-sm nowrap"><a href="tel:+66812345678"><i class="fas fa-phone"></i> +66 81 234 5678</a></td>
+              </tr>
+              <tr>
+                <td><a href="contact-detail.html"><strong>Ploy Sirichai</strong></a></td>
+                <td class="text-sm text-muted">Project Architect</td>
+                <td class="text-sm text-muted">Arcline Design</td>
+                <td><a href="mailto:ploy@example.com"><i class="fas fa-envelope"></i> ploy@example.com</a></td>
+                <td class="text-sm nowrap"><a href="tel:+66823456789"><i class="fas fa-phone"></i> +66 82 345 6789</a></td>
+              </tr>
+              <tr>
+                <td><a href="contact-detail.html"><strong>Anan Suwan</strong></a></td>
+                <td class="text-sm text-muted">Contractor Lead</td>
+                <td class="text-sm text-muted">Siam Steel Works</td>
+                <td><a href="mailto:anan@example.com"><i class="fas fa-envelope"></i> anan@example.com</a></td>
+                <td class="text-sm nowrap"><a href="tel:+66834567890"><i class="fas fa-phone"></i> +66 83 456 7890</a></td>
+              </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:0;">
+                      <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-chart-pie"></i></div>
+          <div>
+            <div class="stat__value">64.0%</div>
+            <div class="stat__label">Avg Completion</div>
+            
+          </div>
+        </div>
+                      <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-list-check"></i></div>
+          <div>
+            <div class="stat__value">18</div>
+            <div class="stat__label">Total Tasks</div>
+            
+          </div>
+        </div>
+                      <div class="stat stat--on-hold">
+          <div class="stat__icon"><i class="fas fa-hourglass-half"></i></div>
+          <div>
+            <div class="stat__value">6</div>
+            <div class="stat__label">Uncompleted</div>
+            
+          </div>
+        </div>
+                      <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-address-book"></i></div>
+          <div>
+            <div class="stat__value">3</div>
+            <div class="stat__label">Contacts</div>
+            
+          </div>
+        </div>
+            </div>
+
+            <div class="card">
+              <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-sitemap"></i> Project details</h2></div>
+              <div class="card__body">
+                <div class="detail-list">
+                  <div class="detail-row"><span class="detail-row__k">Status</span><span class="detail-row__v"><span class="status status--in_progress">In Progress</span></span></div>
+                  <div class="detail-row"><span class="detail-row__k">Scope</span><span class="detail-row__v">Structural, MEP, finishes and fit-out of levels 1&ndash;4 plus rooftop works.</span></div>
+                  <div class="detail-row"><span class="detail-row__k">Budget</span><span class="detail-row__v">THB 4,850,000.00</span></div>
+                  <div class="detail-row"><span class="detail-row__k">Start date</span><span class="detail-row__v">Aug 1, 2026</span></div>
+                  <div class="detail-row"><span class="detail-row__k">Expected completion</span><span class="detail-row__v">Nov 30, 2026</span></div>
+                  <div class="detail-row"><span class="detail-row__k">Completion date</span><span class="detail-row__v text-muted">&mdash; Not set</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer class="footer">
+        &copy; 2026 Project Management System. All rights reserved.
+      </footer>
+    </div>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

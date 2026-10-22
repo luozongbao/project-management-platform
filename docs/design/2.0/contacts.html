@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacts &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <span class="sidebar__brand-icon"><i class="fas fa-project-diagram"></i></span>
+        <span class="sidebar__brand-text">Project Management System<small>v2.0 redesign</small></span>
+      </div>
+      <nav class="sidebar__nav" aria-label="Main navigation">
+        <a class="sidebar__link" href="dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+        <a class="sidebar__link" href="projects.html"><i class="fas fa-folder-open"></i><span>Projects</span></a>
+        <a class="sidebar__link" href="tasks.html"><i class="fas fa-tasks"></i><span>Tasks</span><span class="badge-count">3</span></a>
+        <a class="sidebar__link is-active" href="contacts.html"><i class="fas fa-address-book"></i><span>Contacts</span></a>
+        <div class="sidebar__section-label">Account</div>
+        <a class="sidebar__link" href="profile.html"><i class="fas fa-user-edit"></i><span>My Profile</span></a>
+        <a class="sidebar__link" href="index.html"><i class="fas fa-palette"></i><span>Design Index</span></a>
+      </nav>
+      <div class="sidebar__footer">
+        <span class="sidebar__avatar">ZM</span>
+        <span class="sidebar__user">
+          <span class="sidebar__user-name">Zongbao M.</span>
+          <span class="sidebar__user-role">Owner</span>
+        </span>
+      </div>
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <button class="topbar__toggle" type="button" data-sidebar-toggle aria-label="Toggle navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar__search">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="search" placeholder="Search projects, tasks, contacts&hellip;" aria-label="Global search">
+        </div>
+        <div class="topbar__actions">
+          <button class="topbar__icon-btn" type="button" title="Notifications" data-toast="3 notifications" data-toast-kind="warning">
+            <i class="far fa-bell"></i><span class="dot" aria-hidden="true"></span>
+          </button>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" title="About" style="list-style:none;">
+              <i class="far fa-circle-question"></i>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <div style="padding:.6rem .75rem;border-bottom:1px solid var(--gray-100);">
+                <div class="text-sm fw-semibold">Version v2.0</div>
+                <div class="text-xs text-muted">Built by: Me</div>
+                <div class="text-xs text-muted">Vibe coding with AI agent</div>
+              </div>
+              <div class="dropdown__divider"></div>
+              <a class="dropdown__item" href="index.html"><i class="fas fa-rocket"></i> What&rsquo;s new in v2.0</a>
+            </div>
+          </details>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" style="list-style:none;">
+              <span class="avatar">ZM</span>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <a class="dropdown__item" href="profile.html"><i class="fas fa-user-edit"></i> Profile</a>
+              <a class="dropdown__item" href="login.html"><i class="fas fa-right-from-bracket"></i> Logout</a>
+            </div>
+          </details>
+        </div>
+      </header>
+      <main class="content">
+        <div class="page-header">
+          <div class="page-header__text">
+            <h1><i class="fas fa-address-book"></i> Contacts</h1>
+            <p class="page-header__sub">5 contacts across 7 projects</p>
+          </div>
+          <div class="page-actions">
+            <a class="btn btn--primary" href="contact-form.html"><i class="fas fa-plus"></i> New Contact</a>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+        <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-address-book"></i></div>
+          <div>
+            <div class="stat__value">18</div>
+            <div class="stat__label">Total Contacts</div>
+            
+          </div>
+        </div>
+        <div class="stat stat--info">
+          <div class="stat__icon"><i class="fas fa-envelope"></i></div>
+          <div>
+            <div class="stat__value">15</div>
+            <div class="stat__label">With Email</div>
+            
+          </div>
+        </div>
+        <div class="stat stat--success">
+          <div class="stat__icon"><i class="fas fa-phone"></i></div>
+          <div>
+            <div class="stat__value">12</div>
+            <div class="stat__label">With Phone</div>
+            
+          </div>
+        </div>
+        <div class="stat stat--on-hold">
+          <div class="stat__icon"><i class="fas fa-folder-open"></i></div>
+          <div>
+            <div class="stat__value">6</div>
+            <div class="stat__label">Projects Covered</div>
+            
+          </div>
+        </div>
+        </div>
+
+        <div class="filter-bar" data-filter-form>
+          <div class="field">
+            <label for="search">Search Contacts</label>
+            <input class="input" type="search" id="search" placeholder="Name, company or email&hellip;">
+          </div>
+          <div class="field">
+            <label for="project_filter">Project</label>
+            <select class="select" id="project_filter">
+              <option value="">All Projects</option>
+              <option value="1">Harbour Point Renovation</option>
+              <option value="2">Bangkok Office Fit-out</option>
+              <option value="3">Siam Retail Kiosk</option>
+              <option value="4">Chiang Mai Warehouse</option>
+            </select>
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn btn--primary" type="submit"><i class="fas fa-filter"></i> Apply</button>
+            <button class="btn btn--secondary" type="button" data-filter-reset>Reset</button>
+          </div>
+        </div>
+
+        <div class="project-grid">
+        <div class="project-card">
+          <div class="project-card__head">
+            <span class="avatar avatar--lg avatar--gray"><i class="fas fa-user"></i></span>
+            <div style="flex:1;min-width:0;">
+              <h3 class="project-card__title"><a href="contact-detail.html">Surasak Wongchai</a></h3>
+              <div class="project-card__meta">
+                <span><i class="fas fa-briefcase"></i> Site Manager</span>
+                <span><i class="fas fa-building"></i> Harbour Point Co., Ltd.</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-list">
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Email</span><span class="detail-row__v text-sm"><a href="mailto:sw@example.com"><i class="fas fa-envelope"></i> sw@example.com</a></span></div>
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Phone</span><span class="detail-row__v text-sm"><a href="tel:+66812345678"><i class="fas fa-phone"></i> +66 81 234 5678</a></span></div>
+          </div>
+          <div class="project-card__stats">
+            <div>
+              <div class="project-card__stat-label">Assigned</div>
+              <div class="project-card__stat-value">3 projects</div>
+            </div>
+          </div>
+          <div class="project-card__foot">
+            <a class="btn btn--sm btn--primary" href="contact-detail.html"><i class="fas fa-eye"></i> Open</a>
+            <a class="btn btn--sm btn--secondary" href="contact-form.html"><i class="fas fa-pen"></i> Edit</a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="mailto:sw@example.com" title="Send email"><i class="fas fa-envelope"></i></a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="tel:+66812345678" title="Call"><i class="fas fa-phone"></i></a>
+          </div>
+        </div>
+        <div class="project-card">
+          <div class="project-card__head">
+            <span class="avatar avatar--lg avatar"><i class="fas fa-user"></i></span>
+            <div style="flex:1;min-width:0;">
+              <h3 class="project-card__title"><a href="contact-detail.html">Ploy Sirichai</a></h3>
+              <div class="project-card__meta">
+                <span><i class="fas fa-briefcase"></i> Project Architect</span>
+                <span><i class="fas fa-building"></i> Arcline Design</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-list">
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Email</span><span class="detail-row__v text-sm"><a href="mailto:ploy@example.com"><i class="fas fa-envelope"></i> ploy@example.com</a></span></div>
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Phone</span><span class="detail-row__v text-sm"><a href="tel:+66823456789"><i class="fas fa-phone"></i> +66 82 345 6789</a></span></div>
+          </div>
+          <div class="project-card__stats">
+            <div>
+              <div class="project-card__stat-label">Assigned</div>
+              <div class="project-card__stat-value">2 projects</div>
+            </div>
+          </div>
+          <div class="project-card__foot">
+            <a class="btn btn--sm btn--primary" href="contact-detail.html"><i class="fas fa-eye"></i> Open</a>
+            <a class="btn btn--sm btn--secondary" href="contact-form.html"><i class="fas fa-pen"></i> Edit</a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="mailto:ploy@example.com" title="Send email"><i class="fas fa-envelope"></i></a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="tel:+66823456789" title="Call"><i class="fas fa-phone"></i></a>
+          </div>
+        </div>
+        <div class="project-card">
+          <div class="project-card__head">
+            <span class="avatar avatar--lg avatar--warning"><i class="fas fa-user"></i></span>
+            <div style="flex:1;min-width:0;">
+              <h3 class="project-card__title"><a href="contact-detail.html">Anan Suwan</a></h3>
+              <div class="project-card__meta">
+                <span><i class="fas fa-briefcase"></i> Contractor Lead</span>
+                <span><i class="fas fa-building"></i> Siam Steel Works</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-list">
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Email</span><span class="detail-row__v text-sm"><a href="mailto:anan@example.com"><i class="fas fa-envelope"></i> anan@example.com</a></span></div>
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Phone</span><span class="detail-row__v text-sm"><a href="tel:+66834567890"><i class="fas fa-phone"></i> +66 83 456 7890</a></span></div>
+          </div>
+          <div class="project-card__stats">
+            <div>
+              <div class="project-card__stat-label">Assigned</div>
+              <div class="project-card__stat-value">1 project</div>
+            </div>
+          </div>
+          <div class="project-card__foot">
+            <a class="btn btn--sm btn--primary" href="contact-detail.html"><i class="fas fa-eye"></i> Open</a>
+            <a class="btn btn--sm btn--secondary" href="contact-form.html"><i class="fas fa-pen"></i> Edit</a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="mailto:anan@example.com" title="Send email"><i class="fas fa-envelope"></i></a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="tel:+66834567890" title="Call"><i class="fas fa-phone"></i></a>
+          </div>
+        </div>
+        <div class="project-card">
+          <div class="project-card__head">
+            <span class="avatar avatar--lg avatar--success"><i class="fas fa-user"></i></span>
+            <div style="flex:1;min-width:0;">
+              <h3 class="project-card__title"><a href="contact-detail.html">Malee Charoen</a></h3>
+              <div class="project-card__meta">
+                <span><i class="fas fa-briefcase"></i> Procurement Manager</span>
+                <span><i class="fas fa-building"></i> Rangsit Trading</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-list">
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Email</span><span class="detail-row__v text-sm"><a href="mailto:malee@example.com"><i class="fas fa-envelope"></i> malee@example.com</a></span></div>
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Phone</span><span class="detail-row__v text-sm"><a href="tel:+66845678901"><i class="fas fa-phone"></i> +66 84 567 8901</a></span></div>
+          </div>
+          <div class="project-card__stats">
+            <div>
+              <div class="project-card__stat-label">Assigned</div>
+              <div class="project-card__stat-value">2 projects</div>
+            </div>
+          </div>
+          <div class="project-card__foot">
+            <a class="btn btn--sm btn--primary" href="contact-detail.html"><i class="fas fa-eye"></i> Open</a>
+            <a class="btn btn--sm btn--secondary" href="contact-form.html"><i class="fas fa-pen"></i> Edit</a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="mailto:malee@example.com" title="Send email"><i class="fas fa-envelope"></i></a>
+            <a class="btn btn--sm btn--secondary btn--icon" href="tel:+66845678901" title="Call"><i class="fas fa-phone"></i></a>
+          </div>
+        </div>
+        <div class="project-card">
+          <div class="project-card__head">
+            <span class="avatar avatar--lg avatar--danger"><i class="fas fa-user"></i></span>
+            <div style="flex:1;min-width:0;">
+              <h3 class="project-card__title"><a href="contact-detail.html">Kai Lertsakda</a></h3>
+              <div class="project-card__meta">
+                <span><i class="fas fa-briefcase"></i> Logistics Coordinator</span>
+                <span><i class="fas fa-building"></i> Trans-Asia Freight</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-list">
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Email</span><span class="detail-row__v text-sm"><span class="text-muted">&mdash; no email</span></span></div>
+            <div class="detail-row"><span class="detail-row__k" style="min-width:70px;">Phone</span><span class="detail-row__v text-sm"><a href="tel:+66856789012"><i class="fas fa-phone"></i> +66 85 678 9012</a></span></div>
+          </div>
+          <div class="project-card__stats">
+            <div>
+              <div class="project-card__stat-label">Assigned</div>
+              <div class="project-card__stat-value">1 project</div>
+            </div>
+          </div>
+          <div class="project-card__foot">
+            <a class="btn btn--sm btn--primary" href="contact-detail.html"><i class="fas fa-eye"></i> Open</a>
+            <a class="btn btn--sm btn--secondary" href="contact-form.html"><i class="fas fa-pen"></i> Edit</a>
+            
+            <a class="btn btn--sm btn--secondary btn--icon" href="tel:+66856789012" title="Call"><i class="fas fa-phone"></i></a>
+          </div>
+        </div>
+        </div>
+      </main>
+      <footer class="footer">
+        &copy; 2026 Project Management System. All rights reserved.
+      </footer>
+    </div>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

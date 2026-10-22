@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="">
+  <div class="auth-shell">
+    <aside class="auth-aside">
+      <div class="auth-aside__brand">
+        <span class="auth-aside__brand-icon"><i class="fas fa-project-diagram"></i></span>
+        Project Management System
+      </div>
+      <div>
+        <h2 class="auth-aside__headline">Set up your<br>workspace in<br>under a minute.</h2>
+        <p class="auth-aside__sub">One owner account gives you projects, tasks, subtasks, contacts and a client-facing share portal.</p>
+        <ul class="auth-aside__points">
+          <li><i class="fas fa-circle-check"></i><span>Projects with budget, scope and three milestone dates</span></li>
+          <li><i class="fas fa-circle-check"></i><span>Tasks and subtasks with completion tracking</span></li>
+          <li><i class="fas fa-circle-check"></i><span>Contacts linked to projects and tasks</span></li>
+        </ul>
+      </div>
+      <div class="auth-aside__foot">v2.0 &middot; Project Management System</div>
+    </aside>
+
+    <main class="auth-main">
+      <div class="auth-card">
+        <h1>Create your account</h1>
+        <p class="auth-card__sub">Already have an account? <a href="login.html">Sign in</a>.</p>
+
+        <div class="alert alert--info" role="alert">
+          <i class="fas fa-circle-info"></i>
+          <div class="alert__body">
+            <div class="alert__title">Username already taken</div>
+            Please choose a different username and try again.
+          </div>
+        </div>
+
+        <form action="#" method="post">
+          <div class="field">
+            <label for="name">Full Name <span class="req" aria-hidden="true">*</span></label>
+            <input class="input" type="text" id="name" name="name" value="Zongbao M." required>
+          </div>
+          <div class="field">
+            <label for="username">Username <span class="req" aria-hidden="true">*</span></label>
+            <input class="input" type="text" id="username" name="username"
+                   placeholder="e.g. zongbao" autocomplete="username" required>
+            <span class="hint">Letters, numbers, underscore. 3&ndash;50 characters.</span>
+          </div>
+          <div class="field">
+            <label for="email">Email Address <span class="req" aria-hidden="true">*</span></label>
+            <input class="input" type="email" id="email" name="email"
+                   placeholder="you@example.com" autocomplete="email" required>
+          </div>
+
+          <button class="btn btn--primary btn--lg btn--block" type="submit" style="margin-top:1rem;">
+            <i class="fas fa-user-plus"></i> Create Account
+          </button>
+        </form>
+
+        <div class="auth-card__foot">
+          <a href="landing.html"><i class="fas fa-key"></i> Client? Enter your share code</a>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

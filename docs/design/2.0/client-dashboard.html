@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Portal &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="">
+  <div class="client-shell">
+    <header class="client-header">
+      <div class="client-header__inner">
+        <div class="client-header__brand">
+          <span class="client-header__brand-icon"><i class="fas fa-project-diagram"></i></span>
+          <span>Project Management System</span>
+        </div>
+        <div class="client-header__project">
+          <div class="client-header__project-name">Harbour Point Renovation</div>
+          <div class="client-header__project-meta">Client view &middot; updated Oct 20, 2026, 09:14</div>
+        </div>
+        <div class="lang-switch" data-lang-switch role="group" aria-label="Language">
+          <button type="button" data-lang-set="en" class="is-active">ENG</button>
+          <button type="button" data-lang-set="zh">𠀓𥦑</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="client-content">
+      <div class="client-hero">
+        <div class="client-hero__label" data-i18n="Overall Completion|𤘵𠌓𣐶𥄄𩕵">Overall Completion</div>
+        <div class="client-hero__value">64.0%</div>
+        <div class="client-hero__bar"><div class="client-hero__bar-fill" style="width:64%"></div></div>
+        <div class="client-hero__stats">
+          <div>
+            <div class="client-hero__stat-label" data-i18n="Tasks|𠈙𡅓">Tasks</div>
+            <div class="client-hero__stat-value">18</div>
+          </div>
+          <div>
+            <div class="client-hero__stat-label" data-i18n="Completed|𤁐𣐶𥄄">Completed</div>
+            <div class="client-hero__stat-value">12</div>
+          </div>
+          <div>
+            <div class="client-hero__stat-label" data-i18n="In Progress|𶠧𴢒𠀓">In Progress</div>
+            <div class="client-hero__stat-value">4</div>
+          </div>
+          <div>
+            <div class="client-hero__stat-label" data-i18n="Delayed|𠦘𶠁">Delayed</div>
+            <div class="client-hero__stat-value">3</div>
+          </div>
+          <div>
+            <div class="client-hero__stat-label" data-i18n="On Hold|𦉂𠕲">On Hold</div>
+            <div class="client-hero__stat-value">2</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="client-alert-strip" style="margin-bottom:1.25rem;">
+        <span class="badge badge--danger"><i class="fas fa-clock-rotate-left"></i> 3 delayed</span>
+        <span class="badge badge--warning"><i class="fas fa-pause"></i> 2 on hold</span>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div class="card__header">
+          <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Project information</h2>
+        </div>
+        <div class="card__body">
+          <div class="client-info-grid">
+            <div class="client-info-item">
+              <div class="client-info-item__k" data-i18n="Status|𩍦𤕷">Status</div>
+              <div class="client-info-item__v"><span class="status status--in_progress">In Progress</span></div>
+            </div>
+            <div class="client-info-item">
+              <div class="client-info-item__k" data-i18n="Budget|𹁄𱘶">Budget</div>
+              <div class="client-info-item__v">THB 4,850,000.00</div>
+            </div>
+            <div class="client-info-item">
+              <div class="client-info-item__k" data-i18n="Started|𶈕𡅠">Started</div>
+              <div class="client-info-item__v">Aug 1, 2026</div>
+            </div>
+            <div class="client-info-item">
+              <div class="client-info-item__k" data-i18n="Expected|𹁄𵝅𣐶𥄄">Expected</div>
+              <div class="client-info-item__v">Nov 30, 2026</div>
+            </div>
+            <div class="client-info-item">
+              <div class="client-info-item__k" data-i18n="Completed|𤁐𣐶𥄄">Completed</div>
+              <div class="client-info-item__v">&mdash;</div>
+            </div>
+            <div class="client-info-item">
+              <div class="client-info-item__k" data-i18n="Manager|𶆗𩜂𠅔">Manager</div>
+              <div class="client-info-item__v">Zongbao M.</div>
+            </div>
+          </div>
+          <div style="margin-top:1.25rem;">
+            <div class="client-info-item__k" style="margin-bottom:.35rem;" data-i18n="Scope|𳔹𢉠.">Scope</div>
+            <p class="text-sm" style="margin:0;">Structural, MEP, finishes and fit-out of levels 1&ndash;4 plus rooftop works.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title-icon"><i class="fas fa-list-check"></i> Tasks</h2>
+          <div class="card__actions">
+            <span class="badge badge--neutral">18 tasks</span>
+          </div>
+        </div>
+        <div class="card__body">
+          <ul class="task-tree">
+            <li class="task-node task-node--completed">
+              <div class="task-node__head">
+                <span class="task-node__name task-node__name--done">Site survey &amp; structural assessment</span>
+                <span class="status status--completed">Completed</span>
+                <span class="status status--delayed"><i class="fas fa-clock-rotate-left"></i> Delayed</span>
+              </div>
+              <div class="task-node__meta">
+                <span><i class="fas fa-user"></i> Zongbao M.</span>
+                <span><i class="fas fa-calendar"></i> Due Sep 12, 2026</span>
+                <span><i class="fas fa-calendar-check"></i> Completed Oct 2, 2026</span>
+                <span><i class="fas fa-clock"></i> 48 hours</span>
+              </div>
+              <div class="task-node__progress">
+                <div class="progress progress--success"><div class="progress__fill" style="width:100%"></div></div>
+                <span class="task-node__pct">100%</span>
+              </div>
+              <div class="task-node__reasons">
+                <div class="reason-chip reason-chip--delay">
+                  <i class="fas fa-clock-rotate-left"></i>
+                  <span><strong>Delay:</strong> Heavy monsoon rainfall in early September flooded the lower levels and blocked the survey for 12 days.</span>
+                </div>
+              </div>
+              <ul class="task-tree" style="margin-top:.6rem;">
+                <li class="task-node task-node--completed">
+                  <div class="task-node__head">
+                    <span class="task-node__name task-node__name--done">Structural survey report</span>
+                    <span class="status status--completed">Completed</span>
+                  </div>
+                  <div class="task-node__meta">
+                    <span><i class="fas fa-user"></i> Zongbao M.</span>
+                    <span><i class="fas fa-calendar"></i> Due Oct 02, 2026</span>
+                  </div>
+                  <div class="task-node__progress">
+                    <div class="progress progress--success"><div class="progress__fill" style="width:100%"></div></div>
+                    <span class="task-node__pct">100%</span>
+                  </div>
+                </li>
+                <li class="task-node task-node--completed">
+                  <div class="task-node__head">
+                    <span class="task-node__name task-node__name--done">Load test certification</span>
+                    <span class="status status--completed">Completed</span>
+                  </div>
+                  <div class="task-node__meta">
+                    <span><i class="fas fa-user"></i> Anan Suwan</span>
+                  </div>
+                  <div class="task-node__progress">
+                    <div class="progress progress--success"><div class="progress__fill" style="width:100%"></div></div>
+                    <span class="task-node__pct">100%</span>
+                  </div>
+                </li>
+              </ul>
+            </li>
+
+            <li class="task-node task-node--on-hold">
+              <div class="task-node__head">
+                <span class="task-node__name">Permit renewal</span>
+                <span class="status status--on_hold">On Hold</span>
+                <span class="status status--delayed"><i class="fas fa-clock-rotate-left"></i> Delayed</span>
+              </div>
+              <div class="task-node__meta">
+                <span><i class="fas fa-user"></i> Zongbao M.</span>
+                <span><i class="fas fa-calendar"></i> Due Oct 05, 2026</span>
+              </div>
+              <div class="task-node__progress">
+                <div class="progress progress--warning"><div class="progress__fill" style="width:0%"></div></div>
+                <span class="task-node__pct">0%</span>
+              </div>
+              <div class="task-node__reasons">
+                <div class="reason-chip reason-chip--on-hold">
+                  <i class="fas fa-pause"></i>
+                  <span><strong>On hold:</strong> Building permit renewal awaiting municipal authority scheduling.</span>
+                </div>
+                <div class="reason-chip reason-chip--delay">
+                  <i class="fas fa-clock-rotate-left"></i>
+                  <span><strong>Delay:</strong> Permit office processing backlog extended the expected renewal date by 3 weeks.</span>
+                </div>
+              </div>
+            </li>
+
+            <li class="task-node">
+              <div class="task-node__head">
+                <span class="task-node__name">MEP rough-in</span>
+                <span class="status status--in_progress">In Progress</span>
+              </div>
+              <div class="task-node__meta">
+                <span><i class="fas fa-user"></i> Nok Chantarak</span>
+                <span><i class="fas fa-calendar"></i> Due Oct 22, 2026</span>
+                <span><i class="fas fa-clock"></i> 120 hours</span>
+              </div>
+              <div class="task-node__progress">
+                <div class="progress"><div class="progress__fill" style="width:55%"></div></div>
+                <span class="task-node__pct">55%</span>
+              </div>
+            </li>
+
+            <li class="task-node">
+              <div class="task-node__head">
+                <span class="task-node__name">Facade glazing install</span>
+                <span class="status status--not_started">Not Started</span>
+              </div>
+              <div class="task-node__meta">
+                <span><i class="fas fa-user"></i> Somchai P.</span>
+                <span><i class="fas fa-calendar"></i> Due Nov 08, 2026</span>
+                <span class="not-estimated"><i class="fas fa-clock"></i> Not estimated</span>
+              </div>
+              <div class="task-node__progress">
+                <div class="progress"><div class="progress__fill" style="width:0%"></div></div>
+                <span class="task-node__pct">0%</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      &copy; 2026 Project Management System. All rights reserved.
+    </footer>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

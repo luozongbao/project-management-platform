@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Notes &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="spec-page">
+      <div class="spec-hero">
+        <h1>v2.0 Design &amp; Implementation Notes</h1>
+        <p>How the mockup maps onto the production PHP application: token transplant,
+        component contract, migration order, accessibility rules and the i18n plan.</p>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-layer-group"></i> 1. Layer model</h2></div>
+        <div class="card__body">
+          <p>The v1.8.0 frontend is a single <code>assets/css/style.css</code> (984 lines, Bootstrap-4-era
+          hardcoded colours, per-page inline CSS duplicated across files) plus a top navbar shell in
+          <code>includes/header.php</code>.</p>
+          <p>v2.0 replaces this with three layers:</p>
+          <table class="spec-table">
+            <thead><tr><th>Layer</th><th>File</th><th>Responsibility</th></tr></thead>
+            <tbody>
+              <tr><td>Tokens</td><td><code>assets/css/v2-tokens.css</code></td><td>All colour, type, spacing, radius, shadow, z-index and layout variables. Zero selectors beyond <code>:root</code>.</td></tr>
+              <tr><td>Base + components</td><td><code>assets/css/style.css</code> (rewritten)</td><td>Reset, typography, layout primitives and every component class used by the mockup.</td></tr>
+              <tr><td>Page CSS</td><td><code>assets/css/pages/*.css</code></td><td>Only genuinely page-specific rules (e.g. client portal grid). Everything else is a component class.</td></tr>
+            </tbody>
+          </table>
+          <p class="text-sm text-muted" style="margin-bottom:0;">Rule of thumb: if a rule appears on more than one screen it belongs in the component layer.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-arrow-right-arrow-left"></i> 2. Shell migration</h2></div>
+        <div class="card__body">
+          <p>The current shell is a top navbar. v2.0 moves to a <strong>fixed left sidebar + topbar</strong> layout:</p>
+          <table class="spec-table">
+            <thead><tr><th>v1.8.0 element</th><th>v2.0 element</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td><code>.navbar</code> / <code>.nav-brand</code></td><td><code>.sidebar__brand</code></td><td>Brand icon + APP_NAME + version.</td></tr>
+              <tr><td><code>.nav-menu</code> + <code>.nav-link</code></td><td><code>.sidebar__nav</code> + <code>.sidebar__link</code></td><td>Same four destinations, plus optional count badge.</td></tr>
+              <tr><td><code>.nav-dropdown</code> (user)</td><td><code>.dropdown</code> in <code>.topbar__actions</code></td><td>Profile + Logout unchanged.</td></tr>
+              <tr><td><code>.app-about</code> details panel</td><td>About <code>&lt;details&gt;</code> in the topbar</td><td>Version, "Built by", release summary.</td></tr>
+              <tr><td><code>.main-content.with-nav</code></td><td><code>.content</code> inside <code>.app-main</code></td><td>Padding is now token-driven.</td></tr>
+              <tr><td>floating About (logged-out)</td><td>Retained on public pages</td><td>Must stay reachable without JS.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-list-check"></i> 3. Implementation order</h2></div>
+        <div class="card__body">
+          <ol style="margin:0;padding-left:1.25rem;line-height:2;">
+            <li>Land <code>v2-tokens.css</code> and the reset/base layer. Nothing else changes visually yet.</li>
+            <li>Land the component layer (buttons, cards, forms, tables, badges, statuses, reason chips).</li>
+            <li>Replace the shell in <code>includes/header.php</code> / <code>includes/footer.php</code> with the sidebar + topbar.</li>
+            <li>Convert pages in order of risk: <code>dashboard.php</code> → <code>projects.php</code> → <code>tasks.php</code> → <code>contacts.php</code> → detail pages → forms → auth pages → <code>client/dashboard.php</code>.</li>
+            <li>Run the existing <code>database/*_test.php</code> suite after each page conversion &mdash; those tests assert on HTML structure, so they will catch markup regressions.</li>
+            <li>Delete the per-page inline <code>&lt;style&gt;</code> blocks as each page is converted.</li>
+            <li>Only then remove the v1.8.0 rules from <code>style.css</code>.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-universal-access"></i> 4. Accessibility checklist</h2></div>
+        <div class="card__body">
+          <table class="spec-table">
+            <thead><tr><th>Rule</th><th>Requirement</th><th>Where verified</th></tr></thead>
+            <tbody>
+              <tr><td>Contrast</td><td>Text ≥ 4.5:1, large text and UI borders ≥ 3:1</td><td>Status token pairs in <code>v2-tokens.css</code> §1</td></tr>
+              <tr><td>Focus</td><td>Every interactive element shows a visible focus ring; never <code>outline:none</code> without a replacement</td><td><code>.input:focus</code>, <code>.btn:focus-visible</code></td></tr>
+              <tr><td>Keyboard</td><td>All actions reachable by keyboard; modals trap focus and close on <kbd>Esc</kbd></td><td>Delete-project modal, hold-task modal</td></tr>
+              <tr><td>Labels</td><td>Every input has a <code>&lt;label for&gt;</code>; required fields marked with <code>.req</code> + <code>aria-required</code></td><td>All forms</td></tr>
+              <tr><td>ARIA</td><td>Modals use <code>role="dialog" aria-modal="true"</code>; breadcrumbs use <code>aria-label</code>; icon-only buttons carry <code>aria-label</code></td><td>All modals, breadcrumbs</td></tr>
+              <tr><td>Motion</td><td>Honour <code>prefers-reduced-motion</code>; transitions ≤ 320 ms</td><td><code>--dur-*</code> tokens</td></tr>
+              <tr><td>Status colour</td><td>Status is never conveyed by colour alone &mdash; every badge has a text label</td><td>Status badges, reason chips</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-language"></i> 5. Internationalisation plan</h2></div>
+        <div class="card__body">
+          <p>The internal app is currently English-only; the client portal is bilingual
+          (ENG / &#20013;&#25991;) via <code>client/lang.php</code>. v2.0 keeps the client portal bilingual
+          and prepares the internal app for it without forcing the migration.</p>
+          <ul style="line-height:1.9;margin-bottom:0;">
+            <li>Every client-facing string in the mockup carries <code>data-i18n="English|&#20013;&#25991;"</code> as the interim mechanism.</li>
+            <li>Production keeps the existing <code>t('dash.*')</code> key namespace &mdash; no new key scheme is introduced.</li>
+            <li>The mockup adds keys for the v1.8.0 reason strings: <code>dash.delay_reason</code>, <code>dash.on_hold_reason</code>, <code>dash.delayed_count</code>, <code>dash.on_hold_count</code>.</li>
+            <li>Language choice persists in a 1-year cookie (<code>client_set_lang_cookie</code>) &mdash; the mockup uses <code>localStorage</code> for demo only.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-mobile-screen"></i> 6. Responsive breakpoints</h2></div>
+        <div class="card__body">
+          <table class="spec-table">
+            <thead><tr><th>Breakpoint</th><th>Behaviour</th></tr></thead>
+            <tbody>
+              <tr><td>≥ 1200px</td><td>Full layout. Sidebar 260px expanded, 340px detail column.</td></tr>
+              <tr><td>992&ndash;1199px</td><td>Sidebar collapses to icons (76px); detail column drops below the main column.</td></tr>
+              <tr><td>768&ndash;991px</td><td>Sidebar becomes an off-canvas drawer; stat grid drops to 2 columns; filter bar wraps.</td></tr>
+              <tr><td>&lt; 768px</td><td>Single column; tables scroll horizontally via <code>.table-wrap</code>; stat grid 1 column.</td></tr>
+              <tr><td>&lt; 480px</td><td>Client hero stats stack; page actions wrap to full width.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-circle-half-stroke"></i> 7. Dark mode</h2></div>
+        <div class="card__body">
+          <p>Dark mode is provided through <code>prefers-color-scheme</code> and token overrides only &mdash;
+          no component rule is duplicated. The v2.0 mockup ships the light theme; the token
+          overrides for dark are specified in <code>v2-tokens.css</code> §10 and are opt-in for
+          the production implementation.</p>
+          <p class="text-sm text-muted" style="margin-bottom:0;">Status pairs must be re-checked against the
+          dark surfaces &mdash; the light-theme pairs are guaranteed AA, the dark pairs are the dev's
+          responsibility to verify before shipping.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-shield-halved"></i> 8. Red line</h2></div>
+        <div class="card__body">
+          <div class="alert alert--danger">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div class="alert__body">
+              <div class="alert__title">v2.0 is a restyle, never a refactor of behaviour</div>
+              No route, field, action, permission, CSRF token, rate limit, share-code flow,
+              validation rule or email notification may be removed or weakened by the redesign.
+            </div>
+          </div>
+          <p style="margin-bottom:0;">The authoritative route-by-route and field-by-field mapping is
+          <a href="../../issues/issue-035.md">docs/issues/issue-035.md</a> &sect;9 (Traceability Matrix).
+          Any screen change that cannot be traced to that matrix is out of scope.</p>
+        </div>
+      </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>
