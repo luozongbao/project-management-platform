@@ -1,0 +1,1 @@
+I have an Idea to add flag to .env, .env.example to set "Allow Registration" if set to false then application should not allow any registration both in FE/BE
