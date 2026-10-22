@@ -157,10 +157,10 @@ try {
     $seedUserId = (int)$db->lastInsertId();
 
     $db->execute(
-        "INSERT INTO projects (name, description, scope, share_code,
+        "INSERT INTO projects (name, slug, description, scope, share_code,
                                responsible_person_id, status, created_at)
-         VALUES (?, ?, ?, ?, ?, 'not_started', NOW())",
-        ['Share Project ' . $marker, 'desc', 'scope', $testCode, $seedUserId]
+         VALUES (?, ?, ?, ?, ?, ?, 'not_started', NOW())",
+        ['Share Project ' . $marker, 'share-proj-' . $marker, 'desc', 'scope', $testCode, $seedUserId]
     );
     $seedProjectId = (int)$db->lastInsertId();
 } catch (Throwable $e) {

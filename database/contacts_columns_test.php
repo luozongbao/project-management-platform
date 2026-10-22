@@ -24,6 +24,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/slug.php';
 
 $db = Database::getInstance();
 $failures = [];
@@ -78,9 +79,9 @@ $db->execute(
 $user_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, share_code, responsible_person_id, created_at)
-     VALUES (?, ?, ?, NOW())",
-    [$test_project_name, generateShareCode(), $user_id]
+    "INSERT INTO projects (name, slug, share_code, responsible_person_id, created_at)
+     VALUES (?, ?, ?, ?, NOW())",
+    [$test_project_name, generateUniqueSlug($test_project_name, 'projects'), generateShareCode(), $user_id]
 );
 $project_id = (int)$db->lastInsertId();
 

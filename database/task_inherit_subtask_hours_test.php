@@ -35,6 +35,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/slug.php';
 
 $db = Database::getInstance();
 $failures = [];
@@ -185,9 +186,9 @@ $db->execute(
 $user_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, share_code, responsible_person_id, created_at)
-     VALUES (?, ?, ?, NOW())",
-    [$test_project_name, generateShareCode(), $user_id]
+    "INSERT INTO projects (name, slug, share_code, responsible_person_id, created_at)
+     VALUES (?, ?, ?, ?, NOW())",
+    [$test_project_name, generateUniqueSlug($test_project_name, 'projects'), generateShareCode(), $user_id]
 );
 $project_id = (int)$db->lastInsertId();
 
@@ -393,9 +394,9 @@ $ne_user_id = (int)$db->lastInsertId();
 
 $ne_share_code = generateShareCode();
 $db->execute(
-    "INSERT INTO projects (name, share_code, responsible_person_id, created_at)
-     VALUES (?, ?, ?, NOW())",
-    ['Issue011 NotEst Project ' . bin2hex(random_bytes(3)), $ne_share_code, $ne_user_id]
+    "INSERT INTO projects (name, slug, share_code, responsible_person_id, created_at)
+     VALUES (?, ?, ?, ?, NOW())",
+    [$ne_project_name = 'Issue011 NotEst Project ' . bin2hex(random_bytes(3)), generateUniqueSlug($ne_project_name, 'projects'), $ne_share_code, $ne_user_id]
 );
 $ne_project_id = (int)$db->lastInsertId();
 

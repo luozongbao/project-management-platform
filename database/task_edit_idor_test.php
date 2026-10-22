@@ -104,16 +104,16 @@ $db->execute(
 $user_c_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, description, responsible_person_id, status, created_at)
-     VALUES (?, ?, ?, 'in_progress', NOW())",
-    [$marker . ' project A', 'seed for issue-022', $user_a_id]
+    "INSERT INTO projects (name, slug, description, responsible_person_id, status, created_at)
+     VALUES (?, ?, ?, ?, 'in_progress', NOW())",
+    [$marker . ' project A', 'idor-a-' . $marker, 'seed for issue-022', $user_a_id]
 );
 $project_a_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, description, responsible_person_id, status, created_at)
-     VALUES (?, ?, ?, 'in_progress', NOW())",
-    [$marker . ' project B', 'seed for issue-022', $user_b_id]
+    "INSERT INTO projects (name, slug, description, responsible_person_id, status, created_at)
+     VALUES (?, ?, ?, ?, 'in_progress', NOW())",
+    [$marker . ' project B', 'idor-b-' . $marker, 'seed for issue-022', $user_b_id]
 );
 $project_b_id = (int)$db->lastInsertId();
 

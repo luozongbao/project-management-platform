@@ -46,6 +46,12 @@
  *   6. (caller) fall back to 'item-<id>' if the result is empty
  */
 
+// The three lookup helpers below use Database::getInstance(). Requiring it
+// here rather than relying on the caller keeps this file self-contained: the
+// front controller loads slug.php before it knows which script it will run,
+// so a load order that happens to work in the test would not survive there.
+require_once __DIR__ . '/Database.php';
+
 /**
  * The explicit Latin-1/Latin-Extended transliteration map.
  *
