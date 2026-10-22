@@ -886,7 +886,11 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .task-node--completed { opacity: .72; }
 .task-node__head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .task-node__name { font-weight: var(--fw-medium); color: var(--gray-900); }
-.task-node__name--done { text-decoration: line-through; color: var(--gray-500); }
+/* Completed tasks are shown dimmed, NOT struck through. A line-through reads
+ * as "cancelled / voided" rather than "done", and it also cuts diagonally
+ * through the descenders and the Font Awesome icons in the same row. The
+ * Completed badge plus the 100% bar already carry the status unambiguously. */
+.task-node__name--done { color: var(--gray-500); }
 .task-node__meta {
     display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
     margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--gray-500);
