@@ -132,8 +132,8 @@ $expected_md5 = [
     'config.php'              => 'e3de126d55f2e2f16c397384cba1456b',
     'client/dashboard.php'    => '419acfb35b65b993c568e9ff3b8fedbb',
     'client/lang.php'         => 'c1377682444842f7b3772a8b2b2a1c12',
-    'includes/header.php'     => 'e108491648fa9c41193e3f2b7a923284',
-    'includes/functions.php'  => 'a41fbc8476f5c8307d8cadf4b457b060',
+    'includes/header.php'     => '096210e9a199b12378dfccb383f81903',
+    'includes/functions.php'  => '376bc27eca4e914d0ce4fbeac86bd3ca',
 ];
 
 // --- CSP probe -------------------------------------------------------

@@ -1121,4 +1121,38 @@ if (!function_exists('isShareCodeRateLimited')) {
         return false;
     }
 }
+
+/**
+ * v2.0 Phase 1.3: is a given sidebar destination the active one?
+ *
+ * Marks the nav item matching the current top-level section. Sub-resources
+ * inherit their parent's highlight, so /projects/some-slug and
+ * /projects/some-slug/edit light up "Projects".
+ *
+ * Deliberately reads $_SERVER directly rather than pmpRequestPath():
+ * header.php is included by every page, but includes/Router.php is only
+ * loaded by the index.php front controller, so the router helper is not
+ * guaranteed to exist here.
+ *
+ * @param string $section One of dashboard|projects|tasks|contacts.
+ * @return bool
+ */
+function navIsActive(string $section): bool
+{
+    $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+    $path = parse_url($uri, PHP_URL_PATH);
+    if (!is_string($path) || $path === '') {
+        return false;
+    }
+    // Normalise the legacy .php filenames too, so this stays correct for any
+    // page that has not yet been moved onto the slug routes (Phase 1.4).
+    $path = preg_replace('~\.php$~', '', $path);
+    $path = '/' . trim((string)$path, '/');
+
+    if ($path === '/' . $section) {
+        return true;
+    }
+    // /projects, /projects/new, /projects/<slug>, /projects/<slug>/edit …
+    return strpos($path, '/' . $section . '/') === 0;
+}
 ?>
