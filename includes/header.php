@@ -42,6 +42,11 @@ sendSecurityHeaders();
     <?php endif; ?>
     <title><?= $title ?? APP_NAME ?></title>
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+    <?php // v2.0: layer 1 of the three-layer CSS model. Must load BEFORE
+          // style.css so the component layer can resolve every colour, size,
+          // radius, shadow and z-index through a --* custom property.
+          // See docs/design/2.0/docs-design-notes.html §1. ?>
+    <link rel="stylesheet" href="/assets/css/v2-tokens.css">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="/assets/js/subtask-manager.js" defer></script>

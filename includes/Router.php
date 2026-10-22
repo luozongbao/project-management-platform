@@ -177,6 +177,7 @@ function pmpSendNotFound(string $detail = ''): void
         . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         . '<title>404 — Not found</title>'
         . '<link rel="icon" type="image/png" href="/assets/image/project-favicon.png">'
+        . '<link rel="stylesheet" href="/assets/css/v2-tokens.css">'
         . '<link rel="stylesheet" href="/assets/css/style.css"></head>'
         . '<body class="page"><main class="container"><h1>404</h1>'
         . '<p>The page you asked for does not exist.</p>' . $suffix

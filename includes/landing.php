@@ -146,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e(t('landing.title')) ?> — <?= e(APP_NAME) ?></title>
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+    <link rel="stylesheet" href="/assets/css/v2-tokens.css">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="/client/assets/client.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
