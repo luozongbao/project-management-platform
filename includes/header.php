@@ -185,7 +185,13 @@ sendSecurityHeaders();
           // sidebar and no topbar — a shell with no navigation items would be
           // chrome around a single form. They render bare .content exactly as
           // they did in v1.8.0, and the floating About <details> below stays
-          // reachable per issue-028 §4.1. ?>
-    <main class="content">
+          // reachable per issue-028 §4.1.
+          //
+          // $content_bleed lets a page opt out of .content's padding and
+          // max-width for a full-bleed layout (the v2 auth screens). Set it to
+          // true before including this file. Deliberately NOT implemented with
+          // a `:has()` selector: that would make every full-bleed page depend
+          // on the newest CSS feature in the browser matrix. ?>
+    <main class="content<?= !empty($content_bleed) ? ' content--bleed' : '' ?>">
         <?= isset($title) && $title !== '' ? '<h1 class="sr-only">' . e($title) . '</h1>' : '' ?>
         <?= displayMessage() ?>
