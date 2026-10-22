@@ -230,7 +230,10 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     padding: var(--sp-5) var(--sp-4);
     min-height: var(--topbar-h);
     border-bottom: 1px solid rgba(255,255,255,.06);
-    color: var(--gray-0);
+    /* The sidebar is dark in BOTH colour schemes, so the app name must use a
+     * fixed light colour. A theme token such as --gray-0 would be remapped to
+     * a near-black in dark mode and render the name invisible. */
+    color: #fff;
     font-weight: var(--fw-bold);
     font-size: var(--fs-lg);
     letter-spacing: -0.02em;
@@ -249,7 +252,9 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     display: block;
     font-size: var(--fs-xs);
     font-weight: var(--fw-normal);
-    color: var(--gray-500);
+    /* Fixed light tint: the sidebar background is dark in both schemes, so a
+     * theme-dependent token would drop below AA for this small text. */
+    color: #a9b3c6;
     letter-spacing: 0;
 }
 .sidebar__nav { padding: var(--sp-4) var(--sp-3); flex: 1; }
@@ -259,7 +264,9 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: .08em;
-    color: var(--gray-500);
+    /* Fixed light tint: the sidebar is dark in both schemes, so this must not
+     * follow the theme (it fell to 3.82:1 in light mode as --gray-500). */
+    color: #97a2b8;
 }
 .sidebar__link {
     display: flex;
@@ -267,7 +274,9 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     gap: var(--sp-3);
     padding: var(--sp-3);
     border-radius: var(--r-md);
-    color: var(--gray-300);
+    /* Fixed light tint: --gray-300 is remapped to a near-black in dark mode,
+     * which made every inactive nav item unreadable on the dark sidebar. */
+    color: #cbd3e1;
     font-size: var(--fs-sm);
     font-weight: var(--fw-medium);
     margin-bottom: 2px;
@@ -277,7 +286,7 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .sidebar__link i { width: 20px; text-align: center; flex-shrink: 0; font-size: 1rem; }
 .sidebar__link:hover {
     background: rgba(255,255,255,.06);
-    color: var(--gray-0);
+    color: #fff;
     text-decoration: none;
 }
 .sidebar__link.is-active {
@@ -314,12 +323,14 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .sidebar__user { min-width: 0; flex: 1; }
 .sidebar__user-name {
-    color: var(--gray-0);
+    /* Fixed white: --gray-0 becomes near-black in dark mode, hiding the name. */
+    color: #fff;
     font-size: var(--fs-sm);
     font-weight: var(--fw-medium);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sidebar__user-role { font-size: var(--fs-xs); color: var(--gray-500); }
+/* Fixed light tint for the same reason as the other sidebar text. */
+.sidebar__user-role { font-size: var(--fs-xs); color: #97a2b8; }
 
 /* --- Main column -------------------------------------------------------- */
 .app-main { display: flex; flex-direction: column; min-width: 0; }
@@ -777,6 +788,9 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .table tbody tr:has(+ .reason-row):hover td,
 .table tbody tr.reason-row:hover td { background: var(--gray-100); }
 .reason-row:hover .reason-row__cell { background: var(--gray-100); }
+/* One reason per line: the on-hold and delayed reasons are distinct facts with
+ * different urgency, and side-by-side chips of unequal length read unevenly.
+ * A vertical stack also keeps the longest reason on a single predictable line. */
 .reason-stack {
     display: flex;
     flex-direction: column;
@@ -784,10 +798,6 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     border-left: 2px solid var(--gray-200);
     padding-left: var(--sp-3);
     margin-left: 2px;
-}
-/* Side-by-side when there is room, stacked when the table is narrow. */
-@media (min-width: 1100px) {
-    .reason-stack { flex-direction: row; flex-wrap: wrap; align-items: stretch; }
 }
 /* Full text is shown, so the chip may wrap across lines. */
 .reason-row .reason-chip,
