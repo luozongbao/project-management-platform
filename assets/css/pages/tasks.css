@@ -1,0 +1,193 @@
+/* filepath: assets/css/pages/tasks.css */
+/* Phase 1.4b — Layer 3 for tasks.php.
+ *
+ * The design mockup (docs/design/2.0/tasks.html) renders the task list as a
+ * 9-column table. The real page is deliberately NOT converted to a table: each
+ * task carries a type indicator, description, progress bar, resolved estimate,
+ * on-hold/delay reason chips and inline action buttons, and squeezing that into
+ * 9 columns at typical widths produces unreadable, wrapping cells. The card
+ * layout is preserved and restyled onto v2 tokens instead.
+ *
+ * Everything shared (chips, badges, progress, buttons, alerts, stat cards,
+ * filter bar, empty state) already exists in v2-components.css and is NOT
+ * redefined here — only the card-specific pieces below.
+ */
+
+.tk-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.tk-card {
+  background: var(--gray-0);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.tk-card:hover {
+  border-color: var(--gray-300);
+  box-shadow: var(--sh-xs);
+}
+.tk-card--subtask {
+  border-left: 3px solid var(--gray-300);
+  margin-left: var(--sp-4);
+}
+.tk-card--delayed {
+  border-left: 3px solid var(--danger-500);
+}
+.tk-card--on-hold {
+  border-left: 3px solid var(--warning-500);
+}
+.tk-card--completed {
+  opacity: .78;
+}
+
+.tk-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.tk-head__main {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.tk-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+.tk-title a {
+  color: var(--gray-900);
+  text-decoration: none;
+}
+.tk-title a:hover {
+  color: var(--brand-700);
+  text-decoration: underline;
+}
+
+.tk-project {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--gray-600);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.tk-project a {
+  color: var(--gray-700);
+  text-decoration: none;
+}
+.tk-project a:hover { color: var(--brand-700); text-decoration: underline; }
+
+.tk-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.tk-desc {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--gray-700);
+  line-height: var(--lh-normal);
+}
+.tk-desc p { margin: 0; }
+
+.tk-meta {
+  margin-top: var(--sp-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  align-items: center;
+}
+.tk-meta__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.tk-meta__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--gray-600);
+  white-space: nowrap;
+}
+.tk-meta__item i { color: var(--gray-400); }
+.tk-meta__item--overdue { color: var(--danger-700); font-weight: var(--fw-semibold); }
+.tk-meta__item--overdue i { color: var(--danger-500); }
+.tk-meta__item--done i { color: var(--success-500); }
+
+.tk-inherit {
+  font-size: .9em;
+  color: var(--gray-400);
+  cursor: help;
+}
+
+/* Progress block */
+.tk-progress {
+  margin-top: var(--sp-3);
+}
+.tk-progress__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-1);
+}
+.tk-progress__label {
+  font-size: var(--fs-xs);
+  color: var(--gray-600);
+}
+.tk-progress__value {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--gray-800);
+  font-variant-numeric: tabular-nums;
+}
+
+/* On-hold / delay reason chips, using the shared .reason-chip component. */
+.tk-reasons {
+  margin-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.tk-reasons--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+/* Filter bar: the form wrapper only. Fields/inputs/selects come from
+ * v2-components.css (.filter-bar, .field, .input, .select). */
+.tk-filter-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--sp-4);
+  align-items: end;
+}
+.tk-filter-form .field { margin: 0; }
+.tk-filter-form__actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+/* Project-scoped context chip next to the H1 */
+.tk-context {
+  color: var(--gray-600);
+  font-weight: var(--fw-normal);
+}
+
+/* Narrow screens: stack the card head and drop the indent. */
+@media (max-width: 640px) {
+  .tk-card--subtask { margin-left: 0; }
+  .tk-filter-form { grid-template-columns: 1fr; }
+}

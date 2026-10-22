@@ -124,708 +124,392 @@ $task_stats = $db->fetchOne(
 
 $title = "Tasks";
 $show_nav = true;
+$use_v2_shell = true;
+
+// Page-header subtitle (mockup). Built from data already fetched above, so
+// it costs no extra query. Counts delayed/on-hold the same way the WHERE
+// builder does: "delayed" is a *computed* pseudo-status, not an enum value.
+$__t_total = (int)($task_stats['total_tasks'] ?? 0);
+$__t_completed = (int)($task_stats['completed_tasks'] ?? 0);
+$__t_pending = (int)($task_stats['pending_tasks'] ?? 0);
+$__t_projects = count($user_projects);
+$__t_delayed = 0;
+$__t_on_hold = 0;
+$__t_missing_reason = 0;
+foreach ($tasks as $__t) {
+    $__t_d = ($__t['status'] ?? '') !== 'completed'
+        && !empty($__t['expected_completion_date'])
+        && strtotime((string)$__t['expected_completion_date']) < strtotime(date('Y-m-d'));
+    if ($__t_d) {
+        $__t_delayed++;
+        if (trim((string)($__t['delay_reason'] ?? '')) === '') {
+            $__t_missing_reason++;
+        }
+    }
+    if (($__t['status'] ?? '') === 'on_hold') {
+        $__t_on_hold++;
+    }
+}
+unset($__t);
+
+$__t_subtitle = $__t_total . ' tasks across ' . $__t_projects . ' project'
+    . ($__t_projects === 1 ? '' : 's');
+if ($__t_delayed > 0) {
+    $__t_subtitle .= ' · ' . $__t_delayed . ' delayed';
+}
+if ($__t_on_hold > 0) {
+    $__t_subtitle .= ' · ' . $__t_on_hold . ' on hold';
+}
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="/assets/css/pages/tasks.css">
 
-<div class="page-container">
-    <div class="page-header">
-        <div class="page-title">
-            <h1>
-                <i class="fas fa-tasks"></i>
-                Tasks
-                <?php if ($project_id): ?>
-                    <?php 
-                    $project_name = $db->fetchOne("SELECT name FROM projects WHERE id = ?", [$project_id])['name'];
-                    ?>
-                    <span class="project-context">- <?= e($project_name) ?></span>
-                <?php endif; ?>
-            </h1>
-            <p>Manage and track your project tasks</p>
-        </div>
-        <div class="page-actions">
-            <a href="/tasks/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
-                <i class="fas fa-plus"></i>
-                New Task
-            </a>
-        </div>
+<div class="page-header">
+    <div class="page-header__text">
+        <h1>
+            <i class="fas fa-tasks"></i>
+            Tasks
+            <?php if ($project_id): ?>
+                <?php
+                $project_name = $db->fetchOne("SELECT name FROM projects WHERE id = ?", [$project_id])['name'];
+                ?>
+                <span class="tk-context">· <?= e($project_name) ?></span>
+            <?php endif; ?>
+        </h1>
+        <p class="page-header__sub"><?= e($__t_subtitle) ?></p>
     </div>
-
-    <!-- Task Statistics -->
-    <?php // Issue-034 v1.8.0 — backfill banner when the user lands on the
-          // delayed+missing_reason view from dashboard.php. ?>
-    <?php if ($status_filter === 'delayed' && $missing_reason === '1'): ?>
-        <div class="owner-backfill-banner">
-            <div>
-                <i class="fas fa-hourglass-half" aria-hidden="true"></i>
-                Showing delayed tasks still missing a reason. Edit each one or set the reason inline.
-            </div>
-            <a href="/tasks?status=delayed">
-                Show all delayed &rarr;
-            </a>
-        </div>
-    <?php endif; ?>
-
-    <div class="task-stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon bg-primary">
-                <i class="fas fa-list"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= $task_stats['total_tasks'] ?? 0 ?></h3>
-                <p>Total Tasks</p>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon bg-success">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= $task_stats['completed_tasks'] ?? 0 ?></h3>
-                <p>Completed</p>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon bg-warning">
-                <i class="fas fa-clock"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= $task_stats['pending_tasks'] ?? 0 ?></h3>
-                <p>Pending</p>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon bg-info">
-                <i class="fas fa-chart-pie"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= number_format($task_stats['avg_completion'] ?? 0, 1) ?>%</h3>
-                <p>Avg Progress</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="filters-section">
-        <div class="card">
-            <div class="card-body">
-                <form method="GET" class="filters-form">
-                    <?php if ($project_id): ?>
-                        <input type="hidden" name="project_id" value="<?= $project_id ?>">
-                    <?php endif; ?>
-                    
-                    <div class="filter-group">
-                        <label for="search">Search Tasks:</label>
-                        <input type="text" id="search" name="search" 
-                               value="<?= e($search) ?>" 
-                               placeholder="Search by task name or description...">
-                    </div>
-                    
-                    <?php if (!$project_id): ?>
-                        <div class="filter-group">
-                            <label for="project_filter">Project:</label>
-                            <select id="project_filter" name="project_id">
-                                <option value="">All Projects</option>
-                                <?php foreach ($user_projects as $project): ?>
-                                    <option value="<?= $project['id'] ?>" <?= ($_GET['project_id'] ?? '') == $project['id'] ? 'selected' : '' ?>>
-                                        <?= e($project['name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="filter-group">
-                        <label for="status_filter">Status:</label>
-                        <select id="status_filter" name="status">
-                            <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>All Status</option>
-                            <option value="not_started" <?= $status_filter == 'not_started' ? 'selected' : '' ?>>Not Started</option>
-                            <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                            <option value="completed" <?= $status_filter == 'completed' ? 'selected' : '' ?>>Completed</option>
-                            <option value="on_hold" <?= $status_filter == 'on_hold' ? 'selected' : '' ?>>On Hold</option>
-                            <?php // Issue-034 v1.8.0 — computed "delayed" filter.
-                                  // The option is always rendered so users can
-                                  // intentionally land on it; the WHERE-clause
-                                  // builder special-cases the value (see top
-                                  // of this file). ?>
-                            <option value="delayed" <?= $status_filter == 'delayed' ? 'selected' : '' ?>>Delayed</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-actions">
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="fas fa-search"></i>
-                            Filter
-                        </button>
-                        <a href="/tasks<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-secondary btn-sm">
-                            <i class="fas fa-times"></i>
-                            Clear
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tasks List -->
-    <div class="tasks-container">
-        <?php if (empty($tasks)): ?>
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="fas fa-tasks"></i>
-                </div>
-                <h3>No Tasks Found</h3>
-                <p>
-                    <?php if ($search || $status_filter): ?>
-                        No tasks match your current filters. Try adjusting your search criteria.
-                    <?php else: ?>
-                        You haven't created any tasks yet. Create your first task to get started!
-                    <?php endif; ?>
-                </p>
-                <a href="/tasks/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
-                    <i class="fas fa-plus"></i>
-                    Create First Task
-                </a>
-            </div>
-        <?php else: ?>
-            <div class="tasks-list">
-                <?php foreach ($tasks as $task): ?>
-                    <div class="task-card <?= $task['task_type'] ?>">
-                        <div class="task-header">
-                            <div class="task-type-indicator">
-                                <?php if ($task['task_type'] === 'subtask'): ?>
-                                    <i class="fas fa-level-down-alt" title="Subtask"></i>
-                                <?php else: ?>
-                                    <i class="fas fa-circle" title="Main Task"></i>
-                                <?php endif; ?>
-                            </div>
-                            <div class="task-title">
-                                <h3>
-                                    <a href="/tasks/<?= e($task['slug']) ?>">
-                                        <?= e($task['name']) ?>
-                                    </a>
-                                </h3>
-                                <?php if (!$project_id): ?>
-                                    <div class="project-tag">
-                                        <i class="fas fa-folder"></i>
-                                        <a href="/projects/<?= e($task['project_slug']) ?>">
-                                            <?= e($task['project_name']) ?>
-                                        </a>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="task-actions">
-                                <?php if ($task['status'] !== 'completed' && (int)$task['subtask_count'] === 0): ?>
-                                    <button class="btn btn-sm btn-success quick-complete-btn" 
-                                            data-task-id="<?= $task['id'] ?>" 
-                                            title="Mark as Completed">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn-sm btn-outline" title="Edit Task">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                            </div>
-                        </div>
-                        
-                        <?php if ($task['description']): ?>
-                            <div class="task-description">
-                                <p><?= e(substr($task['description'], 0, 200)) ?><?= strlen($task['description']) > 200 ? '...' : '' ?></p>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <div class="task-meta">
-                            <div class="meta-group">
-                                <span class="status status-<?= $task['status'] ?>">
-                                    <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
-                                    <?php // Issue-034 v1.8.0 — superscript "reason missing"
-                                          // mark. Shown next to the status badge so the
-                                          // project manager can spot the backfill set at
-                                          // a glance in the task list. ?>
-                                    <?php if (($_is_on_hold ?? false) && ($_on_hold_reason ?? '') === ''): ?>
-                                        <i class="fas fa-exclamation-circle status-reason-required"
-                                           title="On-hold reason missing"
-                                           aria-label="On-hold reason missing"></i>
-                                    <?php elseif (($_is_delayed ?? false) && ($_delay_reason ?? '') === ''): ?>
-                                        <i class="fas fa-exclamation-circle status-reason-required"
-                                           title="Delay reason missing"
-                                           aria-label="Delay reason missing"></i>
-                                    <?php endif; ?>
-                                </span>
-                                
-                                <span class="responsible-person">
-                                    <i class="fas fa-user"></i>
-                                    <?= e($task['responsible_person_name']) ?>
-                                </span>
-                                
-                                <?php if ($task['contact_person_name']): ?>
-                                    <span class="contact-person">
-                                        <i class="fas fa-address-card"></i>
-                                        <?= e($task['contact_person_name']) ?>
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="meta-group">
-                                <?php if ($task['expected_completion_date']): ?>
-                                    <span class="deadline <?= strtotime($task['expected_completion_date']) < time() && $task['status'] != 'completed' ? 'overdue' : '' ?>">
-                                        <i class="fas fa-calendar"></i>
-                                        Due: <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
-                                    </span>
-                                <?php endif; ?>
-                                
-                                <?php if ($task['completion_date']): ?>
-                                    <span class="completed-date">
-                                        <i class="fas fa-check-circle"></i>
-                                        Completed: <?= formatDateTime($task['completion_date'], 'M j, Y') ?>
-                                    </span>
-                                <?php endif; ?>
-                                
-                                <?php if ($task['subtask_count'] > 0): ?>
-                                    <span class="subtask-count">
-                                        <i class="fas fa-sitemap"></i>
-                                        <?= $task['subtask_count'] ?> subtasks
-                                    </span>
-                                <?php endif; ?>
-
-                                <?php
-                                $child_estimates_for_task = $childEstimatesByParent[(int)$task['id']] ?? [];
-                                $resolved_total = resolveTaskEstimateHours($task, $child_estimates_for_task);
-                                $inherit_active = !empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0;
-                                ?>
-                                <?php if ($resolved_total !== null): ?>
-                                    <span class="task-estimate">
-                                        <i class="fas fa-clock"></i>
-                                        Total Time: <?= e(formatTaskEstimate($resolved_total)) ?>
-                                        <?php if ($inherit_active): ?>
-                                            <i class="fas fa-link inherit-indicator"
-                                               title="Auto-calculated from sub-tasks"
-                                               aria-label="Auto-calculated from sub-tasks"></i>
-                                        <?php endif; ?>
-                                    </span>
-                                <?php elseif ($inherit_active): ?>
-                                    <?php // Spec issue-011 § "Validation edge cases":
-                                          // inherit-on with no positive child estimates
-                                          // must render the literal "Not estimated
-                                          // (no sub-task estimates)" copy
-                                          // (issue-011 tester-note-001). ?>
-                                    <span class="task-estimate not-estimated">
-                                        <i class="fas fa-clock"></i>
-                                        Total Time: Not estimated (no sub-task estimates)
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        
-                        <div class="task-progress">
-                            <div class="progress-info">
-                                <span class="progress-label">Progress</span>
-                                <span class="progress-percentage"><?= number_format($task['completion_percentage'], 0) ?>%</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
-                            </div>
-                        </div>
-
-                        <?php // Issue-034 v1.8.0 — status reason chip + missing-reason
-                              // superscript icon. Re-uses the same "computed delayed"
-                              // rule as dashboard.php; the on-hold chip renders when
-                              // status = on_hold. The status badge gets a small red
-                              // `!` mark whenever the chip would have been there but
-                              // reason is still NULL — this is the affordance that
-                              // drove the dashboard backfill banner. ?>
-                        <?php
-                            $_is_delayed = ($task['status'] ?? '') !== 'completed'
-                                && !empty($task['expected_completion_date'])
-                                && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
-                            $_is_on_hold = ($task['status'] ?? '') === 'on_hold';
-                            $_delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
-                            $_on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
-                        ?>
-                        <?php if ($_is_on_hold && $_on_hold_reason !== ''): ?>
-                            <div class="task-reason on-hold">
-                                <span class="task-reason-label">On Hold:</span>
-                                <?= e($_on_hold_reason) ?>
-                            </div>
-                        <?php endif; ?>
-                        <?php if ($_is_delayed && $_delay_reason !== ''): ?>
-                            <div class="task-reason delay">
-                                <span class="task-reason-label">Delayed:</span>
-                                <?= e($_delay_reason) ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
+    <div class="page-actions">
+        <a href="/tasks/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn--primary">
+            <i class="fas fa-plus"></i>
+            New Task
+        </a>
     </div>
 </div>
 
-<style>
-.page-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
+<?php // Issue-034 v1.8.0 — backfill banner when the user lands on the
+      // delayed+missing_reason view from dashboard.php. Promoted from the
+      // page-local .owner-backfill-banner to the shared v2 .alert. ?>
+<?php if ($status_filter === 'delayed' && $missing_reason === '1'): ?>
+    <div class="alert alert--info" role="status">
+        <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+        <div class="alert__body">
+            Showing delayed tasks still missing a reason. Edit each one or set the reason inline.
+            <div style="margin-top:.6rem;">
+                <a href="/tasks?status=delayed">Show all delayed &rarr;</a>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid #f1f3f4;
-}
+<div class="stat-grid">
+    <div class="stat">
+        <div class="stat__icon"><i class="fas fa-list-check"></i></div>
+        <div>
+            <div class="stat__value"><?= $__t_total ?></div>
+            <div class="stat__label">Total Tasks</div>
+        </div>
+    </div>
 
-.page-title h1 {
-    margin: 0 0 8px 0;
-    color: #333;
-    font-size: 2rem;
-}
+    <div class="stat stat--success">
+        <div class="stat__icon"><i class="fas fa-circle-check"></i></div>
+        <div>
+            <div class="stat__value"><?= $__t_completed ?></div>
+            <div class="stat__label">Completed</div>
+        </div>
+    </div>
 
-.page-title p {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
-}
+    <div class="stat stat--on-hold">
+        <div class="stat__icon"><i class="fas fa-hourglass-half"></i></div>
+        <div>
+            <div class="stat__value"><?= $__t_pending ?></div>
+            <div class="stat__label">Pending</div>
+        </div>
+    </div>
 
-.page-actions {
-    flex-shrink: 0;
-}
+    <div class="stat stat--info">
+        <div class="stat__icon"><i class="fas fa-chart-pie"></i></div>
+        <div>
+            <div class="stat__value"><?= number_format($task_stats['avg_completion'] ?? 0, 1) ?>%</div>
+            <div class="stat__label">Avg Progress</div>
+        </div>
+    </div>
+</div>
 
-.project-context {
-    color: #666;
-    font-weight: normal;
-    font-size: 1.5rem;
-}
+<div class="card">
+    <div class="card__body">
+        <form method="GET" class="tk-filter-form" data-filter-form>
+            <?php if ($project_id): ?>
+                <input type="hidden" name="project_id" value="<?= $project_id ?>">
+            <?php endif; ?>
 
-.task-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
+            <div class="field">
+                <label for="search">Search Tasks</label>
+                <input class="input" type="search" id="search" name="search"
+                       value="<?= e($search) ?>"
+                       placeholder="Task name or description...">
+            </div>
 
-.stat-card {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
+            <?php if (!$project_id): ?>
+                <div class="field">
+                    <label for="project_filter">Project</label>
+                    <select class="select" id="project_filter" name="project_id">
+                        <option value="">All Projects</option>
+                        <?php foreach ($user_projects as $project): ?>
+                            <option value="<?= $project['id'] ?>" <?= ($_GET['project_id'] ?? '') == $project['id'] ? 'selected' : '' ?>>
+                                <?= e($project['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
 
-.stat-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    color: white;
-}
+            <div class="field">
+                <label for="status_filter">Status</label>
+                <select class="select" id="status_filter" name="status">
+                    <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>All Status</option>
+                    <option value="not_started" <?= $status_filter == 'not_started' ? 'selected' : '' ?>>Not Started</option>
+                    <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                    <option value="completed" <?= $status_filter == 'completed' ? 'selected' : '' ?>>Completed</option>
+                    <option value="on_hold" <?= $status_filter == 'on_hold' ? 'selected' : '' ?>>On Hold</option>
+                    <?php // Issue-034 v1.8.0 — computed "delayed" filter.
+                          // The option is always rendered so users can
+                          // intentionally land on it; the WHERE-clause
+                          // builder special-cases the value (see top
+                          // of this file). ?>
+                    <option value="delayed" <?= $status_filter == 'delayed' ? 'selected' : '' ?>>Delayed</option>
+                </select>
+            </div>
 
-.stat-icon.bg-primary { background: linear-gradient(45deg, #007bff, #0056b3); }
-.stat-icon.bg-success { background: linear-gradient(45deg, #28a745, #1e7e34); }
-.stat-icon.bg-warning { background: linear-gradient(45deg, #ffc107, #e0a800); }
-.stat-icon.bg-info { background: linear-gradient(45deg, #17a2b8, #117a8b); }
+            <div class="tk-filter-form__actions">
+                <button type="submit" class="btn btn--primary">
+                    <i class="fas fa-filter"></i>
+                    Apply
+                </button>
+                <a href="/tasks<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn--secondary">
+                    <i class="fas fa-rotate-left"></i>
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
 
-.stat-content h3 {
-    margin: 0 0 5px 0;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #333;
-}
+    <!-- Tasks List -->
+    <?php if (empty($tasks)): ?>
+        <div class="empty-state">
+            <div class="empty-state__icon">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <h3>No Tasks Found</h3>
+            <p>
+                <?php if ($search || $status_filter): ?>
+                    No tasks match your current filters. Try adjusting your search criteria.
+                <?php else: ?>
+                    You haven't created any tasks yet. Create your first task to get started!
+                <?php endif; ?>
+            </p>
+            <a href="/tasks/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn--primary">
+                <i class="fas fa-plus"></i>
+                Create First Task
+            </a>
+        </div>
+    <?php else: ?>
+        <div class="tk-list">
+            <?php foreach ($tasks as $task): ?>
+                <?php // Issue-034 v1.8.0 — the computed "delayed" pseudo-status
+                      // and the reason-presence checks.
+                      //
+                      // NOTE: this block was previously placed *below* the
+                      // markup that reads $_is_on_hold/$_on_hold_reason, so the
+                      // "reason missing" icon at the top of each card was
+                      // evaluated against the PREVIOUS row's values (and
+                      // against nothing at all on the first row). It is hoisted
+                      // here so the icon reflects the task actually being
+                      // rendered. Pure ordering fix; the rules are unchanged. ?>
+                <?php
+                    $_is_delayed = ($task['status'] ?? '') !== 'completed'
+                        && !empty($task['expected_completion_date'])
+                        && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+                    $_is_on_hold = ($task['status'] ?? '') === 'on_hold';
+                    $_delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
+                    $_on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
 
-.stat-content p {
-    margin: 0;
-    color: #666;
-    font-weight: 500;
-}
+                    // Card accent matches the computed status.
+                    $__tk_mod = '';
+                    if ($_is_on_hold) {
+                        $__tk_mod = ' tk-card--on-hold';
+                    } elseif ($_is_delayed) {
+                        $__tk_mod = ' tk-card--delayed';
+                    } elseif (($task['status'] ?? '') === 'completed') {
+                        $__tk_mod = ' tk-card--completed';
+                    }
+                    $__tk_mod .= ($task['task_type'] === 'subtask') ? ' tk-card--subtask' : '';
 
-.filters-section {
-    margin-bottom: 30px;
-}
+                    // Inline estimate resolution (issue-011).
+                    $child_estimates_for_task = $childEstimatesByParent[(int)$task['id']] ?? [];
+                    $resolved_total = resolveTaskEstimateHours($task, $child_estimates_for_task);
+                    $inherit_active = !empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0;
+                ?>
+                <div class="tk-card<?= $__tk_mod ?>">
+                    <div class="tk-head">
+                        <div class="tk-head__main">
+                            <h3 class="tk-title">
+                                <i class="fas <?= $task['task_type'] === 'subtask' ? 'fa-level-down-alt' : 'fa-circle' ?>"
+                                   title="<?= $task['task_type'] === 'subtask' ? 'Subtask' : 'Main Task' ?>"
+                                   style="font-size:.7em;color:var(--gray-400);vertical-align:middle;"></i>
+                                <a href="/tasks/<?= e($task['slug']) ?>"><?= e($task['name']) ?></a>
+                            </h3>
+                            <?php if (!$project_id): ?>
+                                <div class="tk-project">
+                                    <i class="fas fa-folder"></i>
+                                    <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="tk-actions">
+                            <?php if ($task['status'] !== 'completed' && (int)$task['subtask_count'] === 0): ?>
+                                <button class="btn btn--sm btn--success quick-complete-btn"
+                                        data-task-id="<?= $task['id'] ?>"
+                                        title="Mark as Completed">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            <?php endif; ?>
+                            <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn--sm btn--ghost btn--icon" title="Edit Task">
+                                <i class="fas fa-pen"></i>
+                            </a>
+                            <a href="/tasks/<?= e($task['slug']) ?>" class="btn btn--sm btn--ghost btn--icon" title="Open">
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
 
-.filters-form {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
-    gap: 20px;
-    align-items: end;
-}
+                    <?php if ($task['description']): ?>
+                        <div class="tk-desc">
+                            <p><?= e(substr($task['description'], 0, 200)) ?><?= strlen($task['description']) > 200 ? '...' : '' ?></p>
+                        </div>
+                    <?php endif; ?>
 
-.filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
+                    <div class="tk-meta">
+                        <div class="tk-meta__group">
+                            <span class="status status--<?= $task['status'] ?>">
+                                <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
+                                <?php // Issue-034 v1.8.0 — superscript "reason missing"
+                                      // mark. Shown next to the status badge so the
+                                      // project manager can spot the backfill set at
+                                      // a glance in the task list. ?>
+                                <?php if ($_is_on_hold && $_on_hold_reason === ''): ?>
+                                    <i class="fas fa-exclamation-circle reason-missing"
+                                       title="On-hold reason missing"
+                                       aria-label="On-hold reason missing"></i>
+                                <?php elseif ($_is_delayed && $_delay_reason === ''): ?>
+                                    <i class="fas fa-exclamation-circle reason-missing"
+                                       title="Delay reason missing"
+                                       aria-label="Delay reason missing"></i>
+                                <?php endif; ?>
+                            </span>
 
-.filter-group label {
-    font-weight: 500;
-    color: #333;
-    font-size: 14px;
-}
+                            <?php if ($task['responsible_person_name']): ?>
+                                <span class="tk-meta__item">
+                                    <i class="fas fa-user"></i>
+                                    <?= e($task['responsible_person_name']) ?>
+                                </span>
+                            <?php endif; ?>
 
-.filter-actions {
-    display: flex;
-    gap: 10px;
-}
+                            <?php if ($task['contact_person_name']): ?>
+                                <span class="tk-meta__item">
+                                    <i class="fas fa-address-card"></i>
+                                    <?= e($task['contact_person_name']) ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
 
-.tasks-container {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    padding: 0;
-    overflow: hidden;
-}
+                        <div class="tk-meta__group">
+                            <?php if ($task['expected_completion_date']): ?>
+                                <?php $__tk_overdue = strtotime($task['expected_completion_date']) < time() && $task['status'] != 'completed'; ?>
+                                <span class="tk-meta__item<?= $__tk_overdue ? ' tk-meta__item--overdue' : '' ?>">
+                                    <i class="fas fa-calendar"></i>
+                                    Due: <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
+                                </span>
+                            <?php endif; ?>
 
-.tasks-list {
-    padding: 0;
-}
+                            <?php if ($task['completion_date']): ?>
+                                <span class="tk-meta__item tk-meta__item--done">
+                                    <i class="fas fa-circle-check"></i>
+                                    Completed: <?= formatDateTime($task['completion_date'], 'M j, Y') ?>
+                                </span>
+                            <?php endif; ?>
 
-.task-card {
-    padding: 25px;
-    border-bottom: 1px solid #f1f3f4;
-    transition: all 0.3s ease;
-}
+                            <?php if ((int)$task['subtask_count'] > 0): ?>
+                                <span class="tk-meta__item">
+                                    <i class="fas fa-sitemap"></i>
+                                    <?= $task['subtask_count'] ?> subtasks
+                                </span>
+                            <?php endif; ?>
 
-.task-card:last-child {
-    border-bottom: none;
-}
+                            <?php if ($resolved_total !== null): ?>
+                                <span class="tk-meta__item">
+                                    <i class="fas fa-clock"></i>
+                                    Total Time: <?= e(formatTaskEstimate($resolved_total)) ?>
+                                    <?php if ($inherit_active): ?>
+                                        <i class="fas fa-link tk-inherit"
+                                           title="Auto-calculated from sub-tasks"
+                                           aria-label="Auto-calculated from sub-tasks"></i>
+                                    <?php endif; ?>
+                                </span>
+                            <?php elseif ($inherit_active): ?>
+                                <?php // Spec issue-011 § "Validation edge cases":
+                                      // inherit-on with no positive child estimates
+                                      // must render the literal "Not estimated
+                                      // (no sub-task estimates)" copy
+                                      // (issue-011 tester-note-001). ?>
+                                <span class="tk-meta__item">
+                                    <i class="fas fa-clock"></i>
+                                    Total Time: Not estimated (no sub-task estimates)
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
 
-.task-card:hover {
-    background: #f8f9fa;
-}
+                    <div class="tk-progress">
+                        <div class="tk-progress__head">
+                            <span class="tk-progress__label">Progress</span>
+                            <span class="tk-progress__value"><?= number_format($task['completion_percentage'], 0) ?>%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress__fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
+                        </div>
+                    </div>
 
-.task-card.subtask {
-    background: #f8f9fa;
-    border-left: 4px solid #007bff;
-    margin-left: 20px;
-}
+                    <?php // Issue-034 v1.8.0 — status reason chips. Re-uses the
+                          // shared .reason-chip component; the on-hold chip
+                          // renders when status = on_hold. The status badge
+                          // gets the red `!` mark whenever the chip would have
+                          // been there but the reason is still NULL — that is
+                          // the affordance the dashboard backfill banner drives. ?>
+                    <?php if ($_is_on_hold && $_on_hold_reason !== '' || $_is_delayed && $_delay_reason !== ''): ?>
+                        <div class="tk-reasons">
+                            <?php if ($_is_on_hold && $_on_hold_reason !== ''): ?>
+                                <div class="reason-chip reason-chip--on-hold"
+                                     title="On hold: <?= e($_on_hold_reason) ?>">
+                                    <i class="fas fa-pause"></i>
+                                    <span><strong>On hold:</strong> <?= e($_on_hold_reason) ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if ($_is_delayed && $_delay_reason !== ''): ?>
+                                <div class="reason-chip reason-chip--delay"
+                                     title="Delayed: <?= e($_delay_reason) ?>">
+                                    <i class="fas fa-clock-rotate-left"></i>
+                                    <span><strong>Delayed:</strong> <?= e($_delay_reason) ?></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 
-.task-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.task-type-indicator {
-    padding-top: 5px;
-    color: #666;
-}
-
-.task-title {
-    flex: 1;
-}
-
-.task-title h3 {
-    margin: 0 0 8px 0;
-    font-size: 1.2rem;
-}
-
-.task-title h3 a {
-    color: #333;
-    text-decoration: none;
-}
-
-.task-title h3 a:hover {
-    color: #007bff;
-}
-
-.project-tag {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.project-tag a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.project-tag a:hover {
-    text-decoration: underline;
-}
-
-.task-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.task-description {
-    margin-bottom: 15px;
-    padding-left: 35px;
-}
-
-.task-description p {
-    margin: 0;
-    color: #666;
-    line-height: 1.5;
-}
-
-.task-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding-left: 35px;
-    flex-wrap: wrap;
-    gap: 15px;
-}
-
-.meta-group {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.meta-group > span {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.deadline.overdue {
-    color: #dc3545;
-    font-weight: 500;
-}
-
-.completed-date {
-    color: #28a745;
-}
-
-.task-progress {
-    padding-left: 35px;
-}
-
-.progress-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.progress-label {
-    font-weight: 500;
-    color: #333;
-    font-size: 0.9rem;
-}
-
-.progress-percentage {
-    font-weight: 600;
-    color: #007bff;
-    font-size: 0.9rem;
-}
-
-.progress-bar {
-    height: 6px;
-    background: #e9ecef;
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #007bff, #0056b3);
-    border-radius: 3px;
-    transition: width 0.3s ease;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-}
-
-.empty-icon i {
-    font-size: 4rem;
-    color: #dee2e6;
-    margin-bottom: 25px;
-}
-
-.empty-state h3 {
-    margin: 0 0 15px 0;
-    color: #333;
-    font-size: 1.5rem;
-}
-
-.empty-state p {
-    margin: 0 0 25px 0;
-    color: #666;
-    font-size: 1rem;
-    line-height: 1.6;
-}
-
-@media (max-width: 768px) {
-    .page-container {
-        padding: 15px;
-    }
-    
-    .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
-    
-    .page-actions {
-        align-self: flex-end;
-    }
-    
-    .task-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-    }
-    
-    .filters-form {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-    
-    .filter-actions {
-        justify-content: stretch;
-    }
-    
-    .filter-actions .btn {
-        flex: 1;
-    }
-    
-    .task-header {
-        flex-direction: column;
-        gap: 10px;
-        align-items: stretch;
-    }
-    
-    .task-description,
-    .task-meta,
-    .task-progress {
-        padding-left: 0;
-    }
-    
-    .task-meta {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
-    
-    .meta-group {
-        justify-content: center;
-    }
-    
-    .task-card.subtask {
-        margin-left: 10px;
-    }
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

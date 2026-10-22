@@ -176,8 +176,14 @@ ok(strpos($tasks, 'value="delayed"') !== false,
     'tasks.php is missing the Delayed filter <option value="delayed">');
 ok(strpos($tasks, "missing_reason") !== false || strpos($tasks, 'missing_reason') !== false,
     'tasks.php is missing the missing_reason query parameter handling');
-ok(strpos($tasks, 'status-reason-required') !== false,
-    'tasks.php is missing the .status-reason-required "missing reason" badge icon');
+//    v2.0 issue-035 Phase 1.4b: the page-local `.status-reason-required`
+//    class was replaced by the shared v2 component `.reason-missing`
+//    (defined in assets/css/v2-components.css), so tasks.php now uses
+//    the same vocabulary as the reason chips beside it. The assertion
+//    is unchanged in intent: tasks.php must still render the "missing
+//    reason" badge icon.
+ok(strpos($tasks, 'reason-missing') !== false,
+    'tasks.php is missing the "missing reason" badge icon');
 ok(strpos($tasks, "expected_completion_date IS NOT NULL") !== false
     || strpos($tasks, 'expected_completion_date IS NOT NULL') !== false,
     'tasks.php is missing the expected_completion_date IS NOT NULL guard in the delayed-filter WHERE builder');
