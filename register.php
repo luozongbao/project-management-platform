@@ -91,226 +91,95 @@ if ($_POST) {
 }
 
 $title = "Register";
+$use_v2_shell = true;
+$content_bleed = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="/assets/css/pages/auth.css">
 
-<div class="auth-container">
-    <div class="auth-form">
-        <div class="auth-header">
-            <i class="fas fa-user-plus"></i>
-            <h1>Create Account</h1>
-            <p>Join <?= APP_NAME ?> today</p>
+<div class="auth-shell">
+    <aside class="auth-aside">
+        <div class="auth-aside__brand">
+            <span class="auth-aside__brand-icon"><i class="fas fa-project-diagram"></i></span>
+            <?= APP_NAME ?>
         </div>
-        
-        <?php if ($success): ?>
-            <div class="alert alert-success">
-                <h4>Registration Successful!</h4>
-                <p>Your account has been created successfully. We've sent a password setup link to your email address.</p>
-                <p>Please check your email and follow the instructions to set your password.</p>
-                <p><a href="/login">Return to Login</a></p>
-            </div>
-        <?php else: ?>
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger">
-                    <?php foreach ($errors as $error): ?>
-                        <div><?= e($error) ?></div>
-                    <?php endforeach; ?>
+        <div>
+            <h2 class="auth-aside__headline">Set up your<br>workspace in<br>under a minute.</h2>
+            <p class="auth-aside__sub">One owner account gives you projects, tasks, subtasks, contacts and a client-facing share portal.</p>
+            <ul class="auth-aside__points">
+                <li><i class="fas fa-circle-check"></i><span>Projects with budget, scope and three milestone dates</span></li>
+                <li><i class="fas fa-circle-check"></i><span>Tasks and subtasks with completion tracking</span></li>
+                <li><i class="fas fa-circle-check"></i><span>Contacts linked to projects and tasks</span></li>
+            </ul>
+        </div>
+        <div class="auth-aside__foot"><?= APP_VERSION ?> &middot; <?= APP_NAME ?></div>
+    </aside>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            <?php if ($success): ?>
+                <h1>Registration Successful!</h1>
+                <p class="auth-card__sub">Your account has been created.</p>
+
+                <div class="alert alert--success" role="alert">
+                    <i class="fas fa-circle-check"></i>
+                    <div class="alert__body">
+                        <div class="alert__title">Check your email</div>
+                        <p>We've sent a password setup link to your email address.</p>
+                        <p>Please check your email and follow the instructions to set your password.</p>
+                        <p><a href="/login">Return to Login</a></p>
+                    </div>
                 </div>
+            <?php else: ?>
+                <h1>Create your account</h1>
+                <p class="auth-card__sub">Already have an account? <a href="/login">Sign in</a>.</p>
+
+                <?php if (!empty($errors)): ?>
+                    <div class="alert alert--danger" role="alert">
+                        <i class="fas fa-circle-exclamation"></i>
+                        <div class="alert__body">
+                            <?php foreach ($errors as $error): ?>
+                                <div><?= e($error) ?></div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST" action="">
+                    <div class="field">
+                        <label for="name">Full Name</label>
+                        <input class="input" type="text" id="name" name="name"
+                               value="<?= e($_POST['name'] ?? '') ?>" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="username">Username</label>
+                        <input class="input" type="text" id="username" name="username"
+                               value="<?= e($_POST['username'] ?? '') ?>"
+                               minlength="3" required>
+                        <span class="hint">Must be at least 3 characters long</span>
+                    </div>
+
+                    <div class="field">
+                        <label for="email">Email Address</label>
+                        <input class="input" type="email" id="email" name="email"
+                               value="<?= e($_POST['email'] ?? '') ?>" required>
+                    </div>
+
+                    <button type="submit" class="btn btn--primary btn--lg btn--block" style="margin-top: 1rem;">
+                        <i class="fas fa-user-plus"></i>
+                        Create Account
+                    </button>
+                </form>
             <?php endif; ?>
-            
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label for="name">
-                        <i class="fas fa-user"></i>
-                        Full Name
-                    </label>
-                    <input type="text" id="name" name="name" 
-                           value="<?= e($_POST['name'] ?? '') ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="username">
-                        <i class="fas fa-at"></i>
-                        Username
-                    </label>
-                    <input type="text" id="username" name="username" 
-                           value="<?= e($_POST['username'] ?? '') ?>" 
-                           minlength="3" required>
-                    <small>Must be at least 3 characters long</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="email">
-                        <i class="fas fa-envelope"></i>
-                        Email Address
-                    </label>
-                    <input type="email" id="email" name="email" 
-                           value="<?= e($_POST['email'] ?? '') ?>" required>
-                </div>
-                
-                <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fas fa-user-plus"></i>
-                    Create Account
-                </button>
-            </form>
-        <?php endif; ?>
-        
-        <div class="auth-links">
-            <a href="/login">Already have an account? Sign in</a>
+
+            <div class="auth-card__foot">
+                <a href="/"><i class="fas fa-key"></i> Client? Enter your share code</a>
+            </div>
         </div>
-    </div>
+    </main>
 </div>
 
-<style>
-.main-content.no-nav {
-    padding: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.auth-container {
-    width: 100%;
-    max-width: 400px;
-    padding: 20px;
-}
-
-.auth-form {
-    background: white;
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.auth-header {
-    text-align: center;
-    margin-bottom: 30px;
-}
-
-.auth-header i {
-    font-size: 48px;
-    color: #28a745;
-    margin-bottom: 10px;
-}
-
-.auth-header h1 {
-    margin: 10px 0;
-    color: #333;
-    font-size: 24px;
-}
-
-.auth-header p {
-    color: #666;
-    margin: 0;
-}
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #333;
-}
-
-.form-group label i {
-    margin-right: 8px;
-    color: #666;
-    width: 16px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-    box-sizing: border-box;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #28a745;
-    box-shadow: 0 0 0 2px rgba(40,167,69,0.25);
-}
-
-.form-group small {
-    display: block;
-    margin-top: 5px;
-    color: #666;
-    font-size: 12px;
-}
-
-.btn {
-    display: inline-block;
-    padding: 12px 24px;
-    text-decoration: none;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.3s;
-    text-align: center;
-}
-
-.btn-primary {
-    background: #28a745;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #218838;
-}
-
-.btn-block {
-    width: 100%;
-}
-
-.auth-links {
-    text-align: center;
-    margin-top: 30px;
-}
-
-.auth-links a {
-    display: block;
-    margin: 10px 0;
-    color: #007bff;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.auth-links a:hover {
-    text-decoration: underline;
-}
-
-.alert {
-    padding: 12px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-}
-
-.alert-danger {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.alert-success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.alert h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-}
-</style>
 
 <?php include 'includes/footer.php'; ?>
