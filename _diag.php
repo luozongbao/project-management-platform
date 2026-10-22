@@ -130,7 +130,7 @@ $files_to_check = [
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
     'config.php'              => 'e3de126d55f2e2f16c397384cba1456b',
-    'client/dashboard.php'    => '419acfb35b65b993c568e9ff3b8fedbb',
+    'client/dashboard.php'    => '6ee950061c4b28a1b4dd3c57c4394b00',
     'client/lang.php'         => 'c1377682444842f7b3772a8b2b2a1c12',
     'includes/header.php'     => '029ea983dd228daa8ca4c3ecdaa324a3',
     'includes/functions.php'  => '376bc27eca4e914d0ce4fbeac86bd3ca',

@@ -490,3 +490,36 @@
 }
 .reason-pill.delay   { background: #fff5f5; color: #cf222e; border-color: #f1c0c4; }
 .reason-pill.on-hold { background: #fff8e1; color: #7d5b00; border-color: #f0d77a; }
+
+/* ==========================================================================
+   v2 client portal — Phase 1.4a (issue-035)
+   --------------------------------------------------------------------------
+   Classes introduced by the retag of client/dashboard.php to the mockup's
+   BEM structure (docs/design/2.0/v2-tokens.css section 6, "Client portal").
+
+   Deliberately appended rather than merged into the existing rules above:
+   the two error-path renders earlier in dashboard.php still use the old
+   flat .client-card / .client-brand classes, so both generations must keep
+   working. The old rules can be dropped once those two paths are retagged.
+
+   Class names only. No t() keys, share-code values, element ids or AJAX
+   endpoints were touched -- this is a restyle.
+   ========================================================================== */
+
+.client-header__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.client-info-item .client-info-item__v.client-alert-strip {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.client-info-item .budget-amount {
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+}

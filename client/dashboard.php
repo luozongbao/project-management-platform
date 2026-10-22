@@ -345,12 +345,18 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
 <body class="client-body">
 
 <header class="client-header">
-    <div class="client-header-inner">
-        <div class="client-brand">
-            <i class="fas fa-project-diagram"></i>
+    <div class="client-header__inner">
+        <div class="client-header__brand">
+            <span class="client-header__brand-icon"><i class="fas fa-project-diagram"></i></span>
             <span><?= e(APP_NAME) ?> — <?= e(t('dash.brand_suffix')) ?></span>
         </div>
-        <div class="client-header-right">
+        <div class="client-header__project">
+            <div class="client-header__project-name"><?= e($project['name']) ?></div>
+            <div class="client-header__project-meta">
+                <span><?= e(t('dash.code_label')) ?>: <code><?= e($project['share_code']) ?></code></span>
+            </div>
+        </div>
+        <div class="client-header__tools">
             <span class="text-muted"><?= e(t('dash.code_label')) ?>: <code><?= e($project['share_code']) ?></code></span>
             <details class="app-about" aria-label="<?= e(t('about.trigger_aria')) ?>">
                 <summary class="app-about-trigger" aria-label="<?= e(t('about.trigger_aria')) ?>" title="<?= e(t('about.trigger_aria')) ?>">?</summary>
@@ -385,59 +391,79 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
             <p class="project-description"><?= nl2br(e($project['description'])) ?></p>
         <?php endif; ?>
 
-        <div class="project-summary-grid">
-            <div>
-                <h3 class="info-heading"><i class="fas fa-chart-pie"></i> <?= e(t('dash.overall')) ?></h3>
-                <div class="big-progress">
-                    <div class="progress-bar big"><div class="progress-fill" style="width:<?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%"></div></div>
-                    <div class="big-progress-number"><?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%</div>
+        <div class="client-hero">
+            <div class="client-hero__label"><?= e(t('dash.overall')) ?></div>
+            <div class="client-hero__value"><?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%</div>
+            <div class="client-hero__bar">
+                <div class="client-hero__bar-fill" style="width:<?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%"></div>
+            </div>
+            <div class="client-hero__stats">
+                <div>
+                    <div class="client-hero__stat-label"><?= e(t('dash.tasks')) ?></div>
+                    <div class="client-hero__stat-value"><?= (int)$project['total_tasks'] ?></div>
                 </div>
-                <p class="text-muted"><small><?= e(t('dash.overall_note')) ?></small></p>
+                <div>
+                    <div class="client-hero__stat-label"><?= e(t('dash.completed_count')) ?></div>
+                    <div class="client-hero__stat-value"><?= (int)$project['completed_tasks'] ?></div>
+                </div>
+                <div>
+                    <div class="client-hero__stat-label"><?= e(t('dash.open')) ?></div>
+                    <div class="client-hero__stat-value"><?= (int)$project['uncompleted_tasks'] ?></div>
+                </div>
             </div>
-            <div>
-                <h3 class="info-heading"><i class="fas fa-info-circle"></i> <?= e(t('dash.project_info')) ?></h3>
-                <ul class="kv-list">
-                    <li><span class="k"><?= e(t('dash.started')) ?></span><span class="v"><?= !empty($project['start_date']) ? e(formatDateTime($project['start_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></span></li>
-                    <li><span class="k"><?= e(t('dash.expected')) ?></span><span class="v"><?= $project['expected_completion_date'] ? e(formatDateTime($project['expected_completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></span></li>
-                    <li><span class="k"><?= e(t('dash.completed')) ?></span><span class="v"><?= $project['completion_date'] ? e(formatDateTime($project['completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.in_progress')) . '</em>' ?></span></li>
-                    <li><span class="k"><?= e(t('dash.manager')) ?></span><span class="v"><?= e($project['owner_name']) ?></span></li>
-                    <?php // Issue-034 v1.8.0 — project-level "X delayed, Y on hold"
-                          // summary chip row. Renders ONLY when at least one
-                          // of the two counters is non-zero so the manager
-                          // row stays uncluttered on healthy projects. ?>
-                    <?php if ($project_delayed_count > 0 || $project_on_hold_count > 0): ?>
-                        <li>
-                            <span class="k"><i class="fas fa-flag" aria-hidden="true"></i></span>
-                            <span class="v">
-                                <?php if ($project_delayed_count > 0): ?>
-                                    <span class="reason-pill delay">
-                                        <?= (int)$project_delayed_count ?> <?= e(t('dash.delayed')) ?>
-                                    </span>
-                                <?php endif; ?>
-                                <?php if ($project_on_hold_count > 0): ?>
-                                    <span class="reason-pill on-hold">
-                                        <?= (int)$project_on_hold_count ?> <?= e(t('dash.on_hold')) ?>
-                                    </span>
-                                <?php endif; ?>
+        </div>
+
+        <div class="client-info-grid">
+            <div class="client-info-item">
+                <div class="client-info-item__k"><?= e(t('dash.started')) ?></div>
+                <div class="client-info-item__v"><?= !empty($project['start_date']) ? e(formatDateTime($project['start_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></div>
+            </div>
+            <div class="client-info-item">
+                <div class="client-info-item__k"><?= e(t('dash.expected')) ?></div>
+                <div class="client-info-item__v"><?= $project['expected_completion_date'] ? e(formatDateTime($project['expected_completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></div>
+            </div>
+            <div class="client-info-item">
+                <div class="client-info-item__k"><?= e(t('dash.completed')) ?></div>
+                <div class="client-info-item__v"><?= $project['completion_date'] ? e(formatDateTime($project['completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.in_progress')) . '</em>' ?></div>
+            </div>
+            <div class="client-info-item">
+                <div class="client-info-item__k"><?= e(t('dash.manager')) ?></div>
+                <div class="client-info-item__v"><?= e($project['owner_name']) ?></div>
+            </div>
+            <?php // Issue-034 v1.8.0 — project-level "X delayed, Y on hold"
+                  // summary chip row. Renders ONLY when at least one
+                  // of the two counters is non-zero so the manager
+                  // row stays uncluttered on healthy projects. ?>
+            <?php if ($project_delayed_count > 0 || $project_on_hold_count > 0): ?>
+                <div class="client-info-item">
+                    <div class="client-info-item__k"><i class="fas fa-flag" aria-hidden="true"></i> <?= e(t('dash.project_info')) ?></div>
+                    <div class="client-info-item__v client-alert-strip">
+                        <?php if ($project_delayed_count > 0): ?>
+                            <span class="reason-pill delay">
+                                <?= (int)$project_delayed_count ?> <?= e(t('dash.delayed')) ?>
                             </span>
-                        </li>
+                        <?php endif; ?>
+                        <?php if ($project_on_hold_count > 0): ?>
+                            <span class="reason-pill on-hold">
+                                <?= (int)$project_on_hold_count ?> <?= e(t('dash.on_hold')) ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            <div class="client-info-item">
+                <div class="client-info-item__k"><i class="fas fa-coins"></i> <?= e(t('dash.budget')) ?></div>
+                <div class="client-info-item__v">
+                    <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
+                        <span class="budget-amount"><?= e(formatMoney($project['budget_amount'], $project['currency'])) ?></span>
+                    <?php else: ?>
+                        <em class="text-muted"><?= e(t('dash.budget_none')) ?></em>
                     <?php endif; ?>
-                </ul>
+                </div>
             </div>
-            <div>
-                <h3 class="info-heading"><i class="fas fa-coins"></i> <?= e(t('dash.budget')) ?></h3>
-                <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
-                    <p class="budget-amount"><?= e(formatMoney($project['budget_amount'], $project['currency'])) ?></p>
-                <?php else: ?>
-                    <p class="text-muted"><em><?= e(t('dash.budget_none')) ?></em></p>
-                <?php endif; ?>
-                <h3 class="info-heading" style="margin-top:18px;"><i class="fas fa-chart-bar"></i> <?= e(t('dash.counts')) ?></h3>
-                <ul class="kv-list">
-                    <li><span class="k"><?= e(t('dash.tasks')) ?></span><span class="v"><?= (int)$project['total_tasks'] ?></span></li>
-                    <li><span class="k"><?= e(t('dash.completed_count')) ?></span><span class="v"><?= (int)$project['completed_tasks'] ?></span></li>
-                    <li><span class="k"><?= e(t('dash.open')) ?></span><span class="v"><?= (int)$project['uncompleted_tasks'] ?></span></li>
-                    <li><span class="k"><?= e(t('dash.contacts')) ?></span><span class="v"><?= (int)$project['contact_count'] ?></span></li>
-                </ul>
+            <div class="client-info-item">
+                <div class="client-info-item__k"><i class="fas fa-chart-bar"></i> <?= e(t('dash.counts')) ?></div>
+                <div class="client-info-item__v"><?= (int)$project['contact_count'] ?> <?= e(t('dash.contacts')) ?></div>
             </div>
         </div>
     </section>
