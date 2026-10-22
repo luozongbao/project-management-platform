@@ -921,6 +921,34 @@ docker compose exec db \
 
 The included migrations are idempotent — safe to re-run.
 
+### Browsing the v2.0 design mockup
+
+The v2.0 front-end mockup lives in `docs/design/2.0/`. It is a set of
+standalone HTML files — no PHP, no database, no application code.
+
+```bash
+docker compose up -d mockup
+# open http://localhost:8080/
+```
+
+| Command | Effect |
+|---|---|
+| `docker compose up -d mockup` | Start the mockup only (the app stack is untouched) |
+| `docker compose stop mockup` | Stop it, keep the container |
+| `docker compose down mockup` | Stop and remove it |
+| `docker compose --profile mockup up -d` | Start it together with the full stack |
+
+Change the host port with `MOCKUP_PORT` in `.env` (default `8080`).
+
+Without Docker:
+
+```bash
+cd docs/design/2.0 && python3 -m http.server 8080
+```
+
+See `docs/issues/issue-035.md` for the full design specification and
+`docs/issues/issue-036.md` for the ops notes.
+
 ---
 
 ## Tech stack
