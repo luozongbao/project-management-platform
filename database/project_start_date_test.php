@@ -193,13 +193,20 @@ if (strpos($migration, 'ADD COLUMN start_date DATE NULL') === false) {
 //    must emit the clean path.
 // ---------------------------------------------------------------------------
 $dashboard = file_get_contents(__DIR__ . '/../dashboard.php');
-// Find the Recent Projects header, then the next <a ... >, then its href.
-if (preg_match('/Recent Projects.*?<a\s+href="([^"]*)"\s+class="btn btn-primary"\s*>\s*<i\s+class="fas fa-plus"><\/i>\s*New Project/s', $dashboard, $m)) {
+// Find the "+ New Project" link and check its href.
+// v2.0 issue-035 Phase 1.4b: the button moved out of the "Recent Projects"
+// card header and into the page-header action row (it now sits beside a
+// "Projects" link, per docs/design/2.0/dashboard.html). The requirement
+// under test is unchanged -- the primary action must point at the
+// create route /projects/new -- so the assertion follows the button
+// rather than the section it used to live in. The class name also moved
+// from `.btn btn-primary` to the v2 `.btn btn--primary`.
+if (preg_match('/<a\s+class="btn btn--primary"\s+href="([^"]*)"\s*>\s*<i\s+class="fas fa-plus"><\/i>\s*New Project/s', $dashboard, $m)) {
     if ($m[1] !== '/projects/new') {
-        $failures[] = "dashboard 'Recent Projects' '+ New Project' must link to /projects/new (got: '{$m[1]}')";
+        $failures[] = "dashboard '+ New Project' must link to /projects/new (got: '{$m[1]}')";
     }
 } else {
-    $failures[] = "could not locate dashboard 'Recent Projects' '+ New Project' button for link check";
+    $failures[] = "could not locate dashboard '+ New Project' button for link check";
 }
 
 // ---------------------------------------------------------------------------

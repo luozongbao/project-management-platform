@@ -119,14 +119,18 @@ ok(strpos($fn, 'function isTaskDelayed(') !== false,
 
 // ---------------------------------------------------------------------
 // 4. dashboard.php renders BOTH new stat-cards with the spec'd class
-//    hooks (we render the chip colour gradient on .stat-card-delayed
-//    and .stat-card-on-hold).
+//    hooks.
+//    v2.0 issue-035 Phase 1.4b: the stat-cards were renamed to the v2
+//    component vocabulary -- `.stat-card-delayed` -> `.stat--delayed`
+//    and `.stat-card-on-hold` -> `.stat--on-hold` -- to match
+//    v2-components.css. The issue-034 intent (two distinct, colour-coded
+//    stat-cards) is unchanged; only the class names moved.
 // ---------------------------------------------------------------------
 $dash = read($root . '/dashboard.php');
-ok(strpos($dash, 'stat-card-delayed') !== false,
-    'dashboard.php is missing the .stat-card-delayed stat-card');
-ok(strpos($dash, 'stat-card-on-hold') !== false,
-    'dashboard.php is missing the .stat-card-on-hold stat-card');
+ok(strpos($dash, 'stat--delayed') !== false,
+    'dashboard.php is missing the .stat--delayed stat-card');
+ok(strpos($dash, 'stat--on-hold') !== false,
+    'dashboard.php is missing the .stat--on-hold stat-card');
 ok(strpos($dash, 'delayed_tasks_count') !== false,
     'dashboard.php is missing the $delayed_tasks_count query');
 ok(strpos($dash, 'on_hold_tasks_count') !== false,
@@ -137,13 +141,14 @@ ok(strpos($dash, 'on_hold_tasks_count') !== false,
 ok(strpos($dash, 'missing_reason_total') !== false || strpos($dash, 'missing_reason') !== false,
     'dashboard.php is missing the missing_reason_total backfill banner wiring');
 
-// Inline <style> hook gradients — the per-page stylesheet needs at
-// least the .stat-card-delayed .stat-icon and .stat-card-on-hold
-// .stat-icon rules so the chip colour is consistent with the rest of
-// the dashboard.
-ok(strpos($dash, '.stat-card-delayed') !== false
-    && strpos($dash, '.stat-card-on-hold') !== false,
-    'dashboard.php is missing the .stat-card-delayed / .stat-card-on-hold inline <style> hooks');
+// Colour hooks for the delayed / on-hold cards now live in the extracted
+// page stylesheet rather than an inline <style> block. Assert against
+// v2-components.css, which owns the .stat--delayed / .stat--on-hold
+// icon + value colouring, so the chip palette cannot silently drift.
+$dash_css = read($root . '/assets/css/v2-components.css');
+ok(strpos($dash_css, '.stat--delayed') !== false
+    && strpos($dash_css, '.stat--on-hold') !== false,
+    'v2-components.css is missing the .stat--delayed / .stat--on-hold colour hooks');
 
 // ---------------------------------------------------------------------
 // 5. client/dashboard.php renders a .reason-pill chip and the

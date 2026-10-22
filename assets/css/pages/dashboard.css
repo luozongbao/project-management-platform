@@ -1,0 +1,225 @@
+/* ==========================================================================
+   Dashboard — Phase 1.4b (issue-035)
+   --------------------------------------------------------------------------
+   Replaces the 331-line inline <style> block that used to live at the bottom
+   of dashboard.php. Split into two groups:
+
+   1. Rules that the v2 component layer already provides (.stat-grid, .stat,
+      .card, .status, .progress, .empty-state, .btn) — those are simply
+      dropped and the markup switched to the component classes. No
+      re-declaration here, so the component sheet stays the single source
+      of truth for look and feel.
+
+   2. Genuinely dashboard-specific layout that no other page owns yet:
+      the two-column feed grid, the list-row anatomy for projects / tasks /
+      deadlines, and the progress-ring sizing.
+
+   Deliberately NOT restyled to match the mockup's table layout
+   (docs/design/2.0/dashboard.html): the real dashboard is a card feed, and
+   converting it to <table> would change the DOM that every screen reader
+   and the 1.4b sibling pages depend on. Structure preserved, look upgraded.
+
+   Class names only — no PHP expression, route, query parameter, name= or
+   id= attribute was altered in the markup rewrite.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Issue-034 backfill banner
+   The real app needs a distinct treatment from the mockup's generic
+   .alert--warning: the banner is only rendered when a task is actually
+   missing a reason, so it doubles as an action prompt. Amber wash, amber
+   border, and a right-aligned CTA that stays clickable on narrow screens.
+   -------------------------------------------------------------------------- */
+.dash-backfill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-5);
+    background: var(--warning-100);
+    border: 1px solid var(--warning-500);
+    border-left: 3px solid var(--warning-500);
+    border-radius: var(--r-md);
+    color: var(--gray-800);
+    font-size: var(--fs-sm);
+}
+.dash-backfill i { color: var(--warning-700); margin-right: var(--sp-2); }
+.dash-backfill strong { color: var(--warning-700); font-weight: var(--fw-bold); }
+.dash-backfill a {
+    color: var(--warning-700);
+    font-weight: var(--fw-semibold);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.dash-backfill a:hover { text-decoration: underline; }
+
+/* --------------------------------------------------------------------------
+   Feed grid
+   Replaces .dashboard-grid. `grid-sidebar--wide` from the component layer
+   gives the 1fr / 400px split; this rule only re-declares it so the page
+   can collapse to one column early (the component sheet breaks at 1200px).
+   -------------------------------------------------------------------------- */
+.dash-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: var(--sp-5);
+    align-items: start;
+}
+
+/* --------------------------------------------------------------------------
+   Section header
+   The mockup's .card__header is a fixed-weight strip. The dashboard's
+   sections are flatter than a real card header, so the padding is trimmed
+   and the title icon inherits the brand colour from the component layer.
+   -------------------------------------------------------------------------- */
+.dash-section__header {
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.dash-section__header h2 {
+    margin: 0;
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+}
+.dash-section__header h2 i {
+    color: var(--brand-500);
+    margin-right: var(--sp-2);
+}
+
+/* --------------------------------------------------------------------------
+   List rows — projects / tasks / deadlines share one anatomy:
+   [ primary + meta ]  ......  [ trailing metric ]
+   -------------------------------------------------------------------------- */
+.dash-list { padding: 0; }
+
+.dash-row {
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    transition: background var(--dur-fast) var(--ease);
+}
+.dash-row:last-child { border-bottom: none; }
+.dash-row:hover { background: var(--gray-50); }
+
+.dash-row__title {
+    margin: 0 0 var(--sp-2) 0;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+}
+.dash-row__title a { color: var(--gray-900); text-decoration: none; }
+.dash-row__title a:hover { color: var(--brand-600); }
+
+/* Secondary line: status pill + deadline, side by side. */
+.dash-row__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+}
+.dash-row__meta i { margin-right: 4px; }
+.dash-row__meta a { color: var(--brand-600); font-weight: var(--fw-medium); }
+.dash-row__project { color: var(--brand-600); font-weight: var(--fw-medium); }
+
+/* Trailing metric: horizontal bar + percentage, or a ring. */
+.dash-row__aside {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: 0 0 auto;
+    min-width: 150px;
+}
+.dash-row__pct {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-600);
+    min-width: 44px;
+    text-align: right;
+}
+.dash-row__aside .progress { flex: 1; }
+
+/* Tasks stack the status pill above the percentage, mirroring the old
+   .task-status column, but with the v2 gap scale. */
+.dash-row__aside--stack {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--sp-1);
+    min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Progress ring (deadline rows)
+   The component layer provides the .progress-ring wrapper but no size or
+   track. 44px matches the old .progress-circle footprint.
+   -------------------------------------------------------------------------- */
+.dash-ring {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-full);
+    display: grid;
+    place-items: center;
+    background: var(--gray-50);
+    border: 2px solid var(--brand-500);
+    color: var(--brand-600);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+}
+
+/* --------------------------------------------------------------------------
+   Section footer ("View all ...")
+   -------------------------------------------------------------------------- */
+.dash-section__footer {
+    padding: var(--sp-3) var(--sp-5);
+    text-align: right;
+    background: var(--gray-50);
+    border-top: 1px solid var(--gray-100);
+}
+.dash-section__footer a {
+    color: var(--brand-600);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+}
+.dash-section__footer a:hover { text-decoration: underline; }
+
+/* --------------------------------------------------------------------------
+   Responsive
+   Break at 1200px to match .grid-sidebar--wide, then a second pass at
+   768px for the row anatomy: rows become stacked so the trailing metric
+   gets the full width instead of being squeezed.
+   -------------------------------------------------------------------------- */
+@media (max-width: 1200px) {
+    .dash-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .dash-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--sp-3);
+    }
+    .dash-row__aside {
+        align-self: stretch;
+        min-width: 0;
+    }
+    .dash-row__aside--stack {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .dash-section__header { padding: var(--sp-3) var(--sp-4); }
+    .dash-row { padding: var(--sp-4); }
+    .dash-section__footer { padding: var(--sp-3) var(--sp-4); }
+}
