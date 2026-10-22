@@ -10,7 +10,7 @@ $user_id = getCurrentUserId();
 $project_id = $_GET['id'] ?? null;
 
 if (!$project_id) {
-    redirect('projects.php', 'Invalid project ID.', 'danger');
+    redirect('/projects', 'Invalid project ID.', 'danger');
 }
 
 // Get project details with statistics
@@ -25,7 +25,7 @@ $project = $db->fetchOne(
 );
 
 if (!$project) {
-    redirect('projects.php', 'Project not found or access denied.', 'danger');
+    redirect('/projects', 'Project not found or access denied.', 'danger');
 }
 
 $taskCompletion = getProjectTaskCompletionMap($db, $project_id);
@@ -79,7 +79,7 @@ $project_contacts = $db->fetchAll(
 
 // Get recent activity (last 10 task updates)
 $recent_activity = $db->fetchAll(
-    "SELECT t.id, t.name, t.status, t.updated_at, u.name as responsible_person_name
+    "SELECT t.id, t.name, t.slug, t.status, t.updated_at, u.name as responsible_person_name
      FROM tasks t
      LEFT JOIN users u ON t.responsible_person_id = u.id
      WHERE t.project_id = ?
@@ -99,7 +99,7 @@ $show_nav = true;
     <div class="project-header">
         <div class="project-info">
             <div class="project-breadcrumb">
-                <a href="projects.php"><i class="fas fa-folder-open"></i> Projects</a>
+                <a href="/projects"><i class="fas fa-folder-open"></i> Projects</a>
                 <span>/</span>
                 <span><?= e($project['name']) ?></span>
             </div>
@@ -132,7 +132,7 @@ $show_nav = true;
         </div>
         
         <div class="project-actions">
-            <a href="project_edit.php?id=<?= $project['id'] ?>" class="btn btn-primary">
+            <a href="/projects/<?= e($project['slug']) ?>/edit" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
                 Edit Project
             </a>
@@ -243,11 +243,11 @@ $show_nav = true;
                     <span class="count">(<?= count($tasks) ?>)</span>
                 </h2>
                 <div class="section-actions">
-                    <a href="task_edit.php?project_id=<?= $project['id'] ?>" class="btn btn-primary btn-sm">
+                    <a href="/tasks/new?project_id=<?= $project['id'] ?>" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i>
                         Add Task
                     </a>
-                    <a href="tasks.php?project_id=<?= $project['id'] ?>" class="btn btn-secondary btn-sm">
+                    <a href="/tasks?project_id=<?= $project['id'] ?>" class="btn btn-secondary btn-sm">
                         <i class="fas fa-list"></i>
                         View All
                     </a>
@@ -258,14 +258,14 @@ $show_nav = true;
                 <?php if (empty($tasks)): ?>
                     <div class="empty-state">
                         <i class="fas fa-tasks"></i>
-                        <p>No tasks yet. <a href="task_edit.php?project_id=<?= $project['id'] ?>">Create your first task</a></p>
+                        <p>No tasks yet. <a href="/tasks/new?project_id=<?= $project['id'] ?>">Create your first task</a></p>
                     </div>
                 <?php else: ?>
                     <?php foreach ($tasks as $task): ?>
                         <div class="task-item">
                             <div class="task-info">
                                 <h4>
-                                    <a href="task_detail.php?id=<?= $task['id'] ?>">
+                                    <a href="/tasks/<?= e($task['slug']) ?>">
                                         <?= e($task['name']) ?>
                                     </a>
                                 </h4>
@@ -345,11 +345,11 @@ $show_nav = true;
                     <span class="count">(<?= count($project_contacts) ?>)</span>
                 </h2>
                 <div class="section-actions">
-                    <a href="contact_edit.php?project_id=<?= $project['id'] ?>" class="btn btn-primary btn-sm">
+                    <a href="/contacts/new?project_id=<?= $project['id'] ?>" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i>
                         Add Contact
                     </a>
-                    <a href="contacts.php?project_id=<?= $project['id'] ?>" class="btn btn-secondary btn-sm">
+                    <a href="/contacts?project_id=<?= $project['id'] ?>" class="btn btn-secondary btn-sm">
                         <i class="fas fa-list"></i>
                         View All
                     </a>
@@ -360,7 +360,7 @@ $show_nav = true;
                 <?php if (empty($project_contacts)): ?>
                     <div class="empty-state">
                         <i class="fas fa-address-book"></i>
-                        <p>No contacts assigned. <a href="project_contact_edit.php?project_id=<?= $project['id'] ?>">Add a contact</a></p>
+                        <p>No contacts assigned. <a href="/contacts/new?project_id=<?= $project['id'] ?>">Add a contact</a></p>
                     </div>
                 <?php else: ?>
                     <?php foreach ($project_contacts as $contact): ?>
@@ -370,7 +370,7 @@ $show_nav = true;
                             </div>
                             <div class="contact-info">
                                 <h5>
-                                    <a href="contact_detail.php?id=<?= $contact['id'] ?>">
+                                    <a href="/contacts/<?= e($contact['slug']) ?>">
                                         <?= e($contact['name']) ?>
                                     </a>
                                 </h5>
@@ -431,7 +431,7 @@ $show_nav = true;
                                 <p>
                                     <strong><?= e($activity['responsible_person_name']) ?></strong>
                                     updated task
-                                    <a href="task_detail.php?id=<?= $activity['id'] ?>"><?= e($activity['name']) ?></a>
+                                    <a href="/tasks/<?= e($activity['slug']) ?>"><?= e($activity['name']) ?></a>
                                     to <span class="status status-<?= $activity['status'] ?>"><?= ucfirst(str_replace('_', ' ', $activity['status'])) ?></span>
                                 </p>
                                 <time><?= formatDateTime($activity['updated_at'], 'M j, Y g:i A') ?></time>

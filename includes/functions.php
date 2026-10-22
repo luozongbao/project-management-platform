@@ -1,4 +1,10 @@
 <?php
+// v2.0 (issue-035 C.2): the slug helpers are needed by the edit pages that
+// assign a slug on insert, by the detail pages that build canonical URLs, and
+// by the front controller. Requiring them from the one file every page already
+// loads means no page has to remember the include, and there is no way for a
+// page to call generateUniqueSlug() before the class it depends on exists.
+require_once __DIR__ . '/slug.php';
 /**
  * Common utility functions
  */

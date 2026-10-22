@@ -130,10 +130,10 @@ $files_to_check = [
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
     'config.php'              => 'e3de126d55f2e2f16c397384cba1456b',
-    'client/dashboard.php'    => '88decc9975659690de1a7325f427df77',
+    'client/dashboard.php'    => '5213dea79662c75b2d6b7a48ed12d730',
     'client/lang.php'         => 'c1377682444842f7b3772a8b2b2a1c12',
-    'includes/header.php'     => 'fa27d8b758ad935eb671a2e9836e0d02',
-    'includes/functions.php'  => '9bc12011df6050d4e1ebb16fd15ec576',
+    'includes/header.php'     => 'f438182970abd9b36c59ed0e5b76c356',
+    'includes/functions.php'  => 'a41fbc8476f5c8307d8cadf4b457b060',
 ];
 
 // --- CSP probe -------------------------------------------------------

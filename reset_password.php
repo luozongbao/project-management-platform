@@ -163,14 +163,14 @@ $title = "Reset Password";
             <div class="alert alert-success">
                 <h4>Password Reset Successful!</h4>
                 <p>Your password has been successfully reset. You can now log in with your new password.</p>
-                <p><a href="login.php" class="btn btn-primary">Go to Login</a></p>
+                <p><a href="/login" class="btn btn-primary">Go to Login</a></p>
             </div>
         <?php elseif (!$valid_token): ?>
             <div class="alert alert-danger">
                 <h4>Invalid Reset Link</h4>
                 <p>This password reset link is invalid or has expired. Reset links are only valid for 1 hour.</p>
                 <p>Please request a new password reset link.</p>
-                <p><a href="forgot_password.php" class="btn btn-primary">Request New Link</a></p>
+                <p><a href="/forgot-password" class="btn btn-primary">Request New Link</a></p>
             </div>
         <?php else: ?>
             <?php if (!empty($errors)): ?>
@@ -213,7 +213,7 @@ $title = "Reset Password";
         <?php endif; ?>
         
         <div class="auth-links">
-            <a href="login.php">
+            <a href="/login">
                 <i class="fas fa-arrow-left"></i>
                 Back to Login
             </a>

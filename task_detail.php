@@ -10,14 +10,14 @@ $user_id = getCurrentUserId();
 $task_id = $_GET['id'] ?? null;
 
 if (!$task_id) {
-    redirect('tasks.php');
+    redirect('/tasks');
 }
 
 // Get task details with project and user information
 $task = $db->fetchOne(
-    "SELECT t.*, p.name as project_name, p.id as project_id, u.name as responsible_person_name, 
+    "SELECT t.*, p.name as project_name, p.id as project_id, p.slug as project_slug, u.name as responsible_person_name,
             c.name as contact_person_name, c.email as contact_email, c.phone as contact_phone,
-            parent.name as parent_task_name
+            parent.name as parent_task_name, parent.slug as parent_slug
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
      LEFT JOIN users u ON t.responsible_person_id = u.id
@@ -28,7 +28,7 @@ $task = $db->fetchOne(
 );
 
 if (!$task) {
-    redirect('tasks.php');
+    redirect('/tasks');
 }
 
 // Get subtasks
@@ -73,11 +73,11 @@ $show_nav = true;
     <div class="page-header">
         <div class="page-title">
             <div class="breadcrumb">
-                <a href="dashboard.php">Dashboard</a>
+                <a href="/dashboard">Dashboard</a>
                 <span>/</span>
-                <a href="tasks.php">Tasks</a>
+                <a href="/tasks">Tasks</a>
                 <span>/</span>
-                <a href="project_detail.php?id=<?= $task['project_id'] ?>"><?= e($task['project_name']) ?></a>
+                <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
                 <span>/</span>
                 <span><?= e($task['name']) ?></span>
             </div>
@@ -130,12 +130,12 @@ $show_nav = true;
                     </form>
                 <?php endif; ?>
             <?php endif; ?>
-            <a href="task_edit.php?id=<?= $task_id ?>" class="btn btn-primary">
+            <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
                 Edit Task
             </a>
             <?php if (!$task['parent_task_id']): ?>
-                <a href="task_edit.php?parent_id=<?= $task_id ?>" class="btn btn-secondary">
+                <a href="/tasks/new?parent_id=<?= $task_id ?>" class="btn btn-secondary">
                     <i class="fas fa-plus"></i>
                     Add Subtask
                 </a>
@@ -214,7 +214,7 @@ $show_nav = true;
                     <div class="card-body">
                         <div class="parent-task-link">
                             <i class="fas fa-arrow-up"></i>
-                            <a href="task_detail.php?id=<?= $task['parent_task_id'] ?>">
+                            <a href="/tasks/<?= e($task['parent_slug']) ?>">
                                 <?= e($task['parent_task_name']) ?>
                             </a>
                         </div>
@@ -230,7 +230,7 @@ $show_nav = true;
                             Subtasks 
                             <span class="subtask-count">(<?= count($subtasks) ?>)</span>
                         </h3>
-                        <a href="task_edit.php?parent_id=<?= $task_id ?>" class="btn btn-sm btn-primary">
+                        <a href="/tasks/new?parent_id=<?= $task_id ?>" class="btn btn-sm btn-primary">
                             <i class="fas fa-plus"></i>
                             Add Subtask
                         </a>
@@ -242,7 +242,7 @@ $show_nav = true;
                                     <div class="subtask-header">
                                         <div class="subtask-title">
                                             <h4>
-                                                <a href="task_detail.php?id=<?= $subtask['id'] ?>">
+                                                <a href="/tasks/<?= e($subtask['slug']) ?>">
                                                     <?= e($subtask['name']) ?>
                                                 </a>
                                             </h4>
@@ -281,7 +281,7 @@ $show_nav = true;
                                                     <i class="fas fa-check"></i>
                                                 </button>
                                             <?php endif; ?>
-                                            <a href="task_edit.php?id=<?= $subtask['id'] ?>" class="btn btn-sm btn-outline">
+                                            <a href="/tasks/<?= e($subtask['slug']) ?>/edit" class="btn btn-sm btn-outline">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         </div>
@@ -311,7 +311,7 @@ $show_nav = true;
                 <div class="card">
                     <div class="card-header">
                         <h3>Subtasks</h3>
-                        <a href="task_edit.php?parent_id=<?= $task_id ?>" class="btn btn-sm btn-primary">
+                        <a href="/tasks/new?parent_id=<?= $task_id ?>" class="btn btn-sm btn-primary">
                             <i class="fas fa-plus"></i>
                             Add First Subtask
                         </a>
@@ -338,7 +338,7 @@ $show_nav = true;
                 <div class="card-body">
                     <div class="detail-item">
                         <label>Project:</label>
-                        <a href="project_detail.php?id=<?= $task['project_id'] ?>">
+                        <a href="/projects/<?= e($task['project_slug']) ?>">
                             <?= e($task['project_name']) ?>
                         </a>
                     </div>

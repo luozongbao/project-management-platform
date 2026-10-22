@@ -185,14 +185,18 @@ if (strpos($migration, 'ADD COLUMN start_date DATE NULL') === false) {
 
 // ---------------------------------------------------------------------------
 // 6. Dashboard "Recent Projects" section's "+ New Project" button must
-//    route to the create form (project_edit.php), NOT the projects list.
+//    route to the create form (/projects/new), NOT the projects list.
 //    See docs/issues/issue-008/tester-note-001.md bug 2.
+//    v2.0 issue-035: the canonical route replaced the legacy
+//    `project_edit.php` filename — the router still accepts the old
+//    URL via the 301 in includes/legacy_redirects.php, but the app
+//    must emit the clean path.
 // ---------------------------------------------------------------------------
 $dashboard = file_get_contents(__DIR__ . '/../dashboard.php');
 // Find the Recent Projects header, then the next <a ... >, then its href.
 if (preg_match('/Recent Projects.*?<a\s+href="([^"]*)"\s+class="btn btn-primary"\s*>\s*<i\s+class="fas fa-plus"><\/i>\s*New Project/s', $dashboard, $m)) {
-    if ($m[1] !== 'project_edit.php') {
-        $failures[] = "dashboard 'Recent Projects' '+ New Project' must link to project_edit.php (got: '{$m[1]}')";
+    if ($m[1] !== '/projects/new') {
+        $failures[] = "dashboard 'Recent Projects' '+ New Project' must link to /projects/new (got: '{$m[1]}')";
     }
 } else {
     $failures[] = "could not locate dashboard 'Recent Projects' '+ New Project' button for link check";

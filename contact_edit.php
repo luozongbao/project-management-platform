@@ -25,7 +25,7 @@ if ($is_editing) {
     );
     
     if (!$contact) {
-        redirect('contacts.php');
+        redirect('/contacts');
     }
 }
 
@@ -124,19 +124,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Redirect based on context
                 if ($project_id) {
-                    redirect("project_detail.php?id=$project_id", 'Contact updated successfully!', 'success');
+                    redirect('/projects/' . getSlugById('projects', $project_id), 'Contact updated successfully!', 'success');
                 } else {
-                    redirect("contact_detail.php?id=$contact_id", 'Contact updated successfully!', 'success');
+                    redirect('/contacts/' . getSlugById('contacts', $contact_id), 'Contact updated successfully!', 'success');
                 }
             } else {
                 // Create new contact
                 $db->execute(
                     "INSERT INTO contacts (
-                        name, description, email, phone, mobile, company, position, address,
+                        name, slug, description, email, phone, mobile, company, position, address,
                         wechat, line_id, facebook, linkedin, created_at, updated_at
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
-                        $name, $description, $email, $phone, $mobile, $company, $position, $address,
+                        $name, generateUniqueSlug($name, 'contacts'),
+                        $description, $email, $phone, $mobile, $company, $position, $address,
                         $wechat, $line_id, $facebook, $linkedin
                     ]
                 );
@@ -153,9 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Redirect based on context
                 if ($project_id) {
-                    redirect("project_detail.php?id=$project_id", 'Contact created successfully!', 'success');
+                    redirect('/projects/' . getSlugById('projects', $project_id), 'Contact created successfully!', 'success');
                 } else {
-                    redirect("contact_detail.php?id=$new_contact_id", 'Contact created successfully!', 'success');
+                    redirect('/contacts/' . getSlugById('contacts', $new_contact_id), 'Contact created successfully!', 'success');
                 }
             }
         } catch (Exception $e) {
@@ -179,23 +180,23 @@ $show_nav = true;
     <div class="page-header">
         <div class="page-title">
             <div class="breadcrumb">
-                <a href="dashboard.php">Dashboard</a>
+                <a href="/dashboard">Dashboard</a>
                 <span>/</span>
                 <?php if ($project_id): ?>
                     <?php 
                     $project_name = $db->fetchOne("SELECT name FROM projects WHERE id = ?", [$project_id])['name'];
                     ?>
-                    <a href="projects.php">Projects</a>
+                    <a href="/projects">Projects</a>
                     <span>/</span>
-                    <a href="project_detail.php?id=<?= $project_id ?>"><?= e($project_name) ?></a>
+                    <a href="/projects/<?= e(getSlugById('projects', $project_id)) ?>"><?= e($project_name) ?></a>
                     <span>/</span>
-                    <a href="contacts.php?project_id=<?= $project_id ?>">Contacts</a>
+                    <a href="/contacts?project_id=<?= $project_id ?>">Contacts</a>
                 <?php else: ?>
-                    <a href="contacts.php">Contacts</a>
+                    <a href="/contacts">Contacts</a>
                 <?php endif; ?>
                 <?php if ($is_editing): ?>
                     <span>/</span>
-                    <a href="contact_detail.php?id=<?= $contact_id ?>"><?= e($contact['name']) ?></a>
+                    <a href="/contacts/<?= e($contact['slug']) ?>"><?= e($contact['name']) ?></a>
                     <span>/</span>
                     <span>Edit</span>
                 <?php else: ?>
@@ -330,7 +331,7 @@ $show_nav = true;
                         <div class="project-checkboxes">
                             <?php if (empty($user_projects)): ?>
                                 <div class="no-projects-message">
-                                    <p>No projects available. <a href="project_edit.php">Create a project first</a>.</p>
+                                    <p>No projects available. <a href="/projects/new">Create a project first</a>.</p>
                                 </div>
                             <?php else: ?>
                                 <?php foreach ($user_projects as $project): ?>
@@ -353,7 +354,7 @@ $show_nav = true;
                         <i class="fas fa-save"></i>
                         <?= $is_editing ? 'Update Contact' : 'Create Contact' ?>
                     </button>
-                    <a href="<?= $is_editing ? "contact_detail.php?id=$contact_id" : 'contacts.php' ?>" 
+                    <a href="<?= $is_editing ? '/contacts/' . e($contact['slug']) : '/contacts' ?>" 
                        class="btn btn-secondary">
                         <i class="fas fa-times"></i>
                         Cancel

@@ -10,7 +10,7 @@ $user_id = getCurrentUserId();
 
 // Get projects with statistics
 $projects = $db->fetchAll(
-    "SELECT ps.*, p.description, p.created_at, p.start_date, u.name as responsible_person_name
+    "SELECT ps.*, p.name, p.slug, p.status, p.description, p.created_at, p.start_date, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
@@ -41,7 +41,7 @@ $show_nav = true;
             <p>Manage your projects and track their progress</p>
         </div>
         <div class="page-actions">
-            <a href="project_edit.php" class="btn btn-primary">
+            <a href="/projects/new" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
                 New Project
             </a>
@@ -55,7 +55,7 @@ $show_nav = true;
             </div>
             <h3>No Projects Yet</h3>
             <p>Create your first project to get started with managing your work.</p>
-            <a href="project_edit.php" class="btn btn-primary">
+            <a href="/projects/new" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
                 Create First Project
             </a>
@@ -66,12 +66,12 @@ $show_nav = true;
                 <div class="project-card">
                     <div class="project-header">
                         <h3>
-                            <a href="project_detail.php?id=<?= $project['id'] ?>">
+                            <a href="/projects/<?= e($project['slug']) ?>">
                                 <?= e($project['name']) ?>
                             </a>
                         </h3>
                         <div class="project-actions">
-                            <a href="project_edit.php?id=<?= $project['id'] ?>" class="btn btn-sm btn-outline" title="Edit">
+                            <a href="/projects/<?= e($project['slug']) ?>/edit" class="btn btn-sm btn-outline" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
                         </div>

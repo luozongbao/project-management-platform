@@ -118,16 +118,16 @@ $db->execute(
 $project_b_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO contacts (name, email, created_at)
-     VALUES (?, ?, NOW())",
-    [$marker . ' contact on A', $marker . '-contact-a@example.test']
+    "INSERT INTO contacts (name, slug, email, created_at)
+     VALUES (?, ?, ?, NOW())",
+    [$marker . ' contact on A', 'idor-ca-' . $marker, $marker . '-contact-a@example.test']
 );
 $contact_a_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO contacts (name, email, created_at)
-     VALUES (?, ?, NOW())",
-    [$marker . ' contact on B', $marker . '-contact-b@example.test']
+    "INSERT INTO contacts (name, slug, email, created_at)
+     VALUES (?, ?, ?, NOW())",
+    [$marker . ' contact on B', 'idor-cb-' . $marker, $marker . '-contact-b@example.test']
 );
 $contact_b_id = (int)$db->lastInsertId();
 

@@ -60,7 +60,7 @@ if ($_POST) {
                 $_SESSION['timezone'] = $_SESSION['timezone'] ?? TIMEZONE;
 
                 recordLoginAttempt($clientIp, $username, true);
-                redirect('dashboard.php', 'Login successful!', 'success');
+                redirect('/dashboard', 'Login successful!', 'success');
             } else {
                 $errors[] = "Invalid username or password";
                 recordLoginAttempt($clientIp, $username, false);
@@ -115,8 +115,8 @@ $title = "Login";
         </form>
         
         <div class="auth-links">
-            <a href="register.php">Don't have an account? Register</a>
-            <a href="forgot_password.php">Forgot your password?</a>
+            <a href="/register">Don't have an account? Register</a>
+            <a href="/forgot-password">Forgot your password?</a>
         </div>
     </div>
 </div>

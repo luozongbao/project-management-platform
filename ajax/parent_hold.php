@@ -90,7 +90,7 @@ if (!$task || (int)$task['responsible_person_id'] !== (int)$user_id) {
 
 if ($task['parent_task_id'] !== null) {
     send_error($is_ajax, 400, 'Only top-level parent tasks can be put on hold.',
-        'task_detail.php?id=' . $task_id);
+        '/tasks/' . getSlugById('tasks', $task_id));
 }
 
 $child_count = (int)($db->fetchOne(
@@ -100,7 +100,7 @@ $child_count = (int)($db->fetchOne(
 
 if ($child_count === 0) {
     send_error($is_ajax, 404, 'This task has no sub-tasks, so the hold action does not apply.',
-        'task_detail.php?id=' . $task_id);
+        '/tasks/' . getSlugById('tasks', $task_id));
 }
 
 // Issue-034 v1.8.0: the on-hold path requires a non-empty trimmed
@@ -114,11 +114,11 @@ if ($action === 'hold') {
         : '';
     if ($on_hold_reason === '') {
         send_error($is_ajax, 400, 'On-hold reason is required when putting a task on hold.',
-            'task_detail.php?id=' . $task_id);
+            '/tasks/' . getSlugById('tasks', $task_id));
     }
     if (strlen($on_hold_reason) > 2000) {
         send_error($is_ajax, 400, 'On-hold reason must be 2000 characters or less.',
-            'task_detail.php?id=' . $task_id);
+            '/tasks/' . getSlugById('tasks', $task_id));
     }
 }
 
@@ -162,5 +162,5 @@ if ($is_ajax) {
     exit;
 }
 
-header('Location: task_detail.php?id=' . $task_id);
+header('Location: /tasks/' . getSlugById('tasks', $task_id));
 exit;

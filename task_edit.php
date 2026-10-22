@@ -28,7 +28,7 @@ if ($is_editing) {
     );
     
     if (!$task) {
-        redirect('tasks.php');
+        redirect('/tasks');
     }
     $project_id = $task['project_id'] ?? null;
 } elseif ($is_subtask) {
@@ -42,7 +42,7 @@ if ($is_editing) {
     );
     
     if (!$parent_task) {
-        redirect('tasks.php');
+        redirect('/tasks');
     }
     $project_id = $parent_task['project_id'];
 }
@@ -370,22 +370,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 syncProjectTaskCompletions($db, $task['project_id']);
 
-                redirect("task_detail.php?id=$task_id", 'Task updated successfully!', 'success');
+                redirect('/tasks/' . getSlugById('tasks', $task_id), 'Task updated successfully!', 'success');
             } else {
                 // Create new task
                 $final_project_id = $is_subtask ? $parent_task['project_id'] : $form_project_id;
 
                 $db->execute(
                     "INSERT INTO tasks (
-                        name, description, status, completion_percentage,
+                        name, slug, description, status, completion_percentage,
                         expected_completion_date, completion_date, estimated_hours,
                         inherit_subtask_hours,
                         on_hold_reason, delay_reason,
                         responsible_person_id, contact_person_id,
                         project_id, parent_task_id, created_at, updated_at
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
-                        $name, $description, $status, $completion_percentage,
+                        $name, generateUniqueSlug($name, 'tasks'),
+                        $description, $status, $completion_percentage,
                         $expected_completion_date, $completion_date, $estimated_hours,
                         0, // new tasks can never start in inherit mode (no children yet)
                         $stored_on_hold_reason, $stored_delay_reason,
@@ -397,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_task_id = $db->lastInsertId();
                 syncProjectTaskCompletions($db, $final_project_id);
 
-                redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
+                redirect('/tasks/' . getSlugById('tasks', $new_task_id), 'Task created successfully!', 'success');
             }
         } catch (Exception $e) {
             // Issue-016: log the underlying PDO message server-side but
@@ -420,17 +421,17 @@ $show_nav = true;
     <div class="page-header">
         <div class="page-title">
             <div class="breadcrumb">
-                <a href="dashboard.php">Dashboard</a>
+                <a href="/dashboard">Dashboard</a>
                 <span>/</span>
-                <a href="tasks.php">Tasks</a>
+                <a href="/tasks">Tasks</a>
                 <?php if ($is_editing): ?>
                     <span>/</span>
-                    <a href="task_detail.php?id=<?= $task_id ?>"><?= e($task['name']) ?></a>
+                    <a href="/tasks/<?= e($task['slug']) ?>"><?= e($task['name']) ?></a>
                     <span>/</span>
                     <span>Edit</span>
                 <?php elseif ($is_subtask): ?>
                     <span>/</span>
-                    <a href="task_detail.php?id=<?= $parent_id ?>"><?= e($parent_task['name']) ?></a>
+                    <a href="/tasks/<?= e($parent_task['slug']) ?>"><?= e($parent_task['name']) ?></a>
                     <span>/</span>
                     <span>New Subtask</span>
                 <?php else: ?>
@@ -785,13 +786,13 @@ $show_nav = true;
                         <i class="fas fa-save"></i>
                         <?= $is_editing ? 'Update Task' : 'Create Task' ?>
                     </button>
-                    <a href="<?= $is_editing ? "task_detail.php?id=$task_id" : ($is_subtask ? "task_detail.php?id=$parent_id" : 'tasks.php') ?>" 
+                    <a href="<?= $is_editing ? '/tasks/' . e($task['slug']) : ($is_subtask ? '/tasks/' . e($parent_task['slug']) : '/tasks') ?>" 
                        class="btn btn-secondary">
                         <i class="fas fa-times"></i>
                         Cancel
                     </a>
                     <?php if ($is_editing && !($task['parent_task_id'] ?? null)): ?>
-                        <a href="task_edit.php?parent_id=<?= $task_id ?>" class="btn btn-outline">
+                        <a href="/tasks/new?parent_id=<?= $task_id ?>" class="btn btn-outline">
                             <i class="fas fa-plus"></i>
                             Add Subtask
                         </a>

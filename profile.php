@@ -15,7 +15,7 @@ $user = $db->fetchOne(
 );
 
 if (!$user) {
-    redirect('login.php');
+    redirect('/login');
 }
 
 // Handle form submissions
@@ -347,11 +347,11 @@ include 'includes/header.php';
             </div>
             <div class="card-body">
                 <div class="action-buttons">
-                    <a href="dashboard.php" class="btn btn-outline">
+                    <a href="/dashboard" class="btn btn-outline">
                         <i class="fas fa-tachometer-alt"></i>
                         Back to Dashboard
                     </a>
-                    <a href="logout.php" class="btn btn-secondary">
+                    <a href="/logout" class="btn btn-secondary">
                         <i class="fas fa-sign-out-alt"></i>
                         Logout
                     </a>

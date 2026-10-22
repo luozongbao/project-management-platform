@@ -194,22 +194,22 @@ $project_id = (int)$db->lastInsertId();
 
 // Parent task (manual mode by default).
 $db->execute(
-    "INSERT INTO tasks (project_id, name, responsible_person_id, estimated_hours, inherit_subtask_hours, completion_percentage, status, created_at)
-     VALUES (?, 'issue011 parent', ?, 5, 0, 0, 'not_started', NOW())",
+    "INSERT INTO tasks (project_id, name, slug, responsible_person_id, estimated_hours, inherit_subtask_hours, completion_percentage, status, created_at)
+     VALUES (?, 'issue011 parent', 'i011-parent', ?, 5, 0, 0, 'not_started', NOW())",
     [$project_id, $user_id]
 );
 $parent_id = (int)$db->lastInsertId();
 
 // Two sub-tasks with positive estimates.
 $db->execute(
-    "INSERT INTO tasks (project_id, parent_task_id, name, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
-     VALUES (?, ?, 'issue011 sub A', ?, 2.5, 0, 'not_started', NOW())",
+    "INSERT INTO tasks (project_id, parent_task_id, name, slug, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
+     VALUES (?, ?, 'issue011 sub A', 'i011-sub-a', ?, 2.5, 0, 'not_started', NOW())",
     [$project_id, $parent_id, $user_id]
 );
 $sub_a_id = (int)$db->lastInsertId();
 $db->execute(
-    "INSERT INTO tasks (project_id, parent_task_id, name, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
-     VALUES (?, ?, 'issue011 sub B', ?, 1.5, 0, 'not_started', NOW())",
+    "INSERT INTO tasks (project_id, parent_task_id, name, slug, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
+     VALUES (?, ?, 'issue011 sub B', 'i011-sub-b', ?, 1.5, 0, 'not_started', NOW())",
     [$project_id, $parent_id, $user_id]
 );
 $sub_b_id = (int)$db->lastInsertId();
@@ -251,8 +251,8 @@ try {
     // 3c. Adding a sub-task with zero estimate should not change the sum
     // (zero estimates are excluded, not counted as 0).
     $db->execute(
-        "INSERT INTO tasks (project_id, parent_task_id, name, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
-         VALUES (?, ?, 'issue011 sub C (zero)', ?, 0, 0, 'not_started', NOW())",
+        "INSERT INTO tasks (project_id, parent_task_id, name, slug, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
+         VALUES (?, ?, 'issue011 sub C (zero)', 'i011-sub-c', ?, 0, 0, 'not_started', NOW())",
         [$project_id, $parent_id, $user_id]
     );
     $sub_c_id = (int)$db->lastInsertId();
@@ -402,14 +402,14 @@ $ne_project_id = (int)$db->lastInsertId();
 
 // Parent in inherit mode, with one sub-task whose estimate is NULL.
 $db->execute(
-    "INSERT INTO tasks (project_id, name, responsible_person_id, estimated_hours, inherit_subtask_hours, completion_percentage, status, created_at)
-     VALUES (?, 'issue011 notest parent', ?, NULL, 1, 0, 'not_started', NOW())",
+    "INSERT INTO tasks (project_id, name, slug, responsible_person_id, estimated_hours, inherit_subtask_hours, completion_percentage, status, created_at)
+     VALUES (?, 'issue011 notest parent', 'i011-np', ?, NULL, 1, 0, 'not_started', NOW())",
     [$ne_project_id, $ne_user_id]
 );
 $ne_parent_id = (int)$db->lastInsertId();
 $db->execute(
-    "INSERT INTO tasks (project_id, parent_task_id, name, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
-     VALUES (?, ?, 'issue011 notest child', ?, NULL, 0, 'not_started', NOW())",
+    "INSERT INTO tasks (project_id, parent_task_id, name, slug, responsible_person_id, estimated_hours, completion_percentage, status, created_at)
+     VALUES (?, ?, 'issue011 notest child', 'i011-nc', ?, NULL, 0, 'not_started', NOW())",
     [$ne_project_id, $ne_parent_id, $ne_user_id]
 );
 $ne_child_id = (int)$db->lastInsertId();

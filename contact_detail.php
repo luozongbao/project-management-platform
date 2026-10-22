@@ -10,7 +10,7 @@ $user_id = getCurrentUserId();
 $contact_id = $_GET['id'] ?? null;
 
 if (!$contact_id) {
-    redirect('contacts.php');
+    redirect('/contacts');
 }
 
 // Get contact details with project information
@@ -24,12 +24,12 @@ $contact = $db->fetchOne(
 );
 
 if (!$contact) {
-    redirect('contacts.php');
+    redirect('/contacts');
 }
 
 // Get projects associated with this contact
 $projects = $db->fetchAll(
-    "SELECT DISTINCT p.id, p.name, p.status, p.created_at
+    "SELECT DISTINCT p.id, p.name, p.slug, p.status, p.created_at
      FROM projects p
      JOIN project_contacts pc ON p.id = pc.project_id
      WHERE pc.contact_id = ? AND p.responsible_person_id = ?
@@ -39,7 +39,7 @@ $projects = $db->fetchAll(
 
 // Get tasks associated with this contact
 $tasks = $db->fetchAll(
-    "SELECT t.id, t.name, t.status, t.completion_percentage, t.created_at, p.name as project_name, p.id as project_id
+    "SELECT t.id, t.name, t.slug, t.status, t.completion_percentage, t.created_at, p.name as project_name, p.id as project_id, p.slug as project_slug
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
      WHERE t.contact_person_id = ? AND p.responsible_person_id = ?
@@ -77,9 +77,9 @@ $show_nav = true;
     <div class="page-header">
         <div class="page-title">
             <div class="breadcrumb">
-                <a href="dashboard.php">Dashboard</a>
+                <a href="/dashboard">Dashboard</a>
                 <span>/</span>
-                <a href="contacts.php">Contacts</a>
+                <a href="/contacts">Contacts</a>
                 <span>/</span>
                 <span><?= e($contact['name']) ?></span>
             </div>
@@ -89,7 +89,7 @@ $show_nav = true;
             </h1>
         </div>
         <div class="page-actions">
-            <a href="contact_edit.php?id=<?= $contact_id ?>" class="btn btn-primary">
+            <a href="/contacts/<?= e($contact['slug']) ?>/edit" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
                 Edit Contact
             </a>
@@ -192,14 +192,14 @@ $show_nav = true;
                                     <div class="task-header">
                                         <div class="task-info">
                                             <h4>
-                                                <a href="task_detail.php?id=<?= $task['id'] ?>">
+                                                <a href="/tasks/<?= e($task['slug']) ?>">
                                                     <?= e($task['name']) ?>
                                                 </a>
                                             </h4>
                                             <div class="task-meta">
                                                 <span class="project-name">
                                                     <i class="fas fa-folder"></i>
-                                                    <a href="project_detail.php?id=<?= $task['project_id'] ?>">
+                                                    <a href="/projects/<?= e($task['project_slug']) ?>">
                                                         <?= e($task['project_name']) ?>
                                                     </a>
                                                 </span>
@@ -227,7 +227,7 @@ $show_nav = true;
                         
                         <?php if (count($tasks) >= 20): ?>
                             <div class="view-all-link">
-                                <a href="tasks.php?contact_id=<?= $contact_id ?>" class="btn btn-outline">
+                                <a href="/tasks?contact_id=<?= $contact_id ?>" class="btn btn-outline">
                                     <i class="fas fa-list"></i>
                                     View All Tasks
                                 </a>
@@ -362,7 +362,7 @@ $show_nav = true;
                                 <div class="project-item">
                                     <div class="project-info">
                                         <h4>
-                                            <a href="project_detail.php?id=<?= $project['id'] ?>">
+                                            <a href="/projects/<?= e($project['slug']) ?>">
                                                 <?= e($project['name']) ?>
                                             </a>
                                         </h4>

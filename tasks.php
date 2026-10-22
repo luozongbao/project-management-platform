@@ -56,7 +56,7 @@ $where_clause = "WHERE " . implode(" AND ", $where_conditions);
 
 // Get tasks with project and user information
 $tasks = $db->fetchAll(
-    "SELECT t.*, p.name as project_name, u.name as responsible_person_name, 
+    "SELECT t.*, p.name as project_name, p.slug as project_slug, u.name as responsible_person_name,
             c.name as contact_person_name,
             (SELECT COUNT(*) FROM tasks st WHERE st.parent_task_id = t.id) as subtask_count,
             CASE 
@@ -144,7 +144,7 @@ $show_nav = true;
             <p>Manage and track your project tasks</p>
         </div>
         <div class="page-actions">
-            <a href="task_edit.php<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
+            <a href="/tasks/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
                 New Task
             </a>
@@ -160,7 +160,7 @@ $show_nav = true;
                 <i class="fas fa-hourglass-half" aria-hidden="true"></i>
                 Showing delayed tasks still missing a reason. Edit each one or set the reason inline.
             </div>
-            <a href="tasks.php?status=delayed">
+            <a href="/tasks?status=delayed">
                 Show all delayed &rarr;
             </a>
         </div>
@@ -260,7 +260,7 @@ $show_nav = true;
                             <i class="fas fa-search"></i>
                             Filter
                         </button>
-                        <a href="tasks.php<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-secondary btn-sm">
+                        <a href="/tasks<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-secondary btn-sm">
                             <i class="fas fa-times"></i>
                             Clear
                         </a>
@@ -285,7 +285,7 @@ $show_nav = true;
                         You haven't created any tasks yet. Create your first task to get started!
                     <?php endif; ?>
                 </p>
-                <a href="task_edit.php<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
+                <a href="/tasks/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     Create First Task
                 </a>
@@ -304,14 +304,14 @@ $show_nav = true;
                             </div>
                             <div class="task-title">
                                 <h3>
-                                    <a href="task_detail.php?id=<?= $task['id'] ?>">
+                                    <a href="/tasks/<?= e($task['slug']) ?>">
                                         <?= e($task['name']) ?>
                                     </a>
                                 </h3>
                                 <?php if (!$project_id): ?>
                                     <div class="project-tag">
                                         <i class="fas fa-folder"></i>
-                                        <a href="project_detail.php?id=<?= $task['project_id'] ?>">
+                                        <a href="/projects/<?= e($task['project_slug']) ?>">
                                             <?= e($task['project_name']) ?>
                                         </a>
                                     </div>
@@ -325,7 +325,7 @@ $show_nav = true;
                                         <i class="fas fa-check"></i>
                                     </button>
                                 <?php endif; ?>
-                                <a href="task_edit.php?id=<?= $task['id'] ?>" class="btn btn-sm btn-outline" title="Edit Task">
+                                <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn-sm btn-outline" title="Edit Task">
                                     <i class="fas fa-edit"></i>
                                 </a>
                             </div>

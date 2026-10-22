@@ -135,11 +135,11 @@ $title = "Forgot Password";
         <?php endif; ?>
         
         <div class="auth-links">
-            <a href="login.php">
+            <a href="/login">
                 <i class="fas fa-arrow-left"></i>
                 Back to Login
             </a>
-            <a href="register.php">Don't have an account? Register</a>
+            <a href="/register">Don't have an account? Register</a>
         </div>
     </div>
 </div>

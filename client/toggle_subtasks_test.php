@@ -30,7 +30,7 @@
  *        still emitted (i.e. the markup is intact, not re-rendered
  *        server-side based on state).
  *      - The page loads the external controller file via
- *        <script src="assets/js/subtask-toggle.js" defer></script>
+ *        <script src="/assets/js/subtask-toggle.js" defer></script>
  *        and does NOT contain an inline <script>(function () { ... })
  *        block (issue-027: the issue-020 CSP tightening on the public
  *        client portal drops 'unsafe-inline' from script-src, so any
@@ -116,9 +116,9 @@ foreach ([
 ] as $key => $name) {
     $code = generateShareCode();
     $db->execute(
-        "INSERT INTO projects (name, share_code, responsible_person_id, status, created_at)
-         VALUES (?, ?, ?, 'in_progress', NOW())",
-        [$name, $code, $user_id]
+        "INSERT INTO projects (name, slug, share_code, responsible_person_id, status, created_at)
+         VALUES (?, ?, ?, ?, 'in_progress', NOW())",
+        [$name, generateUniqueSlug($name, 'projects'), $code, $user_id]
     );
     $pid = (int)$db->lastInsertId();
     $created[$key] = $code;
@@ -126,27 +126,27 @@ foreach ([
     if ($key === 'with-subs') {
         // top-level task
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, NULL, 'Workstream A', 'in_progress', 50, ?, NOW())",
-            [$pid, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, NULL, 'Workstream A', ?, 'in_progress', 50, ?, NOW())",
+            [$pid, generateUniqueSlug('Workstream A', 'tasks'), $user_id]
         );
         $top_id = (int)$db->lastInsertId();
         // two sub-tasks
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, ?, 'Sub 1', 'completed', 100, ?, NOW())",
-            [$pid, $top_id, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, ?, 'Sub 1', ?, 'completed', 100, ?, NOW())",
+            [$pid, $top_id, generateUniqueSlug('Sub 1', 'tasks'), $user_id]
         );
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, ?, 'Sub 2', 'in_progress', 30, ?, NOW())",
-            [$pid, $top_id, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, ?, 'Sub 2', ?, 'in_progress', 30, ?, NOW())",
+            [$pid, $top_id, generateUniqueSlug('Sub 2', 'tasks'), $user_id]
         );
     } elseif ($key === 'no-subs') {
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, NULL, 'Solo workstream', 'in_progress', 20, ?, NOW())",
-            [$pid, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, NULL, 'Solo workstream', ?, 'in_progress', 20, ?, NOW())",
+            [$pid, generateUniqueSlug('Solo workstream', 'tasks'), $user_id]
         );
     }
     // 'no-tasks' stays empty.
@@ -221,7 +221,7 @@ if (!is_file($js_path)) {
     $failures[] = "with-subs dashboard requires client/assets/js/subtask-toggle.js, but the file is missing";
 }
 $js_src = is_file($js_path) ? file_get_contents($js_path) : '';
-$expected_script_tag = 'src="assets/js/subtask-toggle.js" defer';
+$expected_script_tag = 'src="/assets/js/subtask-toggle.js" defer';
 if (strpos($with_subs_html, $expected_script_tag) === false) {
     $failures[] = "with-subs dashboard is missing the <script {$expected_script_tag}></script> tag for the external controller";
 }
@@ -310,12 +310,12 @@ if (substr_count($with_subs_html, '<ul class="task-tree">') < 1) {
 // ---------------------------------------------------------------------------
 // 2. Project WITHOUT sub-tasks: NO toggle, NO script tag.
 // ---------------------------------------------------------------------------
-foreach (['id="subtasks-toggle"', 'src="assets/js/subtask-toggle.js"'] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="/assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_subs_html, $needle) !== false) {
         $failures[] = "no-subs dashboard should not contain '$needle'";
     }
 }
-foreach (['id="subtasks-toggle"', 'src="assets/js/subtask-toggle.js"'] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="/assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_tasks_html, $needle) !== false) {
         $failures[] = "no-tasks dashboard should not contain '$needle'";
     }

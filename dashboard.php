@@ -103,7 +103,7 @@ $overall_completion = count($completionByProject) > 0
 
 // Recent projects
 $recent_projects = $db->fetchAll(
-    "SELECT ps.*, u.name as responsible_person_name 
+    "SELECT ps.*, p.slug, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
@@ -120,7 +120,7 @@ unset($project);
 
 // Upcoming deadlines
 $upcoming_deadlines = $db->fetchAll(
-    "SELECT p.id, p.name, p.expected_completion_date, ps.avg_completion_percentage, p.status
+    "SELECT p.id, p.name, p.slug, p.expected_completion_date, ps.avg_completion_percentage, p.status
      FROM projects p
      LEFT JOIN project_stats ps ON p.id = ps.id
      WHERE p.responsible_person_id = ? 
@@ -142,7 +142,7 @@ unset($deadline);
 
 // Recent tasks
 $recent_tasks = $db->fetchAll(
-    "SELECT t.id, t.project_id, t.name, t.status, t.completion_percentage, p.name as project_name,
+    "SELECT t.id, t.project_id, t.name, t.slug, t.status, t.completion_percentage, p.name as project_name,
             t.expected_completion_date, u.name as responsible_person_name
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
@@ -193,7 +193,7 @@ $show_nav = true;
                     (all on hold).
                 <?php endif; ?>
             </div>
-            <a href="tasks.php?status=delayed&amp;missing_reason=1">
+            <a href="/tasks?status=delayed&amp;missing_reason=1">
                 Review &rarr;
             </a>
         </div>
@@ -276,7 +276,7 @@ $show_nav = true;
                     <i class="fas fa-folder-open"></i>
                     Recent Projects
                 </h2>
-                <a href="project_edit.php" class="btn btn-primary">
+                <a href="/projects/new" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     New Project
                 </a>
@@ -286,14 +286,14 @@ $show_nav = true;
                 <?php if (empty($recent_projects)): ?>
                     <div class="empty-state">
                         <i class="fas fa-folder-plus"></i>
-                        <p>No projects yet. <a href="project_edit.php">Create your first project</a></p>
+                        <p>No projects yet. <a href="/projects/new">Create your first project</a></p>
                     </div>
                 <?php else: ?>
                     <?php foreach ($recent_projects as $project): ?>
                         <div class="project-card">
                             <div class="project-info">
                                 <h4>
-                                    <a href="project_detail.php?id=<?= $project['id'] ?>">
+                                    <a href="/projects/<?= e($project['slug']) ?>">
                                         <?= e($project['name']) ?>
                                     </a>
                                 </h4>
@@ -322,7 +322,7 @@ $show_nav = true;
 
             <?php if (!empty($recent_projects)): ?>
                 <div class="section-footer">
-                    <a href="projects.php">View all projects</a>
+                    <a href="/projects">View all projects</a>
                 </div>
             <?php endif; ?>
         </div>
@@ -347,7 +347,7 @@ $show_nav = true;
                         <div class="deadline-item">
                             <div class="deadline-info">
                                 <h5>
-                                    <a href="project_detail.php?id=<?= $deadline['id'] ?>">
+                                    <a href="/projects/<?= e($deadline['slug']) ?>">
                                         <?= e($deadline['name']) ?>
                                     </a>
                                 </h5>
@@ -374,7 +374,7 @@ $show_nav = true;
                     <i class="fas fa-tasks"></i>
                     Recent Tasks
                 </h2>
-                <a href="tasks.php" class="btn btn-secondary">View All</a>
+                <a href="/tasks" class="btn btn-secondary">View All</a>
             </div>
 
             <div class="tasks-list">
@@ -388,7 +388,7 @@ $show_nav = true;
                         <div class="task-item">
                             <div class="task-info">
                                 <h6>
-                                    <a href="task_detail.php?id=<?= $task['id'] ?>">
+                                    <a href="/tasks/<?= e($task['slug']) ?>">
                                         <?= e($task['name']) ?>
                                     </a>
                                 </h6>

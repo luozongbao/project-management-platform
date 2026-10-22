@@ -101,8 +101,8 @@ if (isShareCodeRateLimited($clientIp)) {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Too many requests — <?= e(APP_NAME) ?></title>
-        <link rel="icon" type="image/png" href="../assets/image/project-favicon.png">
-        <link rel="stylesheet" href="../assets/css/style.css">
+        <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+        <link rel="stylesheet" href="/assets/css/style.css">
         <link rel="stylesheet" href="assets/client.css">
     </head>
     <body class="client-body">
@@ -168,8 +168,8 @@ if ($error) {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><?= e(t('landing.title')) ?> — <?= e(APP_NAME) ?></title>
-        <link rel="icon" type="image/png" href="../assets/image/project-favicon.png">
-        <link rel="stylesheet" href="../assets/css/style.css">
+        <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+        <link rel="stylesheet" href="/assets/css/style.css">
         <link rel="stylesheet" href="assets/client.css">
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -334,8 +334,8 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($project['name']) ?> — <?= e(APP_NAME) ?> <?= e(t('dash.title_suffix')) ?></title>
-    <link rel="icon" type="image/png" href="../assets/image/project-favicon.png">
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="assets/client.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -504,7 +504,7 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
      tightening on the public client portal (no 'unsafe-inline') still
      allows it to run. Translation strings + share code are passed in
      via data-* attributes on the button (issue-027). -->
-<script src="assets/js/subtask-toggle.js" defer></script>
+<script src="/assets/js/subtask-toggle.js" defer></script>
 <?php endif; ?>
 
 </body>

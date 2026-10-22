@@ -108,7 +108,7 @@ $title = "Register";
                 <h4>Registration Successful!</h4>
                 <p>Your account has been created successfully. We've sent a password setup link to your email address.</p>
                 <p>Please check your email and follow the instructions to set your password.</p>
-                <p><a href="login.php">Return to Login</a></p>
+                <p><a href="/login">Return to Login</a></p>
             </div>
         <?php else: ?>
             <?php if (!empty($errors)): ?>
@@ -157,7 +157,7 @@ $title = "Register";
         <?php endif; ?>
         
         <div class="auth-links">
-            <a href="login.php">Already have an account? Sign in</a>
+            <a href="/login">Already have an account? Sign in</a>
         </div>
     </div>
 </div>

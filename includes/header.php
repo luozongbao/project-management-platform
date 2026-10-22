@@ -41,10 +41,10 @@ sendSecurityHeaders();
         <meta name="csrf-token" content="<?= e(getCsrfToken()) ?>">
     <?php endif; ?>
     <title><?= $title ?? APP_NAME ?></title>
-    <link rel="icon" type="image/png" href="assets/image/project-favicon.png">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="assets/js/subtask-manager.js" defer></script>
+    <script src="/assets/js/subtask-manager.js" defer></script>
 </head>
 <body>
     <?php if (isset($show_nav) && $show_nav && isLoggedIn()): ?>
@@ -54,16 +54,16 @@ sendSecurityHeaders();
             <span><?= APP_NAME ?></span>
         </div>
         <div class="nav-menu">
-            <a href="dashboard.php" class="nav-link">
+            <a href="/dashboard" class="nav-link">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </a>
-            <a href="projects.php" class="nav-link">
+            <a href="/projects" class="nav-link">
                 <i class="fas fa-folder-open"></i> Projects
             </a>
-            <a href="tasks.php" class="nav-link">
+            <a href="/tasks" class="nav-link">
                 <i class="fas fa-tasks"></i> Tasks
             </a>
-            <a href="contacts.php" class="nav-link">
+            <a href="/contacts" class="nav-link">
                 <i class="fas fa-address-book"></i> Contacts
             </a>
             <details class="app-about" aria-label="About this application">
@@ -84,10 +84,10 @@ sendSecurityHeaders();
                     <i class="fas fa-chevron-down"></i>
                 </a>
                 <div class="dropdown-menu">
-                    <a href="profile.php" class="dropdown-item">
+                    <a href="/profile" class="dropdown-item">
                         <i class="fas fa-user-edit"></i> Profile
                     </a>
-                    <a href="logout.php" class="dropdown-item">
+                    <a href="/logout" class="dropdown-item">
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </div>

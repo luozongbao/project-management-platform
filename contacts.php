@@ -89,7 +89,7 @@ $show_nav = true;
             <p>Manage your project contacts and communication</p>
         </div>
         <div class="page-actions">
-            <a href="contact_edit.php<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
+            <a href="/contacts/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
                 New Contact
             </a>
@@ -174,7 +174,7 @@ $show_nav = true;
                             <i class="fas fa-search"></i>
                             Filter
                         </button>
-                        <a href="contacts.php<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-secondary btn-sm">
+                        <a href="/contacts<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-secondary btn-sm">
                             <i class="fas fa-times"></i>
                             Clear
                         </a>
@@ -199,7 +199,7 @@ $show_nav = true;
                         You haven't added any contacts yet. Create your first contact to get started!
                     <?php endif; ?>
                 </p>
-                <a href="contact_edit.php<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
+                <a href="/contacts/new<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     Add First Contact
                 </a>
@@ -214,7 +214,7 @@ $show_nav = true;
                             </div>
                             <div class="contact-info">
                                 <h3>
-                                    <a href="contact_detail.php?id=<?= $contact['id'] ?>">
+                                    <a href="/contacts/<?= e($contact['slug']) ?>">
                                         <?= e($contact['name']) ?>
                                     </a>
                                 </h3>
@@ -240,7 +240,7 @@ $show_nav = true;
                                             <i class="fas fa-phone"></i>
                                         </a>
                                     <?php endif; ?>
-                                    <a href="contact_edit.php?id=<?= $contact['id'] ?>" class="btn btn-sm btn-outline" title="Edit">
+                                    <a href="/contacts/<?= e($contact['slug']) ?>/edit" class="btn btn-sm btn-outline" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </div>
