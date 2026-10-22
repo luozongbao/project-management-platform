@@ -80,6 +80,7 @@ CREATE TABLE client_share_code_attempts (
 CREATE TABLE projects (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
+    slug VARCHAR(80) NOT NULL,                          -- issue-035 v2.0: immutable URL segment; assigned once at insert, never regenerated on rename
     description TEXT,
     scope TEXT,                                       -- Project scope / list of requirements (one per line)
     budget_amount DECIMAL(15,2) NULL,                 -- Project budget in user-defined currency
@@ -95,6 +96,7 @@ CREATE TABLE projects (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (responsible_person_id) REFERENCES users(id),
     UNIQUE KEY uq_projects_share_code (share_code),
+    UNIQUE KEY uq_projects_slug (slug),
     CONSTRAINT chk_projects_currency CHECK (currency IS NULL OR currency IN ('THB','USD','CNY','JPY','SGD','EUR'))
 );
 
@@ -102,6 +104,7 @@ CREATE TABLE projects (
 CREATE TABLE contacts (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
+    slug VARCHAR(80) NOT NULL,                          -- issue-035 v2.0: immutable URL segment; assigned once at insert, never regenerated on rename
     description TEXT,
     address TEXT,                                       -- Free-form postal address (issue-009)
     mobile VARCHAR(20),
@@ -114,7 +117,8 @@ CREATE TABLE contacts (
     facebook VARCHAR(255),
     linkedin VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_contacts_slug (slug)
 );
 
 -- Project-specific contacts (links projects to contacts)
@@ -134,6 +138,7 @@ CREATE TABLE tasks (
     project_id INT NOT NULL,
     parent_task_id INT NULL, -- NULL for top-level tasks
     name VARCHAR(255) NOT NULL,
+    slug VARCHAR(80) NOT NULL,                          -- issue-035 v2.0: immutable URL segment; assigned once at insert, never regenerated on rename
     description TEXT,
     responsible_person_id INT NOT NULL,
     contact_person_id INT NULL,
@@ -150,7 +155,8 @@ CREATE TABLE tasks (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (responsible_person_id) REFERENCES users(id),
-    FOREIGN KEY (contact_person_id) REFERENCES contacts(id)
+    FOREIGN KEY (contact_person_id) REFERENCES contacts(id),
+    UNIQUE KEY uq_tasks_slug (slug)
 );
 
 -- Indexes for better performance
