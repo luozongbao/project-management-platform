@@ -1,173 +1,73 @@
 /* filepath: assets/css/pages/tasks.css */
-/* Phase 1.4b — Layer 3 for tasks.php.
+/* Layer 3 for tasks.php. Loaded after style.css and v2-components.css.
  *
- * The design mockup (docs/design/2.0/tasks.html) renders the task list as a
- * 9-column table. The real page is deliberately NOT converted to a table: each
- * task carries a type indicator, description, progress bar, resolved estimate,
- * on-hold/delay reason chips and inline action buttons, and squeezing that into
- * 9 columns at typical widths produces unreadable, wrapping cells. The card
- * layout is preserved and restyled onto v2 tokens instead.
+ * Phase 1.4b originally kept the v1.8.0 card list, on the theory that the
+ * description, progress bar and reason chips could not survive 9 columns. That
+ * turned out to be wrong: every one of those has a real column or a real home
+ * (see the mapping comment in tasks.php), and the card list was the single
+ * largest remaining divergence from tasks.html.
  *
- * Everything shared (chips, badges, progress, buttons, alerts, stat cards,
- * filter bar, empty state) already exists in v2-components.css and is NOT
- * redefined here — only the card-specific pieces below.
+ * So this file now holds ONLY the task-specific row treatments. Table chrome,
+ * status chips, reason sub-rows, row actions, badges, buttons, empty state and
+ * the filter bar all come from v2-components.css and are not redefined here.
  */
 
-.tk-list {
+/* Tasks list table — 9 columns per docs/design/2.0/tasks.html.
+ *
+ * The task list is now the mockup's table: Task / Project / Status /
+ * Responsible / Contact / Due / Completed / Subtasks / actions. Everything
+ * structural (.table, .table-wrap, .status, .reason-row, .reason-chip,
+ * .row-actions, .badge, .empty-state) comes from v2-components.css — only the
+ * row-level bits that are specific to tasks live here.
+ *
+ * Row accents replace the old card border-left accents. A table cell can't
+ * carry a border-left that reads as a row marker, so the tint goes on the
+ * first cell of the row instead.
+ */
+
+/* First-cell accent bar + row tint, per task state. */
+.tk-row > td:first-child { position: relative; }
+
+.tk-row--delayed > td:first-child { box-shadow: inset 3px 0 0 var(--danger-500); }
+.tk-row--on-hold > td:first-child { box-shadow: inset 3px 0 0 var(--warning-500); }
+.tk-row--completed > td:first-child { box-shadow: inset 3px 0 0 var(--success-500); }
+.tk-row--subtask > td:first-child { box-shadow: inset 3px 0 0 var(--gray-300); }
+
+/* A subtask that is ALSO delayed/on-hold must keep the state colour — the
+ * state accent wins, and the subtask indent is carried by the cell padding
+ * instead so the two signals don't fight over one box-shadow. */
+.tk-row--delayed.tk-row--subtask > td:first-child,
+.tk-row--on-hold.tk-row--subtask > td:first-child { padding-left: calc(var(--sp-4) + var(--sp-2)); }
+.tk-row--subtask:not(.tk-row--delayed):not(.tk-row--on-hold):not(.tk-row--completed) > td:first-child {
+  padding-left: calc(var(--sp-4) + var(--sp-2));
+}
+
+/* Completed rows recede slightly, mirroring the old .tk-card--completed. */
+.tk-row--completed td { opacity: .72; }
+
+/* Keep the reason sub-row visually attached to the row it explains even when
+ * the parent row is dimmed. */
+.tk-row--completed + .reason-row .reason-row__cell { opacity: 1; }
+
+/* Overdue due-date. */
+.tk-due--overdue { color: var(--danger-700); font-weight: var(--fw-semibold); }
+
+/* Resolved estimate line under the subtask count. */
+.tk-est {
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-}
-
-.tk-card {
-  background: var(--gray-0);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4);
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
-}
-.tk-card:hover {
-  border-color: var(--gray-300);
-  box-shadow: var(--sh-xs);
-}
-.tk-card--subtask {
-  border-left: 3px solid var(--gray-300);
-  margin-left: var(--sp-4);
-}
-.tk-card--delayed {
-  border-left: 3px solid var(--danger-500);
-}
-.tk-card--on-hold {
-  border-left: 3px solid var(--warning-500);
-}
-.tk-card--completed {
-  opacity: .78;
-}
-
-.tk-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-}
-
-.tk-head__main {
-  flex: 1 1 260px;
-  min-width: 0;
-}
-
-.tk-title {
-  margin: 0;
-  /* issue-038: explicit colour. Without this the title inherited whatever
-     the body happened to resolve to, and rendered as the faintest text on
-     the card. A title must never depend on inheritance. */
-  color: var(--gray-900);
-  font-size: var(--fs-base);
-  font-weight: var(--fw-semibold);
-  line-height: var(--lh-tight);
-}
-.tk-title a {
-  color: var(--gray-900);
-  text-decoration: none;
-}
-.tk-title a:hover {
-  color: var(--brand-700);
-  text-decoration: underline;
-}
-
-.tk-project {
+  align-items: center;
+  gap: var(--sp-1);
   margin-top: var(--sp-1);
   font-size: var(--fs-xs);
-  color: var(--gray-600);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
+  color: var(--gray-500);
+  white-space: normal;
 }
-.tk-project a {
-  color: var(--gray-700);
-  text-decoration: none;
-}
-.tk-project a:hover { color: var(--brand-700); text-decoration: underline; }
-
-.tk-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex-shrink: 0;
-}
-
-.tk-desc {
-  margin: var(--sp-3) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--gray-700);
-  line-height: var(--lh-normal);
-}
-.tk-desc p { margin: 0; }
-
-.tk-meta {
-  margin-top: var(--sp-3);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-3) var(--sp-5);
-  align-items: center;
-}
-.tk-meta__group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2) var(--sp-4);
-}
-
-.tk-meta__item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  font-size: var(--fs-xs);
-  color: var(--gray-600);
-  white-space: nowrap;
-}
-.tk-meta__item i { color: var(--gray-400); }
-.tk-meta__item--overdue { color: var(--danger-700); font-weight: var(--fw-semibold); }
-.tk-meta__item--overdue i { color: var(--danger-500); }
-.tk-meta__item--done i { color: var(--success-500); }
-
+.tk-est i { color: var(--gray-400); }
+/* "Auto-calculated from sub-tasks" affordance next to an inherited estimate. */
 .tk-inherit {
   font-size: .9em;
   color: var(--gray-400);
   cursor: help;
-}
-
-/* Progress block */
-.tk-progress {
-  margin-top: var(--sp-3);
-}
-.tk-progress__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--sp-1);
-}
-.tk-progress__label {
-  font-size: var(--fs-xs);
-  color: var(--gray-600);
-}
-.tk-progress__value {
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  color: var(--gray-800);
-  font-variant-numeric: tabular-nums;
-}
-
-/* On-hold / delay reason chips, using the shared .reason-chip component. */
-.tk-reasons {
-  margin-top: var(--sp-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-.tk-reasons--inline {
-  flex-direction: row;
-  flex-wrap: wrap;
 }
 
 /* Filter bar: DELETED the former .tk-filter-form rules.
@@ -191,7 +91,6 @@
   font-weight: var(--fw-normal);
 }
 
-/* Narrow screens: stack the card head and drop the indent. */
-@media (max-width: 640px) {
-  .tk-card--subtask { margin-left: 0; }
-}
+/* Narrow screens: the former .tk-card--subtask indent rule was DELETED with the
+ * card list. Subtask indent is now cell padding on the row, which needs no
+ * breakpoint, and .table already scrolls horizontally inside .table-wrap. */

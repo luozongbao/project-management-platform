@@ -295,7 +295,23 @@ if ($__t_on_hold > 0) {
     </div>
 </form>
 
-    <!-- Tasks List -->
+<!-- Tasks List: 9-column table per tasks.html.
+         Replaces the v1.8.0 card list. Every behaviour the cards carried is
+         preserved and mapped onto the table:
+           tk-card accent      -> .tk-row + .tk-row--delayed / --on-hold
+           tk-desc             -> DROPPED (the mockup has no description column;
+                                  tasks.php already exposes it on the detail page)
+           tk-meta groups      -> discrete Project / Responsible / Contact / Due /
+                                  Completed / Subtasks columns
+           tk-progress bar     -> DROPPED from the row (mockup has no progress
+                                  column); percentage still drives the stat tiles
+           tk-reasons chips    -> a .reason-row sub-row spanning all 9 columns
+           reason-missing icon -> kept, next to the status badge
+           quick-complete-btn  -> kept as the first row-action, now carrying
+                                  data-row-id instead of relying on .task-card
+         The .reason-row pattern is NOT new: v2-components.css already ships
+         .reason-row__cell / .reason-stack / the :has(+ .reason-row) hover group
+         for exactly this layout. -->
     <?php if (empty($tasks)): ?>
         <div class="empty-state">
             <div class="empty-state__icon">
@@ -315,198 +331,214 @@ if ($__t_on_hold > 0) {
             </a>
         </div>
     <?php else: ?>
-        <div class="tk-list">
-            <?php foreach ($tasks as $task): ?>
-                <?php // Issue-034 v1.8.0 — the computed "delayed" pseudo-status
-                      // and the reason-presence checks.
-                      //
-                      // NOTE: this block was previously placed *below* the
-                      // markup that reads $_is_on_hold/$_on_hold_reason, so the
-                      // "reason missing" icon at the top of each card was
-                      // evaluated against the PREVIOUS row's values (and
-                      // against nothing at all on the first row). It is hoisted
-                      // here so the icon reflects the task actually being
-                      // rendered. Pure ordering fix; the rules are unchanged. ?>
-                <?php
-                    $_is_delayed = ($task['status'] ?? '') !== 'completed'
-                        && !empty($task['expected_completion_date'])
-                        && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
-                    $_is_on_hold = ($task['status'] ?? '') === 'on_hold';
-                    $_delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
-                    $_on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
-
-                    // Card accent matches the computed status.
-                    $__tk_mod = '';
-                    if ($_is_on_hold) {
-                        $__tk_mod = ' tk-card--on-hold';
-                    } elseif ($_is_delayed) {
-                        $__tk_mod = ' tk-card--delayed';
-                    } elseif (($task['status'] ?? '') === 'completed') {
-                        $__tk_mod = ' tk-card--completed';
-                    }
-                    $__tk_mod .= ($task['task_type'] === 'subtask') ? ' tk-card--subtask' : '';
-
-                    // Inline estimate resolution (issue-011).
-                    $child_estimates_for_task = $childEstimatesByParent[(int)$task['id']] ?? [];
-                    $resolved_total = resolveTaskEstimateHours($task, $child_estimates_for_task);
-                    $inherit_active = !empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0;
-                ?>
-                <div class="tk-card<?= $__tk_mod ?>">
-                    <div class="tk-head">
-                        <div class="tk-head__main">
-                            <h3 class="tk-title">
-                                <i class="fas <?= $task['task_type'] === 'subtask' ? 'fa-level-down-alt' : 'fa-circle' ?>"
-                                   title="<?= $task['task_type'] === 'subtask' ? 'Subtask' : 'Main Task' ?>"
-                                   style="font-size:.7em;color:var(--gray-400);vertical-align:middle;"></i>
-                                <a href="/tasks/<?= e($task['slug']) ?>"><?= e($task['name']) ?></a>
-                            </h3>
-                            <?php if (!$project_id): ?>
-                                <div class="tk-project">
-                                    <i class="fas fa-folder"></i>
-                                    <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                        <div class="tk-actions">
-                            <?php if ($task['status'] !== 'completed' && (int)$task['subtask_count'] === 0): ?>
-                                <button class="btn btn--sm btn--success quick-complete-btn"
-                                        data-task-id="<?= $task['id'] ?>"
-                                        title="Mark as Completed">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                            <?php endif; ?>
-                            <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn--sm btn--ghost btn--icon" title="Edit Task">
-                                <i class="fas fa-pen"></i>
-                            </a>
-                            <a href="/tasks/<?= e($task['slug']) ?>" class="btn btn--sm btn--ghost btn--icon" title="Open">
-                                <i class="fas fa-arrow-right"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                    <?php if ($task['description']): ?>
-                        <div class="tk-desc">
-                            <p><?= e(substr($task['description'], 0, 200)) ?><?= strlen($task['description']) > 200 ? '...' : '' ?></p>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="tk-meta">
-                        <div class="tk-meta__group">
-                            <span class="status status--<?= $task['status'] ?>">
-                                <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
-                                <?php // Issue-034 v1.8.0 — superscript "reason missing"
-                                      // mark. Shown next to the status badge so the
-                                      // project manager can spot the backfill set at
-                                      // a glance in the task list. ?>
-                                <?php if ($_is_on_hold && $_on_hold_reason === ''): ?>
-                                    <i class="fas fa-exclamation-circle reason-missing"
-                                       title="On-hold reason missing"
-                                       aria-label="On-hold reason missing"></i>
-                                <?php elseif ($_is_delayed && $_delay_reason === ''): ?>
-                                    <i class="fas fa-exclamation-circle reason-missing"
-                                       title="Delay reason missing"
-                                       aria-label="Delay reason missing"></i>
-                                <?php endif; ?>
-                            </span>
-
-                            <?php if ($task['responsible_person_name']): ?>
-                                <span class="tk-meta__item">
-                                    <i class="fas fa-user"></i>
-                                    <?= e($task['responsible_person_name']) ?>
-                                </span>
-                            <?php endif; ?>
-
-                            <?php if ($task['contact_person_name']): ?>
-                                <span class="tk-meta__item">
-                                    <i class="fas fa-address-card"></i>
-                                    <?= e($task['contact_person_name']) ?>
-                                </span>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="tk-meta__group">
-                            <?php if ($task['expected_completion_date']): ?>
-                                <?php $__tk_overdue = strtotime($task['expected_completion_date']) < time() && $task['status'] != 'completed'; ?>
-                                <span class="tk-meta__item<?= $__tk_overdue ? ' tk-meta__item--overdue' : '' ?>">
-                                    <i class="fas fa-calendar"></i>
-                                    Due: <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
-                                </span>
-                            <?php endif; ?>
-
-                            <?php if ($task['completion_date']): ?>
-                                <span class="tk-meta__item tk-meta__item--done">
-                                    <i class="fas fa-circle-check"></i>
-                                    Completed: <?= formatDateTime($task['completion_date'], 'M j, Y') ?>
-                                </span>
-                            <?php endif; ?>
-
-                            <?php if ((int)$task['subtask_count'] > 0): ?>
-                                <span class="tk-meta__item">
-                                    <i class="fas fa-sitemap"></i>
-                                    <?= $task['subtask_count'] ?> subtasks
-                                </span>
-                            <?php endif; ?>
-
-                            <?php if ($resolved_total !== null): ?>
-                                <span class="tk-meta__item">
-                                    <i class="fas fa-clock"></i>
-                                    Total Time: <?= e(formatTaskEstimate($resolved_total)) ?>
-                                    <?php if ($inherit_active): ?>
-                                        <i class="fas fa-link tk-inherit"
-                                           title="Auto-calculated from sub-tasks"
-                                           aria-label="Auto-calculated from sub-tasks"></i>
-                                    <?php endif; ?>
-                                </span>
-                            <?php elseif ($inherit_active): ?>
-                                <?php // Spec issue-011 § "Validation edge cases":
-                                      // inherit-on with no positive child estimates
-                                      // must render the literal "Not estimated
-                                      // (no sub-task estimates)" copy
-                                      // (issue-011 tester-note-001). ?>
-                                <span class="tk-meta__item">
-                                    <i class="fas fa-clock"></i>
-                                    Total Time: Not estimated (no sub-task estimates)
-                                </span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div class="tk-progress">
-                        <div class="tk-progress__head">
-                            <span class="tk-progress__label">Progress</span>
-                            <span class="tk-progress__value"><?= number_format($task['completion_percentage'], 0) ?>%</span>
-                        </div>
-                        <div class="progress">
-                            <div class="progress__fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
-                        </div>
-                    </div>
-
-                    <?php // Issue-034 v1.8.0 — status reason chips. Re-uses the
-                          // shared .reason-chip component; the on-hold chip
-                          // renders when status = on_hold. The status badge
-                          // gets the red `!` mark whenever the chip would have
-                          // been there but the reason is still NULL — that is
-                          // the affordance the dashboard backfill banner drives. ?>
-                    <?php if ($_is_on_hold && $_on_hold_reason !== '' || $_is_delayed && $_delay_reason !== ''): ?>
-                        <div class="tk-reasons">
-                            <?php if ($_is_on_hold && $_on_hold_reason !== ''): ?>
-                                <div class="reason-chip reason-chip--on-hold"
-                                     title="On hold: <?= e($_on_hold_reason) ?>">
-                                    <i class="fas fa-pause"></i>
-                                    <span><strong>On hold:</strong> <?= e($_on_hold_reason) ?></span>
-                                </div>
-                            <?php endif; ?>
-                            <?php if ($_is_delayed && $_delay_reason !== ''): ?>
-                                <div class="reason-chip reason-chip--delay"
-                                     title="Delayed: <?= e($_delay_reason) ?>">
-                                    <i class="fas fa-clock-rotate-left"></i>
-                                    <span><strong>Delayed:</strong> <?= e($_delay_reason) ?></span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
+        <div class="card tk-table-card">
+            <div class="card__header">
+                <h2 class="card__title-icon">
+                    <i class="fas fa-list-check"></i>
+                    Task list
+                </h2>
+                <div class="card__actions">
+                    <span class="chip-row">
+                        <span class="badge">Showing <?= count($tasks) ?> of <?= $__t_total ?></span>
+                    </span>
                 </div>
-            <?php endforeach; ?>
+            </div>
+            <div class="table-wrap">
+                <table class="table tk-table">
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Project</th>
+                            <th>Status</th>
+                            <th>Responsible</th>
+                            <th>Contact</th>
+                            <th>Due</th>
+                            <th>Completed</th>
+                            <th>Subtasks</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($tasks as $task): ?>
+                        <?php // Issue-034 v1.8.0 — the computed "delayed"
+                              // pseudo-status and the reason-presence checks.
+                              // Unchanged from the card version; only the
+                              // rendering target moved from a card to a row. ?>
+                        <?php
+                            $_is_delayed = ($task['status'] ?? '') !== 'completed'
+                                && !empty($task['expected_completion_date'])
+                                && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+                            $_is_on_hold = ($task['status'] ?? '') === 'on_hold';
+                            $_delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
+                            $_on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
+
+                            // Row modifier: on-hold wins over delayed (same
+                            // precedence the card accent used).
+                            $__tk_mod = '';
+                            if ($_is_on_hold) {
+                                $__tk_mod = ' tk-row--on-hold';
+                            } elseif ($_is_delayed) {
+                                $__tk_mod = ' tk-row--delayed';
+                            } elseif (($task['status'] ?? '') === 'completed') {
+                                $__tk_mod = ' tk-row--completed';
+                            }
+                            $__tk_mod .= ($task['task_type'] === 'subtask') ? ' tk-row--subtask' : '';
+
+                            // Inline estimate resolution (issue-011).
+                            $child_estimates_for_task = $childEstimatesByParent[(int)$task['id']] ?? [];
+                            $resolved_total = resolveTaskEstimateHours($task, $child_estimates_for_task);
+                            $inherit_active = !empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0;
+
+                            $__tk_overdue = !empty($task['expected_completion_date'])
+                                && strtotime((string)$task['expected_completion_date']) < time()
+                                && ($task['status'] ?? '') !== 'completed';
+                        ?>
+                        <tr class="tk-row<?= $__tk_mod ?>" data-task-id="<?= (int)$task['id'] ?>">
+
+                            <!-- 1. Task -->
+                            <td>
+                                <div class="chip-row">
+                                    <i class="fas <?= $task['task_type'] === 'subtask' ? 'fa-level-down-alt' : 'fa-circle' ?>"
+                                       title="<?= $task['task_type'] === 'subtask' ? 'Subtask' : 'Main Task' ?>"
+                                       style="font-size:.7em;color:var(--gray-400);"></i>
+                                    <a href="/tasks/<?= e($task['slug']) ?>"><strong><?= e($task['name']) ?></strong></a>
+                                </div>
+                            </td>
+
+                            <!-- 2. Project -->
+                            <td class="text-sm text-muted nowrap">
+                                <?php if ($project_id): ?>
+                                    &mdash;
+                                <?php else: ?>
+                                    <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
+                                <?php endif; ?>
+                            </td>
+
+                            <!-- 3. Status (with the computed delayed badge) -->
+                            <td>
+                                <div class="chip-row">
+                                    <span class="status status--<?= $task['status'] ?>">
+                                        <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
+                                        <?php // Superscript "reason missing" mark (issue-034). ?>
+                                        <?php if ($_is_on_hold && $_on_hold_reason === ''): ?>
+                                            <i class="fas fa-exclamation-circle reason-missing"
+                                               title="On-hold reason missing"
+                                               aria-label="On-hold reason missing"></i>
+                                        <?php elseif ($_is_delayed && $_delay_reason === ''): ?>
+                                            <i class="fas fa-exclamation-circle reason-missing"
+                                               title="Delay reason missing"
+                                               aria-label="Delay reason missing"></i>
+                                        <?php endif; ?>
+                                    </span>
+                                    <?php if ($_is_delayed): ?>
+                                        <span class="status status--delayed">Delayed</span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+
+                            <!-- 4. Responsible -->
+                            <td class="text-sm nowrap"><?= $task['responsible_person_name'] ? e($task['responsible_person_name']) : '&mdash;' ?></td>
+
+                            <!-- 5. Contact -->
+                            <td class="text-sm nowrap"><?= $task['contact_person_name'] ? e($task['contact_person_name']) : '&mdash;' ?></td>
+
+                            <!-- 6. Due -->
+                            <td class="text-sm nowrap <?= $__tk_overdue ? 'tk-due--overdue' : 'text-muted' ?>">
+                                <?= $task['expected_completion_date']
+                                    ? e(formatDateTime($task['expected_completion_date'], 'M j, Y'))
+                                    : '&mdash;' ?>
+                            </td>
+
+                            <!-- 7. Completed -->
+                            <td class="text-sm nowrap text-muted">
+                                <?= $task['completion_date']
+                                    ? e(formatDateTime($task['completion_date'], 'M j, Y'))
+                                    : '&mdash;' ?>
+                            </td>
+
+                            <!-- 8. Subtasks — plus the issue-011 estimate, which
+                                 the mockup has no column for. Kept here rather
+                                 than dropped: inherit-mode estimates are only
+                                 visible on the detail page otherwise. -->
+                            <td class="text-sm nowrap text-muted">
+                                <?php if ((int)$task['subtask_count'] > 0): ?>
+                                    <?= (int)$task['subtask_count'] ?> subtask<?= (int)$task['subtask_count'] === 1 ? '' : 's' ?>
+                                <?php else: ?>
+                                    &mdash;
+                                <?php endif; ?>
+                                <?php if ($resolved_total !== null): ?>
+                                    <div class="tk-est">
+                                        <i class="fas fa-clock"></i>
+                                        <?= e(formatTaskEstimate($resolved_total)) ?>
+                                        <?php if ($inherit_active): ?>
+                                            <i class="fas fa-link tk-inherit"
+                                               title="Auto-calculated from sub-tasks"
+                                               aria-label="Auto-calculated from sub-tasks"></i>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php elseif ($inherit_active): ?>
+                                    <?php // issue-011 § Validation edge cases:
+                                          // inherit-on with no positive child
+                                          // estimates must render the literal
+                                          // "Not estimated (no sub-task estimates)"
+                                          // copy (tester-note-001). ?>
+                                    <div class="tk-est">
+                                        <i class="fas fa-clock"></i>
+                                        Not estimated (no sub-task estimates)
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+
+                            <!-- 9. Actions -->
+                            <td>
+                                <div class="row-actions">
+                                    <?php if ($task['status'] !== 'completed' && (int)$task['subtask_count'] === 0): ?>
+                                        <button class="btn btn--sm btn--success btn--icon quick-complete-btn"
+                                                data-task-id="<?= $task['id'] ?>"
+                                                title="Mark as Completed">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                    <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn--sm btn--secondary btn--icon" title="Edit Task">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    <a href="/tasks/<?= e($task['slug']) ?>" class="btn btn--sm btn--ghost btn--icon" title="Open">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <?php // Issue-034 v1.8.0 — reasons render in full on a
+                              // dedicated sub-row spanning all 9 columns, never
+                              // hidden behind a tooltip. Same .reason-chip
+                              // components the cards used. ?>
+                        <?php if (($_is_on_hold && $_on_hold_reason !== '') || ($_is_delayed && $_delay_reason !== '')): ?>
+                            <tr class="reason-row">
+                                <td colspan="9" class="reason-row__cell">
+                                    <div class="reason-stack">
+                                        <?php if ($_is_on_hold && $_on_hold_reason !== ''): ?>
+                                            <div class="reason-chip reason-chip--on-hold"
+                                                 title="On hold: <?= e($_on_hold_reason) ?>">
+                                                <i class="fas fa-pause"></i>
+                                                <span><strong>On hold:</strong> <?= e($_on_hold_reason) ?></span>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if ($_is_delayed && $_delay_reason !== ''): ?>
+                                            <div class="reason-chip reason-chip--delay"
+                                                 title="Delayed: <?= e($_delay_reason) ?>">
+                                                <i class="fas fa-clock-rotate-left"></i>
+                                                <span><strong>Delayed:</strong> <?= e($_delay_reason) ?></span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     <?php endif; ?>
 
@@ -517,7 +549,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.quick-complete-btn').forEach(button => {
         button.addEventListener('click', function() {
             const taskId = this.getAttribute('data-task-id');
-            const taskCard = this.closest('.task-card');
+            // Issue-034 v2 restyle: the task list is now a table. The <tr>
+            // carries data-task-id plus a .tk-row--{status} modifier class.
+            // The old `.task-card` selector matched nothing, so the DOM
+            // update below silently no-opped while the POST still fired.
+            const taskRow = this.closest('.tk-row');
             
             if (confirm('Mark this task as completed?')) {
                 // Disable button and show loading
@@ -534,22 +570,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Update task status in the UI
-                        const statusSpan = taskCard.querySelector('.status');
+                        // Update task status in the UI. Only the FIRST
+                        // .status in the row is the real status badge; a
+                        // delayed task also renders a trailing
+                        // .status--delayed chip that must not be retitled.
+                        const statusSpan = taskRow ? taskRow.querySelector('.status') : null;
                         if (statusSpan) {
-                            statusSpan.textContent = 'Completed';
-                            statusSpan.className = 'status status-completed';
+                            // Replace the label node only -- textContent
+                            // would also wipe the reason-missing icon
+                            // rendered inside the badge.
+                            statusSpan.childNodes[0].nodeValue = 'Completed';
+                            statusSpan.className = 'status status--completed';
                         }
-                        
-                        // Update progress bar
-                        const progressBar = taskCard.querySelector('.progress');
-                        if (progressBar) {
-                            progressBar.style.width = '100%';
-                        }
-                        
-                        const progressText = taskCard.querySelector('.progress-text');
-                        if (progressText) {
-                            progressText.textContent = '100%';
+
+                        // The row accent modifier must follow the status
+                        // change too, or the row keeps its delayed/on-hold tint.
+                        if (taskRow) {
+                            taskRow.classList.remove('tk-row--delayed', 'tk-row--on-hold');
+                            taskRow.classList.add('tk-row--completed');
+                            // A completed task is no longer delayed.
+                            const delayedChip = taskRow.querySelector('.status--delayed');
+                            if (delayedChip) delayedChip.remove();
                         }
                         
                         // Remove the quick complete button
