@@ -39,6 +39,11 @@ function pmpRouteTable(): array
         '/register'           => ['*',     'register.php',                          'register','file'],
         '/forgot-password'    => ['*',     'forgot_password.php',                   'forgot',  'file'],
         '/reset-password'     => ['*',     'reset_password.php',                    'reset',   'token'],
+        // issue-037: the path form. pmpTokenSegment() has always parsed
+        // /reset-password/<token>, but this route was never registered, so the
+        // helper could only ever match a URL that 404'd at step (2) before
+        // reaching it. Both forms are now routable and behave identically.
+        '/reset-password/<token>' => ['*',  'reset_password.php',                    'reset',   'token'],
         '/logout'             => ['*',     'logout.php',                            'logout',  'file'],
 
         // --- authenticated: home ---
@@ -235,11 +240,17 @@ function pmpDispatch(): void
 
     if ($route['mode'] === 'token') {
         $token = pmpTokenSegment($path);
-        if ($token === '') {
+        // issue-037: only 404 when the route REQUIRES a path segment and it is
+        // missing. For /reset-password the token is optional — the page owns
+        // the "Invalid reset link" message, and routing a bare visit to 404
+        // made the page unreachable by hand and by every malformed link.
+        if ($token === '' && $route['script'] !== 'reset_password.php') {
             pmpSendNotFound();
             return;
         }
-        $_GET['token'] = $token;
+        if ($token !== '') {
+            $_GET['token'] = $token;
+        }
     }
 
     $target = pmpResolveScript($route['script']);
@@ -284,11 +295,37 @@ function pmpSlugSegment(string $path): string
     return '';
 }
 
-/** The <token> value for /reset-password/<token>. */
+/**
+ * The <token> value for /reset-password/<token>.
+ *
+ * issue-037: both URL forms exist in the wild and BOTH must work.
+ *
+ *   1. /reset-password/<token>        path form (the route's own shape)
+ *   2. /reset-password?token=<token>  query form — this is what
+ *      EmailService::renderPasswordResetBody() and renderWelcomeBody()
+ *      actually put in every email (APP_URL . "/reset-password?token=..."),
+ *      i.e. it is the link every real user clicks.
+ *
+ * Previously only the path form was read, so the query form fell through to
+ * an empty token and pmpDispatch() answered 404. Every password-reset email
+ * ever sent was therefore a dead link, and forgot-password.php offers no
+ * other route to that page — the one you must click was the broken one.
+ *
+ * Query form is only consulted when the path carries no token segment; the
+ * path form still wins when both are present, so a crafted URL cannot
+ * override a path token with a query one.
+ */
 function pmpTokenSegment(string $path): string
 {
     if (preg_match(pmpCompilePattern('/reset-password/<token>'), $path, $mm)) {
         return $mm[1] ?? '';
+    }
+    // issue-037: query-string form. Read $_GET directly rather than re-parsing
+    // REQUEST_URI because nginx forwards the query string untouched and
+    // $_GET is already the parsed, decoded form.
+    $q = $_GET['token'] ?? '';
+    if (is_string($q)) {
+        return trim($q);
     }
     return '';
 }

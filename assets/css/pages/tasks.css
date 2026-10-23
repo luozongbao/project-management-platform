@@ -58,6 +58,10 @@
 
 .tk-title {
   margin: 0;
+  /* issue-038: explicit colour. Without this the title inherited whatever
+     the body happened to resolve to, and rendered as the faintest text on
+     the card. A title must never depend on inheritance. */
+  color: var(--gray-900);
   font-size: var(--fs-base);
   font-weight: var(--fw-semibold);
   line-height: var(--lh-tight);

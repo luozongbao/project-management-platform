@@ -53,10 +53,24 @@ sendSecurityHeaders();
           // and the cascade-blind regression tests could not catch that.
           // See the header comment in v2-components.css. Set
           // $use_v2_shell = true before including this file to opt in. ?>
+    <?php // v2.0 (issue-038): style.css now loads BEFORE the v2 component
+          // layer, not after it. Both files define the same selectors at the
+          // same specificity (.card, body, .page-header), so source order
+          // was silently deciding the winner. With legacy last, legacy won:
+          //   - .card   -> background:white + 0 2px 10px rgba(0,0,0,.1)
+          //                  instead of --gray-0 + --sh-sm
+          //   - body    -> #333 / 'Segoe UI' / #f8f9fa
+          //                  instead of --gray-800 / --font-sans / v2 surface
+          // The result was washed-out text and flat surfaces on every
+          // converted page. Legacy stays in the document (pages not yet on
+          // the v2 shell still depend on it entirely); loading it first just
+          // gives the v2 layer the final say for v2 pages.
+          // Regression tests here are cascade-blind, so this was only ever
+          // visible by eye — see the Phase 1.4b screenshot review. ?>
+    <link rel="stylesheet" href="/assets/css/style.css">
     <?php if (!empty($use_v2_shell)): ?>
     <link rel="stylesheet" href="/assets/css/v2-components.css">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="/assets/js/subtask-manager.js" defer></script>
 </head>
