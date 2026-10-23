@@ -9,9 +9,9 @@ portal** that lets stakeholders view read-only progress without logging in.
 > **Work in progress — v2.0.** The front-end redesign is landing on the
 > `v.2.0` branch and is **not released yet** (`APP_VERSION` is still
 > `v1.8.0`). Every page has been converted to the v2 design tokens and
-> component layer; the remaining work is stripping the superseded v1 CSS and
-> the version bump. See the **v2.0 migration status** table below and the
-> **Unreleased** section of [RELEASE.md](RELEASE.md).
+> component layer, and the superseded v1 CSS has been stripped; the only
+> remaining work is the version bump. See the **v2.0 migration status** table
+> below and the **Unreleased** section of [RELEASE.md](RELEASE.md).
 >
 > **v1.8.0** is a minor release for
 > [issue-034](docs/issues/issue-034.md) — adds a
@@ -65,7 +65,7 @@ portal** that lets stakeholders view read-only progress without logging in.
 > favicon releases are preserved below as historical.
 >
 > **v1.7.3.1** is a hotfix for
-> [issue-032](docs/issues/issue-032.md): the public landing
+> issue-032: the public landing
 > (`/`) was logging
 > `Executing inline script violates the following Content
 > Security Policy directive 'script-src 'self'
@@ -88,7 +88,7 @@ portal** that lets stakeholders view read-only progress without logging in.
 > release is preserved below as historical.
 >
 > **v1.7.3** adds the project favicon
-> ([issue-031](docs/issues/issue-031.md)). The browser
+> (issue-031). The browser
 > console was logging `GET /favicon.ico 404 (Not Found)`
 > on every page because no `<link rel="icon">` tag was
 > declared in any `<head>`, so browsers fell back to
@@ -959,9 +959,8 @@ See `docs/issues/issue-035.md` for the full design specification and
 ### v2.0 migration status
 
 The v2.0 visual redesign is in progress on the **`v.2.0`** branch. The live
-app still reports `APP_VERSION = "v1.8.0"` — the version bump and the removal
-of the superseded v1 rules from `assets/css/style.css` are the last two steps
-of Phase 1 and have not been done yet.
+app still reports `APP_VERSION = "v1.8.0"` — the version bump is the only
+remaining step of Phase 1.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -971,7 +970,7 @@ of Phase 1 and have not been done yet.
 | Phase 1.3 | App shell — `includes/header.php` / `includes/footer.php` | Done ([issue-035](docs/issues/issue-035.md)) |
 | Phase 1.4 | Page conversions | Done — dashboard, projects, tasks, contacts, profile, detail pages, the three New/Edit forms, and the auth pages ([issue-038](docs/issues/issue-038.md) … [issue-047](docs/issues/issue-047.md)) |
 | Phase 1.5 | Client portal — `client/dashboard.php` | Done ([issue-038](docs/issues/issue-038.md)) |
-| Phase 1.6 | Strip the superseded v1 rules from `style.css` | Pending |
+| Phase 1.6 | Strip the superseded v1 rules from `style.css` | Done ([issue-053](docs/issues/issue-053.md)) — 90 dead selectors removed from `assets/css/style.css` and 11 from `client/assets/client.css`; the two remaining v1→v2 inconsistencies (`subtask-manager.js` button classes, `profile.php`'s 2-column grid) fixed |
 | Phase 1.7 | Bump `APP_VERSION` to `v2.0` in `config.php`, `config.template.php` and `install.php` | Pending |
 
 Converting a page means: rebuild its markup on the v2 component vocabulary,

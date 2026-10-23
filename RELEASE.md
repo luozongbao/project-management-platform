@@ -6,8 +6,7 @@
 [issue-035](docs/issues/issue-035.md) and its follow-up alignment issues.
 **Not yet released** — `APP_VERSION` is still `v1.8.0` and the branch has not
 been merged into `dev`. The notes below describe the work landed so far;
-two Phase 1 steps remain (stripping the superseded v1 rules from `style.css`
-and the `APP_VERSION` bump).
+one Phase 1 step remains (the `APP_VERSION` bump).
 
 ### Phase 0 — slug routing
 
@@ -43,6 +42,55 @@ and the `APP_VERSION` bump).
 - **`assets/js/script.js`** — the shared client-side behaviour moved out of
   per-page inline scripts: `initModals()`, `initRangeSync()`,
   `initStatusReason()`, `initCopy()` and the toast helper `pmpToast()`.
+
+### Phase 1.6 — dead CSS rule sweep
+
+[issue-053](docs/issues/issue-053.md)
+
+The page-by-page v2 conversion left the superseded v1 rules in place. This
+sweep removes them and fixes the two live inconsistencies the migration
+created.
+
+- **`assets/css/style.css`** — 90 dead selectors removed (984 → 428 lines,
+  22 604 → 12 397 bytes): the legacy layout vocabulary (`.navbar` / `.nav-*`,
+  `.main-content`, `.form-group` / `.form-row`), the legacy button modifiers
+  (`.btn-primary` … `.btn-block`), the legacy alert and card variants
+  (`.alert-success`, `.card-header`, …), the duplicated `.table` block, and
+  the unused utility helpers (`.text-*`, `.bg-*`, `.mt-*`, `.mb-*`, `.p-*`,
+  `.d-*`, `.justify-*`, `.align-*`, `.flex-1`). Every removal was made only
+  after proving **zero consumers repo-wide** — `class="…"` in every PHP file,
+  `class="…"` / `classList.*` in every JS file, and class names referenced by
+  any other stylesheet. A header at the top of the file now maps each removed
+  rule to its v2 replacement, so the migration path stays discoverable.
+- **`client/assets/client.css`** — 11 dead selectors removed (916 → 866 lines,
+  30 091 → 28 368 bytes): the legacy task block retired in issue-050
+  (`.task-item`, `.task-line`, `.tree-indent`, `.task-body`, `.task-head`,
+  `.task-name`, `.task-desc`, `.task-meta`, `.task-progress`,
+  `.progress-text`). The `.task-tree` sub-task toggle contract and the
+  `.client-body` overrides are retained.
+- **`assets/js/subtask-manager.js`** — the generated buttons now use the v2
+  vocabulary (`btn btn--sm btn--success` / `btn btn--sm btn--danger`); the
+  `save-subtask` / `delete-subtask` hook classes are unchanged.
+- **`profile.php`** — both form grids gained the `form-grid--2` modifier. v2's
+  bare `.form-grid` is single-column by design (the column count is opt-in),
+  so without the modifier the Profile information and Change Password cards
+  would have silently collapsed to one column.
+- **Two regression tests re-pointed at the layer that now owns the rule**
+  (`database/task_layout_issue013_test.php`,
+  `database/task_status_reasons_test.php`), with stricter regexes and new
+  re-introduction guards for the retired selectors. `task_status_reasons_test.php`
+  had been pinning `.task-line`, a class retired in issue-050 with zero
+  consumers; it now asserts the live `.task-node__head` / `.task-node__reasons`
+  rules instead. The new guards strip CSS comments first, because the
+  `style.css` header deliberately names the retired rules in prose.
+
+Verification: `php -l` clean on all three changed PHP files; full regression
+sweep **20 PASS / 0 FAIL**; every `var(--…)` resolves against the 103 defined
+tokens; the class-resolution check across 13 rendered pages (201 distinct
+classes) reports the same 5 pre-existing unresolved classes as the pre-change
+baseline — **zero regressions**; all authenticated routes return 200; and a
+390px audit shows no page-level horizontal overflow. No `_diag.php` md5
+re-bump was required — none of the changed files are in the pin list.
 
 ### Edit-mode look fixes and asset cache-busting
 
@@ -177,7 +225,7 @@ and the `APP_VERSION` bump).
 
 ## v1.7.3.1 — 2026-10-17
 
-**Hotfix for the v1.7.3 `Executing inline script violates CSP` console error on the public landing `/`.** Closes [issue-032](docs/issues/issue-032.md): the v1.7.3 favicon ship (the same release that fixed the `GET /favicon.ico 404` console message) introduced a new console error on the public landing — the browser was logging
+**Hotfix for the v1.7.3 `Executing inline script violates CSP` console error on the public landing `/`.** Closes issue-032: the v1.7.3 favicon ship (the same release that fixed the `GET /favicon.ico 404` console message) introduced a new console error on the public landing — the browser was logging
 
 ```
 (index):61 Executing inline script violates the following Content Security Policy
@@ -226,7 +274,7 @@ The chosen fix (move the script to an external file, load it via `<script src="�
 
 ## v1.7.3 — 2026-10-17
 
-**Project favicon — eliminate the `/favicon.ico 404` in the browser console.** Closes [issue-031](docs/issues/issue-031.md): every page in the project (the public landing `index.php`, the owner `login.php` / `dashboard.php` / `projects.php` / etc. that include `includes/header.php`, the install wizard `install.php`, and the 3 styled pages of `client/dashboard.php`) was logging `GET /favicon.ico 404 (Not Found)` in the browser console because no `<link rel="icon">` tag was declared in any `<head>`. Browsers, when they see no icon declaration, fall back to a default `GET /favicon.ico` against the domain root. There was no `/favicon.ico` in the repo and no `RewriteRule` to a real icon, so the request 404'd. The 404 is cosmetic (the page still renders correctly), but it spams the console on every navigation and confuses any future error-monitoring tool that watches console output. The fix is the standard `<link rel="icon" type="image/png" href="…">` tag in every `<head>` that ships HTML to the browser, pointing to the new asset `assets/image/project-favicon.png` (a 41 KB PNG, user-supplied).
+**Project favicon — eliminate the `/favicon.ico 404` in the browser console.** Closes issue-031: every page in the project (the public landing `index.php`, the owner `login.php` / `dashboard.php` / `projects.php` / etc. that include `includes/header.php`, the install wizard `install.php`, and the 3 styled pages of `client/dashboard.php`) was logging `GET /favicon.ico 404 (Not Found)` in the browser console because no `<link rel="icon">` tag was declared in any `<head>`. Browsers, when they see no icon declaration, fall back to a default `GET /favicon.ico` against the domain root. There was no `/favicon.ico` in the repo and no `RewriteRule` to a real icon, so the request 404'd. The 404 is cosmetic (the page still renders correctly), but it spams the console on every navigation and confuses any future error-monitoring tool that watches console output. The fix is the standard `<link rel="icon" type="image/png" href="…">` tag in every `<head>` that ships HTML to the browser, pointing to the new asset `assets/image/project-favicon.png` (a 41 KB PNG, user-supplied).
 
 - A new asset `assets/image/project-favicon.png` is added to the repo. The file is in a new `assets/image/` directory (the `assets/` tree previously contained only `css/` and `js/`). The file is committed to git (not gitignored) and is served by both the internal app and the client portal under the existing `img-src 'self' data:` CSP — no CSP change is needed.
 - `<link rel="icon" type="image/png" href="assets/image/project-favicon.png">` is added to every root-level `<head>`: `includes/header.php` (which is included by every internal-app page), `index.php` (the public landing), and `install.php` (the install wizard). The link tag is placed immediately after the `<title>` line and before the stylesheet link, so the browser sees the icon declaration before it starts requesting any other asset.
