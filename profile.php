@@ -176,7 +176,6 @@ include 'includes/header.php';
 ?>
 <link rel="stylesheet" href="/assets/css/pages/profile.css">
 
-<div class="page-container">
 <div class="page-header">
     <div class="page-header__text">
         <h1><i class="fas fa-user-circle"></i> User Profile</h1>
@@ -255,7 +254,7 @@ include 'includes/header.php';
             <h2 class="card__title-icon"><i class="fas fa-id-card"></i> Profile information</h2>
         </div>
         <div class="card__body">
-            <div class="form-grid form-grid--2">
+            <div class="form-grid">
                 <div class="field">
                     <label for="name">Full Name</label>
                     <input class="input" type="text" id="name" name="name"
@@ -295,7 +294,7 @@ include 'includes/header.php';
             <h2 class="card__title-icon"><i class="fas fa-lock"></i> Change Password</h2>
         </div>
         <div class="card__body">
-            <div class="form-grid form-grid--2">
+            <div class="form-grid">
                 <div class="field">
                     <label for="current_password">Current Password</label>
                     <input class="input" type="password" id="current_password" name="current_password" autocomplete="current-password" required>
@@ -341,7 +340,6 @@ include 'includes/header.php';
             </div>
         </div>
     </div>
-</div>
 </div>
 
 

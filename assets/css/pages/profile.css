@@ -21,6 +21,13 @@
    .stat-grid / .stat components rather than a bespoke .pf-stats block, so the
    profile page matches dashboard/tasks/projects without extra CSS.
 
+   Fields use the bare shared .form-grid (SINGLE column) because that is what the
+   mockup specifies. An earlier commit wrongly added .form-grid--2 on the theory
+   that the narrow inputs were a layout bug; they are not. With .grid-2 giving
+   each card half of a 1440px content area, single-column fields land at a
+   comfortable reading width instead of stretching a label and input across a
+   700px track.
+
    Tokens used are verified to exist in v2-tokens.css. Do not invent new ones.
    =========================================================================== */
 
@@ -28,7 +35,14 @@
 /* .stat-grid supplies its own margin-bottom, but nothing supplies one for the
    card ABOVE it, so without this the Overview card sits flush against the stat
    row. Same for the stat row above .grid-2 -- .grid-2 has no margin of its
-   own, so these two classes supply the vertical rhythm for this page. */
+   own, so these two classes supply the vertical rhythm for this page.
+
+   NOTE: this page deliberately does NOT wrap its markup in the legacy
+   .page-container. That class caps at max-width:1000px and adds its own 20px
+   padding, which fights the v2 .content (max-width:var(--content-max-w)=1440px)
+   and squeezes the form cards into a narrow column. includes/header.php already
+   emits <main class="content">; dashboard/projects/tasks/contacts all sit
+   directly in it for the same reason. */
 .pf-overview-card { margin-bottom: var(--sp-5); }
 .pf-stat-row { margin-bottom: var(--sp-5); }
 
