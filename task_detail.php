@@ -65,6 +65,10 @@ $activities = $db->fetchAll(
 
 $title = "Task: " . $task['name'];
 $show_nav = true;
+// v2.0: this page was missing $use_v2_shell, so header.php skipped the
+// .app-shell/.sidebar wrapper and the page rendered unstyled and
+// full-bleed. Every other v2 page sets this. See header.php line ~94.
+$use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>

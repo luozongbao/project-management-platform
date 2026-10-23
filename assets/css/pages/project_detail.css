@@ -1,0 +1,88 @@
+/**
+ * project_detail.php — page-specific rules only.
+ *
+ * Everything structural comes from v2-components.css (.card, .card__header,
+ * .table-wrap, .stat-grid, .detail-list, .timeline, .progress). This file
+ * exists for the handful of things that are genuinely this page's own.
+ *
+ * v2.0: this file replaces a 467-line inline <style> block that styled v1.8.0
+ * class names (.project-detail-container, .project-header, .stat-card,
+ * .project-content-grid, .progress-circle, .activity-list). Those classes are
+ * gone; the v2 components carry the styling now.
+ */
+
+/* Mockup uses .share-box; not defined in v2-components.css because nothing
+   else needs it. The code is 17 chars of mono, so it must not wrap. */
+.share-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+}
+
+.share-box code {
+    font-family: var(--font-mono, monospace);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .06em;
+    color: var(--gray-800);
+    white-space: nowrap;
+}
+
+/* Client-view link sits under the share box. Breaks anywhere rather than
+   overflowing, since the URL is long and the sidebar is not wide. */
+.pd-share-hint {
+    margin: var(--sp-3) 0 0;
+    word-break: break-all;
+}
+
+.pd-share-note {
+    margin: var(--sp-2) 0 0;
+}
+
+/* The mockup runs the four stats 2x2 in the sidebar; .stat-grid is 4-up by
+   default. Two columns is what fits beside the details card. */
+.pd-stats {
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: var(--sp-5);
+}
+
+/* Secondary line under a task name in the tasks table: contact, due date,
+   estimate, subtask count. v1 had these as .task-meta spans; the table is too
+   narrow for them on their own row, so they wrap together under the name. */
+.pd-task-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1) var(--sp-3);
+    margin-top: var(--sp-1);
+}
+
+.pd-task-sub > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+}
+
+/* Scope is a free-text field the user types one item per line. Rendered as a
+   list, so bullets and indentation come from here rather than the browser. */
+.pd-scope-list {
+    margin: 0;
+    padding-left: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+}
+
+.pd-scope-list li {
+    color: var(--gray-700);
+}
+
+/* v2.0: the mockup shows the rotate action here. It is NOT reproduced on this
+   page — rotating requires POST + CSRF + a typed confirmation, and that form
+   lives on project_edit.php. The share card links there instead. Duplicating
+   the button would mean duplicating the three-part safety check, which is
+   exactly the kind of second path that gets missed when the rules change. */
