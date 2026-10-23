@@ -51,6 +51,32 @@ foreach ($subtasks as &$subtask) {
 }
 unset($subtask);
 
+// Issue-011: resolve the task's Total Task Time once, up front, so every
+// surface on this page (Task Overview, Task Details, the Time card and the
+// client portal) agrees on the same value. The Task Overview card renders
+// before the Task Details card, so these must be computed here rather than
+// inline further down the template.
+$resolved_estimate = resolveTaskEstimateHours($task, $subtasks);
+$inherit_active = $task['parent_task_id'] === null
+    && !empty($task['inherit_subtask_hours'])
+    && count($subtasks) > 0;
+$has_positive_child_estimates = false;
+foreach ($subtasks as $_sub) {
+    if ($_sub['estimated_hours'] !== null && (float)$_sub['estimated_hours'] > 0) {
+        $has_positive_child_estimates = true; break;
+    }
+}
+unset($_sub);
+
+// The delayed / on-hold flags drive the Status Reason card, the "Delayed"
+// chip inside the Task Overview status row and the header badge.
+$detail_on_hold = trim((string)($task['on_hold_reason'] ?? ''));
+$detail_delay   = trim((string)($task['delay_reason']   ?? ''));
+$detail_is_on_hold = ($task['status'] ?? '') === 'on_hold';
+$detail_is_delayed = ($task['status'] ?? '') !== 'completed'
+    && !empty($task['expected_completion_date'])
+    && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+
 // Get task activity/comments (you can extend this for more detailed activity tracking)
 $activities = $db->fetchAll(
     "SELECT 'created' as type, created_at as date, 'Task created' as description
@@ -212,30 +238,70 @@ $use_v2_shell = true;
                     </div>
                 </div>
                 <div class="card__body">
-                    <div class="td-progress">
-                        <div class="td-progress__head">
-                            <span class="td-progress__label">Overall Progress</span>
-                            <span class="td-progress__value"><?= number_format($calculated_percentage, 1) ?>%</span>
+                    <?php if ($task['description']): ?>
+                        <p class="text-sm"><?= nl2br(e($task['description'])) ?></p>
+                    <?php endif; ?>
+                    <div class="detail-list" style="margin-top:1rem;">
+                        <div class="detail-row">
+                            <span class="detail-row__k">Project</span>
+                            <span class="detail-row__v">
+                                <a href="/projects/<?= (int)$task['project_id'] ?>">
+                                    <?= e($task['project_name']) ?>
+                                </a>
+                            </span>
                         </div>
-                        <div class="progress">
-                            <div class="progress__fill" style="width: <?= $calculated_percentage ?>%"></div>
+                        <div class="detail-row">
+                            <span class="detail-row__k">Status</span>
+                            <span class="detail-row__v">
+                                <span class="status status--<?= e($task['status']) ?>">
+                                    <?= e(ucfirst(str_replace('_', ' ', $task['status']))) ?>
+                                </span>
+                                <?php if ($detail_is_delayed): ?>
+                                    <span class="status status--delayed">
+                                        <i class="fas fa-clock-rotate-left"></i> Delayed
+                                    </span>
+                                <?php endif; ?>
+                            </span>
                         </div>
-                        <?php if (!empty($subtasks)): ?>
-                            <p class="td-progress__note">
-                                <i class="fas fa-info-circle"></i>
-                                Progress calculated from <?= count($subtasks) ?> subtasks
-                            </p>
+                        <div class="detail-row">
+                            <span class="detail-row__k">Responsible person</span>
+                            <span class="detail-row__v"><?= e($task['responsible_person_name']) ?></span>
+                        </div>
+                        <?php if (!empty($task['contact_person_name'])): ?>
+                            <div class="detail-row">
+                                <span class="detail-row__k">Contact person</span>
+                                <span class="detail-row__v td-contact">
+                                    <span><?= e($task['contact_person_name']) ?></span>
+                                    <?php if ($task['contact_email']): ?>
+                                        <a href="mailto:<?= e($task['contact_email']) ?>" title="Send Email">
+                                            <i class="fas fa-envelope"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($task['contact_phone']): ?>
+                                        <a href="tel:<?= e($task['contact_phone']) ?>" title="Call">
+                                            <i class="fas fa-phone"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($resolved_estimate !== null): ?>
+                            <div class="detail-row">
+                                <span class="detail-row__k">Total task time</span>
+                                <span class="detail-row__v">
+                                    <?= e(formatTaskEstimate($resolved_estimate)) ?>
+                                    <?php if ($inherit_active): ?>
+                                        <span class="text-muted">(inherited from subtasks)</span>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                        <?php elseif ($inherit_active): ?>
+                            <div class="detail-row">
+                                <span class="detail-row__k">Total task time</span>
+                                <span class="detail-row__v not-estimated">Not estimated (no sub-task estimates)</span>
+                            </div>
                         <?php endif; ?>
                     </div>
-
-                    <?php if ($task['description']): ?>
-                        <div class="td-description">
-                            <h3>Description</h3>
-                            <div class="td-description__body">
-                                <?= nl2br(e($task['description'])) ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
                 </div>
             </div>
 
@@ -270,75 +336,72 @@ $use_v2_shell = true;
                         </div>
                     </div>
                     <div class="card__body">
-                        <div class="td-subtasks">
+                        <?php /* The mockup renders the sub-task list as a .task-tree
+                             * of .task-node entries -- the same components the
+                             * project_detail sub-task tree uses. That vocabulary
+                             * already exists in v2-components.css, so this card
+                             * uses it instead of a bespoke td-subtask block. */ ?>
+                        <ul class="task-tree">
                             <?php foreach ($subtasks as $subtask): ?>
-                                <div class="td-subtask">
-                                    <div class="td-subtask__head">
-                                        <div class="td-subtask__title">
-                                            <h4>
-                                                <a href="/tasks/<?= (int)$subtask['id'] ?>">
-                                                    <?= e($subtask['name']) ?>
-                                                </a>
-                                            </h4>
-                                            <div class="td-subtask__meta">
-                                                <span class="status status--<?= $subtask['status'] ?>">
-                                                    <?= ucfirst(str_replace('_', ' ', $subtask['status'])) ?>
-                                                </span>
-                                                <?php if ($subtask['responsible_person_name']): ?>
-                                                    <span class="td-meta-item">
-                                                        <i class="fas fa-user"></i>
-                                                        <?= e($subtask['responsible_person_name']) ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                                <?php
-                                                // Issue-011: subtasks may themselves be parents
-                                                // with their own sub-tasks, in which case their
-                                                // estimate is derived. We don't have the grand-
-                                                // children loaded here; the resolved value still
-                                                // matches the saved column for non-inherit subtasks
-                                                // and falls back to the manual value otherwise.
-                                                $sub_estimate = resolveTaskEstimateHours($subtask, []);
-                                                ?>
-                                                <?php if ($sub_estimate !== null): ?>
-                                                    <span class="td-meta-item">
-                                                        <i class="fas fa-clock"></i>
-                                                        Total Time: <?= e(formatTaskEstimate($sub_estimate)) ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                        <div class="td-subtask__actions">
-                                            <?php if ($subtask['status'] !== 'completed' && (int)$subtask['subtask_count'] === 0): ?>
-                                                <button class="btn btn--sm btn--success btn--icon quick-complete-btn"
-                                                        data-task-id="<?= $subtask['id'] ?>"
-                                                        title="Mark as Completed">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                            <?php endif; ?>
-                                            <a href="/tasks/<?= (int)$subtask['id'] ?>/edit" class="btn btn--sm btn--ghost btn--icon" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                        </div>
+                                <?php
+                                // Issue-011: subtasks may themselves be parents
+                                // with their own sub-tasks, in which case their
+                                // estimate is derived. We don't have the grand-
+                                // children loaded here; the resolved value still
+                                // matches the saved column for non-inherit subtasks
+                                // and falls back to the manual value otherwise.
+                                $sub_estimate = resolveTaskEstimateHours($subtask, []);
+                                ?>
+                                <li class="task-node<?= $subtask['status'] === 'completed' ? ' task-node--completed' : '' ?>">
+                                    <div class="task-node__head">
+                                        <span class="task-node__name<?= $subtask['status'] === 'completed' ? ' task-node__name--done' : '' ?>">
+                                            <a href="/tasks/<?= (int)$subtask['id'] ?>"><?= e($subtask['name']) ?></a>
+                                        </span>
+                                        <span class="status status--<?= e($subtask['status']) ?>">
+                                            <?= e(ucfirst(str_replace('_', ' ', $subtask['status']))) ?>
+                                        </span>
                                     </div>
-
-                                    <?php if ($subtask['description']): ?>
-                                        <div class="td-subtask__desc">
-                                            <?= e(substr($subtask['description'], 0, 150)) ?><?= strlen($subtask['description']) > 150 ? '...' : '' ?>
-                                        </div>
-                                    <?php endif; ?>
-
-                                    <div class="td-subtask__progress">
-                                        <div class="td-progress__head">
-                                            <span class="td-progress__label">Progress</span>
-                                            <span class="td-progress__value"><?= number_format($subtask['completion_percentage'], 0) ?>%</span>
-                                        </div>
-                                        <div class="progress progress--sm">
-                                            <div class="progress__fill" style="width: <?= $subtask['completion_percentage'] ?>%"></div>
-                                        </div>
+                                    <div class="task-node__meta">
+                                        <?php if (!empty($subtask['responsible_person_name'])): ?>
+                                            <span>
+                                                <i class="fas fa-user"></i>
+                                                <?= e($subtask['responsible_person_name']) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($subtask['expected_completion_date'])): ?>
+                                            <span>
+                                                <i class="fas fa-calendar"></i>
+                                                Due <?= e(formatDateTime($subtask['expected_completion_date'], 'M d, Y')) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if ($sub_estimate !== null): ?>
+                                            <span>
+                                                <i class="fas fa-clock"></i>
+                                                Total Time: <?= e(formatTaskEstimate($sub_estimate)) ?>
+                                            </span>
+                                        <?php endif; ?>
                                     </div>
-                                </div>
+                                    <div class="task-node__progress">
+                                        <div class="progress">
+                                            <div class="progress__fill" style="width: <?= (float)$subtask['completion_percentage'] ?>%"></div>
+                                        </div>
+                                        <span class="task-node__pct"><?= number_format((float)$subtask['completion_percentage'], 0) ?>%</span>
+                                    </div>
+                                    <div class="task-node__actions">
+                                        <?php if ($subtask['status'] !== 'completed' && (int)$subtask['subtask_count'] === 0): ?>
+                                            <button class="btn btn--sm btn--success btn--icon quick-complete-btn"
+                                                    data-task-id="<?= (int)$subtask['id'] ?>"
+                                                    title="Mark as Completed">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <a href="/tasks/<?= (int)$subtask['id'] ?>/edit" class="btn btn--sm btn--ghost btn--icon">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </li>
                             <?php endforeach; ?>
-                        </div>
+                        </ul>
                     </div>
                 </div>
             <?php elseif (!$task['parent_task_id']): ?>
@@ -362,244 +425,216 @@ $use_v2_shell = true;
                     </div>
                 </div>
             <?php endif; ?>
+
+        <!-- Task Details -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-info-circle"></i> Task Details</h2>
+            </div>
+            <div class="card__body">
+                <div class="detail-list">
+                        <div class="detail-row">
+                        <span class="detail-row__k">Created</span>
+                        <span class="detail-row__v"><?= formatDateTime($task['created_at']) ?></span>
+                    </div>
+
+                    <?php if ($task['expected_completion_date']): ?>
+                        <div class="detail-row">
+                            <span class="detail-row__k">Expected Completion</span>
+                            <span class="detail-row__v <?= strtotime($task['expected_completion_date']) < time() && $task['status'] != 'completed' ? 'td-overdue' : '' ?>">
+                                <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
+                            </span>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($task['completion_date']): ?>
+                        <div class="detail-row">
+                            <span class="detail-row__k">Completed</span>
+                            <span class="detail-row__v td-completed"><?= formatDateTime($task['completion_date']) ?></span>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="detail-row">
+                        <span class="detail-row__k">Completion</span>
+                        <span class="detail-row__v" style="min-width:160px;">
+                            <div class="progress progress--<?= $calculated_percentage >= 100 ? 'success' : ($calculated_percentage > 0 ? 'warning' : 'danger') ?>">
+                                <div class="progress__fill" style="width: <?= (float)$calculated_percentage ?>%"></div>
+                            </div>
+                            <span class="text-xs text-muted">
+                                <?= number_format($calculated_percentage, 1) ?>%<?= !empty($subtasks) ? ' (calculated from ' . count($subtasks) . ' subtasks)' : '' ?>
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <?php // Issue-034 v1.8.0 — Status Reason card. Renders the
+              // current on-hold / delay reason (populated, missing,
+              // or absent) and an inline-edit <details> form so the
+              // manager can fill in a missing reason without leaving
+              // the page. The card only appears when at least one of
+              // the two reasons could be relevant (status=on_hold OR
+              // task is delayed) so it stays out of the sidebar on
+              // healthy tasks. ?>
+        <?php if ($detail_is_on_hold || $detail_is_delayed): ?>
+            <!-- task-reason-card: kept as a stable marker class. The v2
+                 conversion dropped every other bespoke v1 class name, but
+                 task_status_reasons_test.php pins this one because it
+                 identifies the issue-034 Status Reason feature (on-hold /
+                 delay reason + inline edit). Renaming it silently retires
+                 that guard, so the hook outlives the styling. -->
+            <div class="card task-reason-card">
+                <div class="card__header">
+                    <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Status Reason</h2>
+                </div>
+                <div class="card__body">
+                    <?php if ($detail_is_on_hold): ?>
+                        <div class="td-reason">
+                            <span class="td-reason__label">On-hold reason</span>
+                            <?php if ($detail_on_hold !== ''): ?>
+                                <p class="td-reason__text td-reason__text--hold"><?= e($detail_on_hold) ?></p>
+                                <details class="reason-inline-edit">
+                                    <summary>Edit</summary>
+                                    <textarea data-update-reason
+                                              data-task-id="<?= (int)$task_id ?>"
+                                              data-field="on_hold_reason"
+                                              rows="2" maxlength="2000"><?= e($detail_on_hold) ?></textarea>
+                                    <button type="button"
+                                            data-save-reason
+                                            data-task-id="<?= (int)$task_id ?>"
+                                            data-field="on_hold_reason">Save</button>
+                                    <span data-save-status aria-live="polite"></span>
+                                </details>
+                            <?php else: ?>
+                                <p class="td-reason-required">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Missing — fill in to explain the hold to the client.
+                                </p>
+                                <details class="reason-inline-edit" open>
+                                    <summary>Add reason</summary>
+                                    <textarea data-update-reason
+                                              data-task-id="<?= (int)$task_id ?>"
+                                              data-field="on_hold_reason"
+                                              rows="2" maxlength="2000"
+                                              placeholder="Why is this task on hold?"></textarea>
+                                    <button type="button"
+                                            data-save-reason
+                                            data-task-id="<?= (int)$task_id ?>"
+                                            data-field="on_hold_reason">Save</button>
+                                    <span data-save-status aria-live="polite"></span>
+                                </details>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($detail_is_delayed): ?>
+                        <div class="td-reason">
+                            <span class="td-reason__label">Delay reason</span>
+                            <?php if ($detail_delay !== ''): ?>
+                                <p class="td-reason__text td-reason__text--delay"><?= e($detail_delay) ?></p>
+                                <details class="reason-inline-edit">
+                                    <summary>Edit</summary>
+                                    <textarea data-update-reason
+                                              data-task-id="<?= (int)$task_id ?>"
+                                              data-field="delay_reason"
+                                              rows="2" maxlength="2000"><?= e($detail_delay) ?></textarea>
+                                    <button type="button"
+                                            data-save-reason
+                                            data-task-id="<?= (int)$task_id ?>"
+                                            data-field="delay_reason">Save</button>
+                                    <span data-save-status aria-live="polite"></span>
+                                </details>
+                            <?php else: ?>
+                                <p class="td-reason-required">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Missing — fill in to explain the slip to the client.
+                                </p>
+                                <details class="reason-inline-edit" open>
+                                    <summary>Add reason</summary>
+                                    <textarea data-update-reason
+                                              data-task-id="<?= (int)$task_id ?>"
+                                              data-field="delay_reason"
+                                              rows="2" maxlength="2000"
+                                              placeholder="Why is this task past its expected completion date?"></textarea>
+                                    <button type="button"
+                                            data-save-reason
+                                            data-task-id="<?= (int)$task_id ?>"
+                                            data-field="delay_reason">Save</button>
+                                    <span data-save-status aria-live="polite"></span>
+                                </details>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Recent Activity -->
+        <?php if (!empty($activities)): ?>
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title-icon"><i class="fas fa-clock-rotate-left"></i> Recent Activity</h2>
+                </div>
+                <div class="card__body">
+                    <ul class="timeline">
+                        <?php foreach ($activities as $activity): ?>
+                            <li>
+                                <div class="timeline__icon">
+                                    <i class="fas fa-<?= $activity['type'] == 'created' ? 'plus' : 'edit' ?>"></i>
+                                </div>
+                                <div class="timeline__body">
+                                    <p><?= e($activity['description']) ?></p>
+                                    <span class="timeline__meta"><?= formatDateTime($activity['date']) ?></span>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            </div>
+        <?php endif; ?>
         </div>
 
         <!-- Sidebar -->
         <div>
-            <!-- Task Details -->
+            <!-- Time -->
             <div class="card">
                 <div class="card__header">
-                    <h2 class="card__title-icon"><i class="fas fa-info-circle"></i> Task Details</h2>
+                    <h2 class="card__title-icon"><i class="fas fa-clock"></i> Time</h2>
                 </div>
                 <div class="card__body">
                     <div class="detail-list">
+                        <?php /* Issue-011: the mockup shows the effort
+                             * rollup in its own sidebar card, separate from
+                             * the Task Details card. The value and its
+                             * "inherited from subtasks" provenance come from
+                             * the shared helper, so this surface agrees
+                             * with tasks.php, project_detail.php and the
+                             * client portal. */ ?>
+                        <?php $td_time_hours = resolveTaskEstimateHours($task, $subtasks); ?>
+                        <?php $td_time_inherited = !empty($task['inherit_subtask_hours']) && count($subtasks) > 0; ?>
                         <div class="detail-row">
-                            <span class="detail-row__k">Project</span>
+                            <span class="detail-row__k">Total time</span>
                             <span class="detail-row__v">
-                                <a href="/projects/<?= (int)$task['project_id'] ?>">
-                                    <?= e($task['project_name']) ?>
-                                </a>
+                                <?php if ($td_time_hours !== null): ?>
+                                    <?= e(formatTaskEstimate($td_time_hours)) ?>
+                                <?php else: ?>
+                                    <span class="text-muted">Not estimated</span>
+                                <?php endif; ?>
                             </span>
                         </div>
-
                         <div class="detail-row">
-                            <span class="detail-row__k">Responsible Person</span>
-                            <span class="detail-row__v"><?= e($task['responsible_person_name']) ?></span>
+                            <span class="detail-row__k">Source</span>
+                            <span class="detail-row__v">
+                                <?= $td_time_inherited ? 'Inherited from subtasks' : 'Set on this task' ?>
+                            </span>
                         </div>
-
-                        <?php
-                        // Issue-011: render the parent's Total Task Time via the shared
-                        // helper, so this surface agrees with project_detail, tasks,
-                        // and the client portal.
-                        $resolved_estimate = resolveTaskEstimateHours($task, $subtasks);
-                        $inherit_active = $task['parent_task_id'] === null
-                            && !empty($task['inherit_subtask_hours'])
-                            && count($subtasks) > 0;
-                        $has_positive_child_estimates = false;
-                        foreach ($subtasks as $_sub) {
-                            if ($_sub['estimated_hours'] !== null && (float)$_sub['estimated_hours'] > 0) {
-                                $has_positive_child_estimates = true; break;
-                            }
-                        }
-                        unset($_sub);
-                        ?>
-                        <?php if ($resolved_estimate !== null): ?>
-                            <div class="detail-row">
-                                <span class="detail-row__k">Total Task Time</span>
-                                <span class="detail-row__v">
-                                    <?= e(formatTaskEstimate($resolved_estimate)) ?>
-                                    <?php if ($inherit_active): ?>
-                                        <i class="fas fa-link td-inherit"
-                                           title="Auto-calculated from sub-tasks"
-                                           aria-label="Auto-calculated from sub-tasks"></i>
-                                    <?php endif; ?>
-                                </span>
-                            </div>
-                        <?php elseif ($inherit_active): ?>
-                            <?php // Spec issue-011 § "Validation edge cases": inherit-on with
-                                  // no positive child estimates must render the literal
-                                  // "Not estimated (no sub-task estimates)" copy on all
-                                  // four display surfaces (issue-011 tester-note-001). ?>
-                            <div class="detail-row">
-                                <span class="detail-row__k">Total Task Time</span>
-                                <span class="detail-row__v not-estimated">Not estimated (no sub-task estimates)</span>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if ($task['contact_person_name']): ?>
-                            <div class="detail-row">
-                                <span class="detail-row__k">Contact Person</span>
-                                <span class="detail-row__v td-contact">
-                                    <span><?= e($task['contact_person_name']) ?></span>
-                                    <?php if ($task['contact_email']): ?>
-                                        <a href="mailto:<?= e($task['contact_email']) ?>" title="Send Email">
-                                            <i class="fas fa-envelope"></i>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if ($task['contact_phone']): ?>
-                                        <a href="tel:<?= e($task['contact_phone']) ?>" title="Call">
-                                            <i class="fas fa-phone"></i>
-                                        </a>
-                                    <?php endif; ?>
-                                </span>
-                            </div>
-                        <?php endif; ?>
-
                         <div class="detail-row">
-                            <span class="detail-row__k">Created</span>
-                            <span class="detail-row__v"><?= formatDateTime($task['created_at']) ?></span>
+                            <span class="detail-row__k">Unit</span>
+                            <span class="detail-row__v">Hours</span>
                         </div>
-
-                        <?php if ($task['expected_completion_date']): ?>
-                            <div class="detail-row">
-                                <span class="detail-row__k">Expected Completion</span>
-                                <span class="detail-row__v <?= strtotime($task['expected_completion_date']) < time() && $task['status'] != 'completed' ? 'td-overdue' : '' ?>">
-                                    <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
-                                </span>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if ($task['completion_date']): ?>
-                            <div class="detail-row">
-                                <span class="detail-row__k">Completed</span>
-                                <span class="detail-row__v td-completed"><?= formatDateTime($task['completion_date']) ?></span>
-                            </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
-
-            <?php // Issue-034 v1.8.0 — Status Reason card. Renders the
-                  // current on-hold / delay reason (populated, missing,
-                  // or absent) and an inline-edit <details> form so the
-                  // manager can fill in a missing reason without leaving
-                  // the page. The card only appears when at least one of
-                  // the two reasons could be relevant (status=on_hold OR
-                  // task is delayed) so it stays out of the sidebar on
-                  // healthy tasks. ?>
-            <?php
-                $detail_on_hold = trim((string)($task['on_hold_reason'] ?? ''));
-                $detail_delay   = trim((string)($task['delay_reason']   ?? ''));
-                $detail_is_on_hold = ($task['status'] ?? '') === 'on_hold';
-                $detail_is_delayed = ($task['status'] ?? '') !== 'completed'
-                    && !empty($task['expected_completion_date'])
-                    && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
-            ?>
-            <?php if ($detail_is_on_hold || $detail_is_delayed): ?>
-                <!-- task-reason-card: kept as a stable marker class. The v2
-                     conversion dropped every other bespoke v1 class name, but
-                     task_status_reasons_test.php pins this one because it
-                     identifies the issue-034 Status Reason feature (on-hold /
-                     delay reason + inline edit). Renaming it silently retires
-                     that guard, so the hook outlives the styling. -->
-                <div class="card task-reason-card">
-                    <div class="card__header">
-                        <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Status Reason</h2>
-                    </div>
-                    <div class="card__body">
-                        <?php if ($detail_is_on_hold): ?>
-                            <div class="td-reason">
-                                <span class="td-reason__label">On-hold reason</span>
-                                <?php if ($detail_on_hold !== ''): ?>
-                                    <p class="td-reason__text td-reason__text--hold"><?= e($detail_on_hold) ?></p>
-                                    <details class="reason-inline-edit">
-                                        <summary>Edit</summary>
-                                        <textarea data-update-reason
-                                                  data-task-id="<?= (int)$task_id ?>"
-                                                  data-field="on_hold_reason"
-                                                  rows="2" maxlength="2000"><?= e($detail_on_hold) ?></textarea>
-                                        <button type="button"
-                                                data-save-reason
-                                                data-task-id="<?= (int)$task_id ?>"
-                                                data-field="on_hold_reason">Save</button>
-                                        <span data-save-status aria-live="polite"></span>
-                                    </details>
-                                <?php else: ?>
-                                    <p class="td-reason-required">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        Missing — fill in to explain the hold to the client.
-                                    </p>
-                                    <details class="reason-inline-edit" open>
-                                        <summary>Add reason</summary>
-                                        <textarea data-update-reason
-                                                  data-task-id="<?= (int)$task_id ?>"
-                                                  data-field="on_hold_reason"
-                                                  rows="2" maxlength="2000"
-                                                  placeholder="Why is this task on hold?"></textarea>
-                                        <button type="button"
-                                                data-save-reason
-                                                data-task-id="<?= (int)$task_id ?>"
-                                                data-field="on_hold_reason">Save</button>
-                                        <span data-save-status aria-live="polite"></span>
-                                    </details>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-                        <?php if ($detail_is_delayed): ?>
-                            <div class="td-reason">
-                                <span class="td-reason__label">Delay reason</span>
-                                <?php if ($detail_delay !== ''): ?>
-                                    <p class="td-reason__text td-reason__text--delay"><?= e($detail_delay) ?></p>
-                                    <details class="reason-inline-edit">
-                                        <summary>Edit</summary>
-                                        <textarea data-update-reason
-                                                  data-task-id="<?= (int)$task_id ?>"
-                                                  data-field="delay_reason"
-                                                  rows="2" maxlength="2000"><?= e($detail_delay) ?></textarea>
-                                        <button type="button"
-                                                data-save-reason
-                                                data-task-id="<?= (int)$task_id ?>"
-                                                data-field="delay_reason">Save</button>
-                                        <span data-save-status aria-live="polite"></span>
-                                    </details>
-                                <?php else: ?>
-                                    <p class="td-reason-required">
-                                        <i class="fas fa-exclamation-circle"></i>
-                                        Missing — fill in to explain the slip to the client.
-                                    </p>
-                                    <details class="reason-inline-edit" open>
-                                        <summary>Add reason</summary>
-                                        <textarea data-update-reason
-                                                  data-task-id="<?= (int)$task_id ?>"
-                                                  data-field="delay_reason"
-                                                  rows="2" maxlength="2000"
-                                                  placeholder="Why is this task past its expected completion date?"></textarea>
-                                        <button type="button"
-                                                data-save-reason
-                                                data-task-id="<?= (int)$task_id ?>"
-                                                data-field="delay_reason">Save</button>
-                                        <span data-save-status aria-live="polite"></span>
-                                    </details>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <!-- Recent Activity -->
-            <?php if (!empty($activities)): ?>
-                <div class="card">
-                    <div class="card__header">
-                        <h2 class="card__title-icon"><i class="fas fa-clock-rotate-left"></i> Recent Activity</h2>
-                    </div>
-                    <div class="card__body">
-                        <ul class="timeline">
-                            <?php foreach ($activities as $activity): ?>
-                                <li>
-                                    <div class="timeline__icon">
-                                        <i class="fas fa-<?= $activity['type'] == 'created' ? 'plus' : 'edit' ?>"></i>
-                                    </div>
-                                    <div class="timeline__body">
-                                        <p><?= e($activity['description']) ?></p>
-                                        <span class="timeline__meta"><?= formatDateTime($activity['date']) ?></span>
-                                    </div>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                </div>
-            <?php endif; ?>
         </div>
     </div>
 </div>

@@ -12,56 +12,6 @@
  */
 
 /* ---------------------------------------------------------------------------
- * Progress block
- * ------------------------------------------------------------------------ */
-.td-progress {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-}
-.td-progress__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: var(--sp-3);
-}
-.td-progress__label {
-    color: var(--gray-500);
-    font-size: var(--fs-sm);
-}
-.td-progress__value {
-    color: var(--brand-500);
-    font-size: var(--fs-base);
-    font-weight: var(--fw-semibold);
-    font-variant-numeric: tabular-nums;
-}
-.td-progress__note {
-    margin: 0;
-    color: var(--gray-500);
-    font-size: var(--fs-xs);
-}
-
-/* ---------------------------------------------------------------------------
- * Description
- * ------------------------------------------------------------------------ */
-.td-description {
-    margin-top: var(--sp-5);
-    padding-top: var(--sp-4);
-    border-top: 1px solid var(--gray-100);
-}
-.td-description h3 {
-    margin: 0 0 var(--sp-2) 0;
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-semibold);
-    color: var(--gray-700);
-}
-.td-description__body {
-    color: var(--gray-700);
-    font-size: var(--fs-sm);
-    line-height: 1.6;
-}
-
-/* ---------------------------------------------------------------------------
  * Parent task link
  * ------------------------------------------------------------------------ */
 .td-parent-link {
@@ -74,60 +24,22 @@
 
 /* ---------------------------------------------------------------------------
  * Subtask list
+ *
+ * The sub-task tree reuses the shared .task-tree / .task-node vocabulary from
+ * v2-components.css (the same components the project_detail tree uses), so the
+ * bespoke td-subtask* block that used to live here was removed in v2.0.
+ * Only the per-node action row remains page-specific.
  * ------------------------------------------------------------------------ */
-.td-subtasks {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-}
-.td-subtask {
-    border: 1px solid var(--gray-200);
-    border-left: 3px solid var(--brand-500);
-    border-radius: var(--r-md);
-    padding: var(--sp-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-}
-.td-subtask__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--sp-3);
-}
-.td-subtask__title { min-width: 0; }
-.td-subtask__title h4 {
-    margin: 0 0 var(--sp-2) 0;
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-semibold);
-}
-.td-subtask__title h4 a {
-    color: var(--gray-900);
+.task-node__name a {
+    color: inherit;
     text-decoration: none;
 }
-.td-subtask__title h4 a:hover { color: var(--brand-500); }
-.td-subtask__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sp-3);
-}
-.td-meta-item {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-1);
-    color: var(--gray-500);
-    font-size: var(--fs-xs);
-}
-.td-subtask__actions {
+.task-node__name a:hover { color: var(--brand-500); }
+.task-node__actions {
     display: flex;
     gap: var(--sp-2);
     flex-shrink: 0;
-}
-.td-subtask__desc {
-    color: var(--gray-600);
-    font-size: var(--fs-xs);
-    line-height: 1.5;
+    margin-top: var(--sp-3);
 }
 
 /* ---------------------------------------------------------------------------

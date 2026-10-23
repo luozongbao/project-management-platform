@@ -223,10 +223,6 @@ $use_v2_shell = true;
                     </div>
                 </div>
             <?php endif; ?>
-        </div>
-
-        <div>
-            <!-- Contact information -->
             <div class="card">
                 <div class="card__header">
                     <h2 class="card__title-icon"><i class="fas fa-address-card"></i> Contact Information</h2>
@@ -300,6 +296,7 @@ $use_v2_shell = true;
 
             <!-- Social media -->
             <?php if ($contact['wechat'] || $contact['line_id'] || $contact['facebook'] || $contact['linkedin']): ?>
+
                 <div class="card">
                     <div class="card__header">
                         <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Social Media</h2>
@@ -359,6 +356,11 @@ $use_v2_shell = true;
             <?php endif; ?>
 
             <!-- Associated projects -->
+
+        </div>
+
+        <div>
+            <!-- Contact information -->
             <div class="card">
                 <div class="card__header">
                     <h2 class="card__title-icon"><i class="fas fa-sitemap"></i> Projects (<?= count($projects) ?>)</h2>

@@ -60,7 +60,13 @@
 }
 
 /* --- Stats: v2 .stat is a flex row, so it needs a text column ------------- */
-.cd-stats { margin-top: var(--sp-5); margin-bottom: var(--sp-5); }
+/* The mockup pins the contact stat strip to three equal columns with no
+ * bottom margin -- the card that follows supplies the spacing instead. */
+.cd-stats {
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 0;
+    margin-bottom: 0;
+}
 .stat__text { min-width: 0; }
 /* --- Sidebar links (email / phone / social) ------------------------------- */
 .cd-link {
