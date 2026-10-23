@@ -197,7 +197,7 @@ $use_v2_shell = true;
                     </div>
                 <?php else: ?>
                     <div class="table-wrap">
-                        <table class="table">
+                        <table class="table pd-table">
                             <thead>
                                 <tr>
                                     <th>Task</th>
@@ -306,7 +306,7 @@ $use_v2_shell = true;
                     </div>
                 <?php else: ?>
                     <div class="table-wrap">
-                        <table class="table">
+                        <table class="table pd-table">
                             <thead>
                                 <tr>
                                     <th>Name</th>
@@ -322,7 +322,7 @@ $use_v2_shell = true;
                                         <td><a href="/contacts/<?= (int)$contact['id'] ?>"><strong><?= e($contact['name']) ?></strong></a></td>
                                         <td class="text-sm text-muted"><?= e($contact['position'] ?: '—') ?></td>
                                         <td class="text-sm text-muted"><?= e($contact['company'] ?: '—') ?></td>
-                                        <td>
+                                        <td class="wrap-anywhere">
                                             <?php if ($contact['email']): ?>
                                                 <a href="mailto:<?= e($contact['email']) ?>"><i class="fas fa-envelope"></i> <?= e($contact['email']) ?></a>
                                             <?php else: ?><span class="text-muted">—</span><?php endif; ?>
