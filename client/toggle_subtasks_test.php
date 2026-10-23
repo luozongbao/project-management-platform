@@ -30,12 +30,16 @@
  *        still emitted (i.e. the markup is intact, not re-rendered
  *        server-side based on state).
  *      - The page loads the external controller file via
- *        <script src="/assets/js/subtask-toggle.js" defer></script>
+ *        <script src="/client/assets/js/subtask-toggle.js" defer></script>
  *        and does NOT contain an inline <script>(function () { ... })
  *        block (issue-027: the issue-020 CSP tightening on the public
  *        client portal drops 'unsafe-inline' from script-src, so any
  *        inline script body in the page will be refused by the
  *        browser).
+ *        (issue-049: the path used to be "/assets/js/subtask-toggle.js",
+ *        which 404s — the file lives under client/assets/js/. The
+ *        root-absolute "/client/assets/js/subtask-toggle.js" is the
+ *        form issue-035 mandates for every asset reference.)
  *   2. Project WITHOUT sub-tasks (and project with NO tasks):
  *      - Does NOT render the toggle button.
  *      - Does NOT include the <script src=…> tag.
@@ -221,9 +225,20 @@ if (!is_file($js_path)) {
     $failures[] = "with-subs dashboard requires client/assets/js/subtask-toggle.js, but the file is missing";
 }
 $js_src = is_file($js_path) ? file_get_contents($js_path) : '';
-$expected_script_tag = 'src="/assets/js/subtask-toggle.js" defer';
+// Issue-049: the tag must be the root-absolute "/client/assets/js/subtask-toggle.js",
+// matching where the file actually lives and the root-absolute asset contract
+// that issue-035 §"The fix — every asset reference becomes root-absolute"
+// mandates for this file. The old "/assets/js/subtask-toggle.js" 404s — the
+// controller never loaded and the sub-task toggle was dead in the browser.
+$expected_script_tag = 'src="/client/assets/js/subtask-toggle.js" defer';
 if (strpos($with_subs_html, $expected_script_tag) === false) {
     $failures[] = "with-subs dashboard is missing the <script {$expected_script_tag}></script> tag for the external controller";
+}
+// Issue-049: guard against the broken path coming back. It resolves to
+// /assets/js/subtask-toggle.js, which does not exist — the file is under
+// client/assets/js/. A regression here is silent in the test output otherwise.
+if (strpos($with_subs_html, 'src="/assets/js/subtask-toggle.js"') !== false) {
+    $failures[] = 'with-subs dashboard references /assets/js/subtask-toggle.js — that path 404s; the file lives at client/assets/js/subtask-toggle.js and must be referenced as "/client/assets/js/subtask-toggle.js"';
 }
 // No inline <script>(function () { ... })() block in the page.
 if (preg_match('#<script>\s*\(function\s*\(\s*\)\s*\{#i', $with_subs_html)) {
@@ -310,12 +325,12 @@ if (substr_count($with_subs_html, '<ul class="task-tree">') < 1) {
 // ---------------------------------------------------------------------------
 // 2. Project WITHOUT sub-tasks: NO toggle, NO script tag.
 // ---------------------------------------------------------------------------
-foreach (['id="subtasks-toggle"', 'src="/assets/js/subtask-toggle.js"'] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="/client/assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_subs_html, $needle) !== false) {
         $failures[] = "no-subs dashboard should not contain '$needle'";
     }
 }
-foreach (['id="subtasks-toggle"', 'src="/assets/js/subtask-toggle.js"'] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="/client/assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_tasks_html, $needle) !== false) {
         $failures[] = "no-tasks dashboard should not contain '$needle'";
     }

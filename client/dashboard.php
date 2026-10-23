@@ -532,8 +532,15 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
 <!-- Sub-tasks toggle controller — external file so the issue-020 CSP
      tightening on the public client portal (no 'unsafe-inline') still
      allows it to run. Translation strings + share code are passed in
-     via data-* attributes on the button (issue-027). -->
-<script src="/assets/js/subtask-toggle.js" defer></script>
+     via data-* attributes on the button (issue-027).
+
+     Issue-049: the path was "/assets/js/subtask-toggle.js", but the file
+     lives at client/assets/js/subtask-toggle.js. That path 404s, so the
+     controller never loaded and the sub-task expand/collapse control was
+     dead in the browser. The path below is the root-absolute form that
+     issue-035 §"The fix — every asset reference becomes root-absolute"
+     mandates for this file. -->
+<script src="/client/assets/js/subtask-toggle.js" defer></script>
 <?php endif; ?>
 
 </body>
