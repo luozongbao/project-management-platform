@@ -126,7 +126,6 @@ $upcoming_deadlines = $db->fetchAll(
      WHERE p.responsible_person_id = ? 
        AND p.status != 'completed'
        AND p.expected_completion_date IS NOT NULL
-       AND p.expected_completion_date >= CURDATE()
      ORDER BY p.expected_completion_date ASC
      LIMIT 5",
     [$user_id]
@@ -137,12 +136,28 @@ foreach ($upcoming_deadlines as &$deadline) {
     }
     $deadline['avg_completion_percentage'] =
         $completionByProject[(int)$deadline['id']]['project_completion'];
+    // v2.0: the mockup colours the due date by urgency and shows a
+    // relative label beside it. Derived here rather than in SQL so the
+    // pluralisation stays in one place.
+    $__dd_days = (int)floor(
+        (strtotime((string)$deadline['expected_completion_date']) - strtotime(date('Y-m-d'))) / 86400
+    );
+    if ($__dd_days < 0) {
+        $deadline['urgency']      = 'overdue';
+        $deadline['urgency_label'] = abs($__dd_days) . ' day' . (abs($__dd_days) === 1 ? '' : 's') . ' overdue';
+    } elseif ($__dd_days <= 7) {
+        $deadline['urgency']      = 'due_soon';
+        $deadline['urgency_label'] = $__dd_days === 0 ? 'due today' : 'due soon';
+    } else {
+        $deadline['urgency']      = 'on_track';
+        $deadline['urgency_label'] = 'on track';
+    }
 }
 unset($deadline);
 
 // Recent tasks
 $recent_tasks = $db->fetchAll(
-    "SELECT t.id, t.project_id, t.name, t.slug, t.status, t.completion_percentage, p.name as project_name,
+    "SELECT t.id, t.project_id, t.name, t.slug, t.status, t.completion_percentage, p.name as project_name, p.slug as project_slug,
             t.expected_completion_date, u.name as responsible_person_name
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
