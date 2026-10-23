@@ -407,7 +407,6 @@ $use_v2_shell = true;
             </div>
         <?php endif; ?>
     </div>
-    </div>
 
     <!-- Upcoming Deadlines: no <thead> in the mockup; 4 columns, date
          coloured by urgency and a relative label beside it.
@@ -456,6 +455,6 @@ $use_v2_shell = true;
                 </div>
             </div>
         <?php endif; ?>
-
+    </div>
 
 <?php include 'includes/footer.php'; ?>
