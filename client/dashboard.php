@@ -428,8 +428,10 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
                 </div>
             </details>
             <div class="lang-switch inline" aria-label="<?= e(t('landing.lang_label')) ?>">
-                <?php foreach (client_other_langs() as $code2 => $label): ?>
-                    <a href="<?= e(client_lang_url($code2)) ?>" class="lang-switch-link"><?= e($label) ?></a>
+                <?php foreach (client_all_langs() as $code2 => $label): ?>
+                    <a href="<?= e(client_lang_url($code2)) ?>"
+                       class="lang-switch-link<?= ($code2 === client_current_lang()) ? ' is-active' : '' ?>"
+                       <?= ($code2 === client_current_lang()) ? ' aria-current="true"' : '' ?>><?= e($label) ?></a>
                 <?php endforeach; ?>
             </div>
         </div>

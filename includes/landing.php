@@ -159,61 +159,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="client-body">
 
-<main class="client-shell">
-    <div class="client-card">
-        <div class="client-brand">
-            <i class="fas fa-project-diagram"></i>
-            <h1><?= e(APP_NAME) ?></h1>
-            <p class="client-tagline"><?= e(t('landing.tagline')) ?></p>
-        </div>
+<?php /* Issue-051: the public landing page moves to the v2.0 mockup
+        vocabulary (docs/design/2.0/landing.html). The legacy
+        .client-card / .client-brand / .client-form / .form-group /
+        .owner-login vocabulary is replaced by .landing / .landing__card /
+        .landing__logo / .landing__code-input / .landing__foot plus the
+        shared .field / .hint / .input / .btn--primary / .alert--danger
+        vocabulary from v2-components.css.
 
-        <h2><i class="fas fa-key"></i> <?= e(t('landing.heading')) ?></h2>
-
-        <p class="client-intro"><?= e(t('landing.intro')) ?></p>
+        RED LINES (unchanged):
+          - id="code" name="code" + pattern + placeholder + the inline
+            style attribute. assets/js/share-code-format.js keys off
+            exactly this field and its inline styling.
+          - POST action "/" — the form posts to the domain root.
+          - The rate-limit caps/ordering and the DB lookup order. */
+?>
+<div class="landing">
+    <div class="landing__card">
+        <div class="landing__logo"><i class="fas fa-project-diagram"></i></div>
+        <h1><?= e(APP_NAME) ?></h1>
+        <p class="text-muted text-sm" style="margin-bottom: 1.5rem;">
+            <?= e(t('landing.tagline')) ?>
+        </p>
 
         <?php if ($error): ?>
-            <div class="alert alert-danger"><?= e($error) ?></div>
+            <div class="alert alert--danger" role="alert">
+                <i class="fas fa-circle-exclamation"></i>
+                <div class="alert__body">
+                    <div class="alert__title"><?= e(t('landing.try_again')) ?></div>
+                    <?= e($error) ?>
+                </div>
+            </div>
         <?php endif; ?>
 
-        <form method="POST" action="/" class="client-form" autocomplete="off">
-            <div class="form-group">
+        <form method="POST" action="/" autocomplete="off" style="text-align: left;">
+            <div class="field" style="margin-bottom: 1rem;">
                 <label for="code"><?= e(t('landing.code_label')) ?></label>
                 <input
+                    class="input landing__code-input"
                     type="text"
                     id="code"
                     name="code"
                     placeholder="<?= e(t('landing.code_placeholder')) ?>"
                     value="<?= e($code) ?>"
+                    maxlength="17"
                     required
                     autofocus
                     pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"
                     title="Format: 5-5-5 alphanumeric, e.g. AX498-99ZB2-92C3J"
                     style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.15rem;">
-                <small><?= e(t('landing.code_help')) ?></small>
+                <span class="hint"><?= e(t('landing.code_help')) ?></span>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">
+            <button type="submit" class="btn btn--primary btn--lg btn--block">
                 <i class="fas fa-arrow-right"></i> <?= e(t('landing.submit')) ?>
             </button>
         </form>
 
-        <p class="client-foot"><?= e(t('landing.foot')) ?></p>
+        <div class="auth-card__divider"><?= e(t('landing.divider_or')) ?></div>
 
-        <div class="owner-login">
-            <a href="/login" class="owner-login-link">
-                <i class="fas fa-user-shield"></i> <?= e(t('landing.owner_login')) ?>
-            </a>
-        </div>
+        <a class="btn btn--secondary btn--block" href="/login">
+            <i class="fas fa-user-lock"></i> <?= e(t('landing.owner_login')) ?>
+        </a>
 
-        <div class="lang-switch" aria-label="<?= e(t('landing.lang_label')) ?>">
-            <span class="lang-switch-label"><i class="fas fa-globe"></i> <?= e(t('landing.lang_label')) ?>:</span>
-            <?php foreach (client_other_langs() as $code2 => $label): ?>
-                <a href="<?= e(client_lang_url($code2)) ?>" class="lang-switch-link"><?= e($label) ?></a>
-            <?php endforeach; ?>
+        <p class="landing__note"><?= e(t('landing.foot')) ?></p>
+
+        <div class="landing__foot">
+            <div class="lang-switch" data-lang-switch role="group" aria-label="<?= e(t('landing.lang_label')) ?>">
+                <?php foreach (client_all_langs() as $code2 => $label): ?>
+                    <a href="<?= e(client_lang_url($code2)) ?>"
+                       class="lang-switch-link<?= ($code2 === client_current_lang()) ? ' is-active' : '' ?>"
+                       <?= ($code2 === client_current_lang()) ? ' aria-current="true"' : '' ?>><?= e($label) ?></a>
+                <?php endforeach; ?>
+            </div>
         </div>
     </div>
-</main>
-
+</div>
 <script src="/assets/js/share-code-format.js" defer></script>
-
 </body>
 </html>
