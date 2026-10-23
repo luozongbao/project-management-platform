@@ -8,15 +8,50 @@ requireLogin();
 $db = Database::getInstance();
 $user_id = getCurrentUserId();
 
+// v2.0: search + status filter. New functionality, matching the filter bar
+// in docs/design/2.0/projects.html and mirroring the server-side GET
+// approach tasks.php already uses, so both list pages behave identically.
+// projects.status is a plain ENUM('not_started','in_progress','completed',
+// 'on_hold'), so unlike tasks there is no computed pseudo-status to
+// special-case and the filter is a simple equality.
+$search = trim($_GET['search'] ?? '');
+$status_filter = $_GET['status'] ?? 'all';
+
+$where_conditions = ["p.responsible_person_id = ?"];
+$params = [$user_id];
+
+if ($search !== '') {
+    $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ?)";
+    $search_param = '%' . $search . '%';
+    $params[] = $search_param;
+    $params[] = $search_param;
+}
+
+// Guard against an arbitrary ?status= being used as a probe: only the four
+// enum values are accepted, anything else falls back to showing all.
+$valid_statuses = ['not_started', 'in_progress', 'completed', 'on_hold'];
+if ($status_filter !== 'all' && in_array($status_filter, $valid_statuses, true)) {
+    $where_conditions[] = "p.status = ?";
+    $params[] = $status_filter;
+} else {
+    $status_filter = 'all';
+}
+
+$where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+
+// True when a filter is narrowing the list, which selects between the two
+// distinct empty states below.
+$filters_active = ($search !== '' || $status_filter !== 'all');
+
 // Get projects with statistics
 $projects = $db->fetchAll(
     "SELECT ps.*, p.name, p.slug, p.status, p.description, p.created_at, p.start_date, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
-     WHERE p.responsible_person_id = ?
+     $where_clause
      ORDER BY p.created_at DESC",
-    [$user_id]
+    $params
 );
 
 foreach ($projects as &$project) {
@@ -30,13 +65,19 @@ $show_nav = true;
 // v2.0: opt into the v2 shell (Phase 1.3) before the header include.
 $use_v2_shell = true;
 // Counts for the page-header subtitle, mirroring the mockup's
-// "4 projects · 1 completed" line. Derived from the already-fetched set
-// so it costs no extra query.
-$__proj_completed = 0;
-foreach ($projects as $__p) {
-    if (($__p['status'] ?? '') === 'completed') $__proj_completed++;
-}
-$__proj_total = count($projects);
+// "4 projects · 1 completed" line. This must describe the user's projects
+// as a whole, not the current result set: filtering down to one project
+// would otherwise make the header claim the account owns one project.
+// Counted with one cheap query rather than derived from $projects.
+$__proj_row = $db->fetchOne(
+    "SELECT COUNT(*) AS total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+     FROM projects
+     WHERE responsible_person_id = ?",
+    [$user_id]
+);
+$__proj_total = (int)($__proj_row['total'] ?? 0);
+$__proj_completed = (int)($__proj_row['completed'] ?? 0);
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -49,6 +90,9 @@ $__proj_total = count($projects);
             <?php if ($__proj_total > 0): ?>
                 <?= $__proj_total ?> project<?= $__proj_total === 1 ? '' : 's' ?>
                 &middot; <?= $__proj_completed ?> completed
+                <?php if ($filters_active): ?>
+                    &middot; <?= count($projects) ?> matching
+                <?php endif; ?>
             <?php else: ?>
                 Manage your projects and track their progress
             <?php endif; ?>
@@ -62,18 +106,72 @@ $__proj_total = count($projects);
     </div>
 </div>
 
-<?php if (empty($projects)): ?>
-    <div class="empty-state proj-empty">
-        <div class="empty-state__icon">
-            <i class="fas fa-folder-plus"></i>
+<!-- Filter bar: shared .filter-bar component, matching tasks.php and the
+     mockup's projects.html. Plain GET form, so it works with JS disabled
+     and the query string stays bookmarkable. Hidden when the account owns
+     no projects at all -- a filter over nothing is just noise. -->
+<?php if ($__proj_total > 0): ?>
+    <form method="GET" class="filter-bar" data-filter-form>
+        <div class="field">
+            <label for="search">Search</label>
+            <input class="input" type="search" id="search" name="search"
+                   value="<?= e($search) ?>"
+                   placeholder="Project name or description...">
         </div>
-        <h3>No Projects Yet</h3>
-        <p>Create your first project to get started with managing your work.</p>
-        <a href="/projects/new" class="btn btn--primary">
-            <i class="fas fa-plus"></i>
-            Create First Project
-        </a>
-    </div>
+
+        <div class="field">
+            <label for="status_filter">Status</label>
+            <select class="select" id="status_filter" name="status">
+                <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Status</option>
+                <option value="not_started" <?= $status_filter === 'not_started' ? 'selected' : '' ?>>Not Started</option>
+                <option value="in_progress" <?= $status_filter === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                <option value="completed" <?= $status_filter === 'completed' ? 'selected' : '' ?>>Completed</option>
+                <option value="on_hold" <?= $status_filter === 'on_hold' ? 'selected' : '' ?>>On Hold</option>
+            </select>
+        </div>
+
+        <div class="filter-bar__actions">
+            <button type="submit" class="btn btn--primary">
+                <i class="fas fa-filter"></i>
+                Apply
+            </button>
+            <a href="/projects" class="btn btn--secondary">
+                <i class="fas fa-rotate-left"></i>
+                Reset
+            </a>
+        </div>
+    </form>
+<?php endif; ?>
+
+<?php if (empty($projects)): ?>
+    <?php if ($filters_active): ?>
+        <!-- No results, but the account does own projects: this is a filter
+             miss, so it must not reuse the "No Projects Yet" state below,
+             which would wrongly suggest there is nothing to track. -->
+        <div class="empty-state proj-empty">
+            <div class="empty-state__icon">
+                <i class="fas fa-filter-circle-xmark"></i>
+            </div>
+            <h3>No Matching Projects</h3>
+            <p>No projects match the current search or status filter.</p>
+            <a href="/projects" class="btn btn--secondary">
+                <i class="fas fa-rotate-left"></i>
+                Clear Filters
+            </a>
+        </div>
+    <?php else: ?>
+        <div class="empty-state proj-empty">
+            <div class="empty-state__icon">
+                <i class="fas fa-folder-plus"></i>
+            </div>
+            <h3>No Projects Yet</h3>
+            <p>Create your first project to get started with managing your work.</p>
+            <a href="/projects/new" class="btn btn--primary">
+                <i class="fas fa-plus"></i>
+                Create First Project
+            </a>
+        </div>
+    <?php endif; ?>
 <?php else: ?>
     <div class="proj-grid">
         <?php foreach ($projects as $project): ?>
