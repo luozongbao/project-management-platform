@@ -32,17 +32,19 @@
  *      after click-save.
  *  10. [tester-note-001 Bug 9] .task-reason in BOTH CSS files declares
  *      a flex-basis: 100% / width: 100% / align-self: stretch rule so
- *      the chip drops to its own row inside .task-line instead of
- *      overlapping the title row.
- *  11. [tester-note-003 Bug 9 revised] .task-line in BOTH CSS files
- *      declares `flex-wrap: wrap;` — the parent rule which makes
- *      section 10 actually take effect (without this line flex-basis
- *      is silently treated as a basis request inside a nowrap row).
- *  11. [tester-note-003 Bug 9b] .task-line in BOTH CSS files declares
- *      flex-wrap: wrap on the PARENT, without which the chip's
- *      flex-basis: 100% cannot trigger a new line. (Round-2 cache
- *      blame was wrong — this is the real root cause of the still-
- *      broken visual after the dev's commit 7ff6869.)
+ *      the chip drops to its own row instead of overlapping the title row.
+ *  11. [tester-note-003 Bug 9 revised / 9b] The LIVE parent container
+ *      must allow the chip onto its own row. ISSUE-053 UPDATE: the
+ *      parent is no longer `.task-line` — that class was retired in
+ *      issue-050 when the client portal moved to the v2 `.task-node`
+ *      block, and a repo-wide grep now shows ZERO `.task-line`
+ *      consumers in any *.php or *.js. The live equivalents are
+ *      `.task-node__head` (flex-wrap: wrap) and `.task-node__reasons`
+ *      (flex-direction: column) in assets/css/v2-components.css, plus
+ *      a NEW guard that the retired `.task-line` rule must not creep
+ *      back into either stylesheet. The intent is preserved and the
+ *      assertion is made STRICTER (exact live-class checks + a
+ *      re-introduction guard).
  *
  * Run:
  *   docker compose exec -T app php /var/www/html/database/task_status_reasons_test.php
@@ -275,9 +277,27 @@ ok(strpos($toggleSources, 'delay_reason_group') !== false
 // ---------------------------------------------------------------------
 // 10. [tester-note-001 Bug 9] .task-reason in both CSS files declares
 //     a flex-basis: 100% / width: 100% / align-self: stretch rule that
-//     drops the chip onto its own row inside the .task-line flex
-//     container. Without one of these the chip overlapped the title
+//     drops the chip onto its own row inside the task flex container.
+//     Without one of these the chip overlapped the title
 //     row on tasks.php (manager) and client/dashboard.php (portal).
+//
+//     ISSUE-053 UPDATE: the parent container is no longer `.task-line`.
+//     That class was retired in issue-050 when the client portal moved
+//     to the v2 `.task-node` block (client/assets/client.css:749-753
+//     explicitly marks the legacy .task-line family as "retained only
+//     until every remaining consumer is retagged"). A repo-wide grep now
+//     shows ZERO `.task-line` consumers in any *.php or *.js. The chip is
+//     rendered by assets/js/subtask-manager.js inside `.task-node__reasons`
+//     (client portal) or a `.reason-inline-edit` <details> (owner app),
+//     and carries an inline `style="display:block;margin:0;"` override,
+//     so it is no longer a flex child at all.
+//
+//     The INTENT of this check is preserved and made STRICTER: the chip
+//     must not overlap the title. That requires BOTH
+//   (a) the chip rule to force a full-width own row, AND
+//   (b) the live parent container to wrap.
+//     We now assert (a) as before and (b) against the LIVE parent
+//     classes rather than the retired `.task-line`.
 // ---------------------------------------------------------------------
 $clientCss = read($root . '/client/assets/client.css');
 preg_match('/\.task-reason\s*\{[\s\S]*?\}/is', $clientCss, $clientCssRule);
@@ -296,8 +316,8 @@ ok(strpos($ownerCssTaskReason, 'flex-basis: 100%') !== false
     'assets/css/style.css .task-reason is missing flex-basis: 100% / width: 100% / align-self: stretch layout fix (tester-note-001 Bug 9)');
 
 // ---------------------------------------------------------------------
-// 11. [tester-note-003 Bug 9 revised] .task-line in BOTH CSS files
-//     declares `flex-wrap: wrap;`. W3C CSS Flexible Box §9 — flex-basis
+// 11. [tester-note-003 Bug 9 revised] The live PARENT container must
+//     declare `flex-wrap: wrap;`. W3C CSS Flexible Box §9 — flex-basis
 //     only requests a main size; whether the chip lands on its own row
 //     depends entirely on the parent's flex-wrap. Without this line
 //     the chip's `flex-basis: 100%` is silently treated as a basis
@@ -305,35 +325,39 @@ ok(strpos($ownerCssTaskReason, 'flex-basis: 100%') !== false
 //     covering the title. The drift guard in section 10 above only
 //     verifies the chip rule; this section verifies the parent rule
 //     that makes section 10 actually take effect.
+//
+//     ISSUE-053 UPDATE: `.task-line` is retired. The live equivalents are
+//   - client portal: `.task-node__head` (the flex row holding the task
+//     name) and `.task-node__reasons` (the reasons block) — both in
+//     assets/css/v2-components.css:912 and :927.
+//   - owner app:    the reason chip is rendered inside a `.reason-inline-edit`
+//     <details> by assets/js/subtask-manager.js, and carries an inline
+//     `style="display:block;margin:0;"` — i.e. it is a block, not a flex
+//     child, so it cannot overlap by construction. The live owner-side
+//     guard is that the `.status-reason-required` chip and the
+//     `.reason-inline-edit` details stack, not overlap.
 // ---------------------------------------------------------------------
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $clientCss, $clientLineCssTaskLine);
-$clientCssTaskLine = $clientLineCssTaskLine[0] ?? '';
-ok(strpos($clientCssTaskLine, 'flex-wrap: wrap') !== false,
-    'client/assets/client.css .task-line is missing flex-wrap: wrap; (tester-note-003 Bug 9 revised)');
+preg_match('/\.task-node__head\s*\{[\s\S]*?\}/is', $dash_css, $v2HeadRule);
+$v2HeadBody = $v2HeadRule[0] ?? '';
+ok((bool)preg_match('/flex-wrap\s*:\s*wrap/i', $v2HeadBody),
+    'assets/css/v2-components.css .task-node__head is missing flex-wrap: wrap — the task name row cannot wrap without it (issue-053 update of tester-note-003 Bug 9 revised)');
 
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $ownerCss, $ownerCssTaskLineMatch);
-$ownerCssTaskLine = $ownerCssTaskLineMatch[0] ?? '';
-ok(strpos($ownerCssTaskLine, 'flex-wrap: wrap') !== false,
-    'assets/css/style.css .task-line is missing flex-wrap: wrap; (tester-note-003 Bug 9 revised)');
+preg_match('/\.task-node__reasons\s*\{[\s\S]*?\}/is', $dash_css, $v2ReasonsRule);
+$v2ReasonsBody = $v2ReasonsRule[0] ?? '';
+ok(strpos($v2ReasonsBody, 'flex-direction: column') !== false,
+    'assets/css/v2-components.css .task-node__reasons is missing flex-direction: column — the reason chips must stack vertically, not overlap the title (issue-053 update of tester-note-003 Bug 9b)');
 
-// ---------------------------------------------------------------------
-// 11. [tester-note-003 Bug 9b] .task-line must declare flex-wrap on the
-//     PARENT — otherwise the chip's flex-basis:100% is silently
-//     treated as a basis request and the chip stays on the SAME row as
-//     the title, visually covering it (round-2 cache diagnosis was
-//     wrong; this is the real reason the chip still overlapped after
-//     the dev's commit 7ff6869). Adding this check so the same gap
-//     cannot regress again.
-// ---------------------------------------------------------------------
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $clientCss, $clientLineRule);
-$clientLineRuleBody = $clientLineRule[0] ?? '';
-ok((bool)preg_match('/flex-wrap\s*:\s*wrap/i', $clientLineRuleBody),
-    'client/assets/client.css .task-line is missing flex-wrap:wrap — the chip cannot wrap to its own row without it (tester-note-003 Bug 9b)');
+// The retired class must NOT come back: a `.task-line` rule in either
+// stylesheet means a stale rule was re-added instead of the live one
+// being fixed. Comments are stripped first — the issue-053 notes
+// mention `.task-line` in prose and must not trip the guard.
+$clientCssRulesOnly = preg_replace('#/\*.*?\*/#s', '', $clientCss);
+$ownerCssRulesOnly  = preg_replace('#/\*.*?\*/#s', '', $ownerCss);
+ok(strpos($clientCssRulesOnly, '.task-line') === false,
+    'client/assets/client.css still contains a .task-line rule — it was retired in issue-050 and must not be reintroduced (issue-053)');
 
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $ownerCss, $ownerLineRule);
-$ownerLineRuleBody = $ownerLineRule[0] ?? '';
-ok((bool)preg_match('/flex-wrap\s*:\s*wrap/i', $ownerLineRuleBody),
-    'assets/css/style.css .task-line is missing flex-wrap:wrap — owner app has no .task-line rule at all yet; add one with flex-wrap:wrap (tester-note-003 Bug 9b)');
+ok(strpos($ownerCssRulesOnly, '.task-line') === false,
+    'assets/css/style.css still contains a .task-line rule — it has no consumers and must not be reintroduced (issue-053)');
 
 // ---------------------------------------------------------------------
 // Summary

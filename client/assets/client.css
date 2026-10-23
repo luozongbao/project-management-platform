@@ -160,55 +160,6 @@
 /* Tasks */
 .task-tree, .task-tree ul { list-style: none; margin: 0; padding: 0; }
 .task-tree.root { padding-left: 0; }
-.task-item {
-    border: 1px solid #eef0f2;
-    border-radius: 10px;
-    margin: 8px 0;
-    background: #fff;
-    transition: box-shadow .15s;
-}
-.task-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
-.task-line {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    /* Issue-034 (v1.8.0) tester-note-003 Bug 9 (revised) — without
-     * `flex-wrap: wrap;` the chip's `flex-basis: 100%` is silently
-     * treated as a basis request inside a `nowrap` row, and the
-     * chip ends up on the same row as the task title, covering it.
-     * W3C CSS Flexible Box §9 — flex-basis only requests a main size;
-     * whether the item actually wraps depends on the parent's
-     * `flex-wrap`. Adding wrap here is what makes the chip's
-     * flex-basis: 100% (round-1 fix in .task-reason) meaningful. */
-    flex-wrap: wrap;
-}
-.tree-indent {
-    color: #c7ccd1;
-    font-family: monospace;
-    margin-right: 4px;
-    flex-shrink: 0;
-}
-.task-body { flex: 1; min-width: 0; }
-.task-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    margin-bottom: 4px;
-}
-.task-name { font-weight: 600; color: #222; font-size: 1rem; }
-.task-desc { color: #555; font-size: 0.9rem; margin: 4px 0 8px; }
-.task-meta {
-    display: flex; flex-wrap: wrap; gap: 14px;
-    color: #666; font-size: 0.85rem; margin-bottom: 8px;
-}
-.task-meta i { color: #999; margin-right: 4px; }
-.task-progress {
-    display: flex; align-items: center; gap: 10px;
-}
-.task-progress .progress-bar { flex: 1; }
-.progress-text { font-size: 0.85rem; color: #555; min-width: 42px; text-align: right; }
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -377,12 +328,17 @@
     font-size: 0.86rem;
     color: #24292f;
     line-height: 1.4;
-    /* Issue-034 (v1.8.0) tester note Bug 9 — drop to own row inside
-     * the .task-line flex container so the chip never overlaps the
-     * title row. flex-basis: 100% forces full width, min-width: 0
+    /* Issue-034 (v1.8.0) tester note Bug 9 — the chip must never overlap
+     * the title row. flex-basis: 100% forces full width, min-width: 0
      * keeps the body content from forcing the row to overflow, and
      * word-wrap: break-word prevents long un-spaced reasons from
-     * blowing out the layout on narrow client-portal viewports. */
+     * blowing out the layout on narrow client-portal viewports.
+     *
+     * Issue-053: the chip now lives inside `.task-node__reasons`
+     * (assets/css/v2-components.css), which is a column flex container —
+     * so it stacks under the task name by construction. The retired
+     * `.task-line` parent rule (which carried `flex-wrap: wrap`) is gone;
+     * `.task-node__head` now carries the wrap instead. */
     flex-basis: 100%;
     min-width: 0;
     word-wrap: break-word;
@@ -745,12 +701,6 @@
 /* --- Task tree ----------------------------------------------------------- */
 .task-tree.root { padding-left: 0; }
 .task-tree .task-tree { margin-top: var(--sp-2); }
-
-/* The legacy .task-item / .task-line / .task-head / .task-name / .task-desc /
-   .task-meta / .task-progress / .progress-bar / .progress-fill / .progress-text
-   / .tree-indent rules above are superseded by the v2 .task-node block in
-   assets/css/v2-components.css. They are retained only until every remaining
-   consumer is retagged (issue-051), then dropped. */
 
 /* --- Footer -------------------------------------------------------------- */
 .client-body .footer {
