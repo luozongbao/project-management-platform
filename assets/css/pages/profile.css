@@ -55,20 +55,19 @@
    no template means a single implicit column -- i.e. one field per row. */
 .form-grid { grid-template-columns: 1fr; }
 
-/* --- overview card ------------------------------------------------------- */
-/* .stat-grid supplies its own margin-bottom, but nothing supplies one for the
-   card ABOVE it, so without this the Overview card sits flush against the stat
-   row. Same for the stat row above .grid-2 -- .grid-2 has no margin of its
-   own, so these two classes supply the vertical rhythm for this page.
-
-   NOTE: this page deliberately does NOT wrap its markup in the legacy
+/* NOTE: this page deliberately does NOT wrap its markup in the legacy
    .page-container. That class caps at max-width:1000px and adds its own 20px
    padding, which fights the v2 .content (max-width:var(--content-max-w)=1440px)
    and squeezes the form cards into a narrow column. includes/header.php already
    emits <main class="content">; dashboard/projects/tasks/contacts all sit
-   directly in it for the same reason. */
-.pf-overview-card { margin-bottom: var(--sp-5); }
-.pf-stat-row { margin-bottom: var(--sp-5); }
+   directly in it for the same reason.
+
+   Section rhythm used to be hand-patched here via .pf-overview-card and
+   .pf-stat-row (each margin-bottom: var(--sp-5)), because .card and .stat-grid
+   did not own spacing between them. That is now handled ONCE in
+   v2-components.css ("Section rhythm"), which covers .card / .grid-2 / .grid-3
+   / .grid-sidebar and applies here without a page-specific override. The .pf-*
+   rules below are kept only for the overview card's own internal layout. */
 
 .pf-overview {
   display: flex;

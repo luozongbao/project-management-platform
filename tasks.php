@@ -236,64 +236,64 @@ if ($__t_on_hold > 0) {
     </div>
 </div>
 
-<div class="card">
-    <div class="card__body">
-        <form method="GET" class="tk-filter-form" data-filter-form>
-            <?php if ($project_id): ?>
-                <input type="hidden" name="project_id" value="<?= $project_id ?>">
-            <?php endif; ?>
+<!-- Filter bar: shared .filter-bar component, matching tasks.html. This was
+     previously a .card wrapper around a bespoke .tk-filter-form grid; the
+     filters, their name=/id= attributes and the GET behaviour are unchanged,
+     only the container and the action-wrapper class were swapped. -->
+<form method="GET" class="filter-bar" data-filter-form>
+    <?php if ($project_id): ?>
+        <input type="hidden" name="project_id" value="<?= $project_id ?>">
+    <?php endif; ?>
 
-            <div class="field">
-                <label for="search">Search Tasks</label>
-                <input class="input" type="search" id="search" name="search"
-                       value="<?= e($search) ?>"
-                       placeholder="Task name or description...">
-            </div>
-
-            <?php if (!$project_id): ?>
-                <div class="field">
-                    <label for="project_filter">Project</label>
-                    <select class="select" id="project_filter" name="project_id">
-                        <option value="">All Projects</option>
-                        <?php foreach ($user_projects as $project): ?>
-                            <option value="<?= $project['id'] ?>" <?= ($_GET['project_id'] ?? '') == $project['id'] ? 'selected' : '' ?>>
-                                <?= e($project['name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            <?php endif; ?>
-
-            <div class="field">
-                <label for="status_filter">Status</label>
-                <select class="select" id="status_filter" name="status">
-                    <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>All Status</option>
-                    <option value="not_started" <?= $status_filter == 'not_started' ? 'selected' : '' ?>>Not Started</option>
-                    <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                    <option value="completed" <?= $status_filter == 'completed' ? 'selected' : '' ?>>Completed</option>
-                    <option value="on_hold" <?= $status_filter == 'on_hold' ? 'selected' : '' ?>>On Hold</option>
-                    <?php // Issue-034 v1.8.0 — computed "delayed" filter.
-                          // The option is always rendered so users can
-                          // intentionally land on it; the WHERE-clause
-                          // builder special-cases the value (see top
-                          // of this file). ?>
-                    <option value="delayed" <?= $status_filter == 'delayed' ? 'selected' : '' ?>>Delayed</option>
-                </select>
-            </div>
-
-            <div class="tk-filter-form__actions">
-                <button type="submit" class="btn btn--primary">
-                    <i class="fas fa-filter"></i>
-                    Apply
-                </button>
-                <a href="/tasks<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn--secondary">
-                    <i class="fas fa-rotate-left"></i>
-                    Reset
-                </a>
-            </div>
-        </form>
+    <div class="field">
+        <label for="search">Search Tasks</label>
+        <input class="input" type="search" id="search" name="search"
+               value="<?= e($search) ?>"
+               placeholder="Task name or description...">
     </div>
-</div>
+
+    <?php if (!$project_id): ?>
+        <div class="field">
+            <label for="project_filter">Project</label>
+            <select class="select" id="project_filter" name="project_id">
+                <option value="">All Projects</option>
+                <?php foreach ($user_projects as $project): ?>
+                    <option value="<?= $project['id'] ?>" <?= ($_GET['project_id'] ?? '') == $project['id'] ? 'selected' : '' ?>>
+                        <?= e($project['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    <?php endif; ?>
+
+    <div class="field">
+        <label for="status_filter">Status</label>
+        <select class="select" id="status_filter" name="status">
+            <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>All Status</option>
+            <option value="not_started" <?= $status_filter == 'not_started' ? 'selected' : '' ?>>Not Started</option>
+            <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+            <option value="completed" <?= $status_filter == 'completed' ? 'selected' : '' ?>>Completed</option>
+            <option value="on_hold" <?= $status_filter == 'on_hold' ? 'selected' : '' ?>>On Hold</option>
+            <?php // Issue-034 v1.8.0 — computed "delayed" filter.
+                  // The option is always rendered so users can
+                  // intentionally land on it; the WHERE-clause
+                  // builder special-cases the value (see top
+                  // of this file). ?>
+            <option value="delayed" <?= $status_filter == 'delayed' ? 'selected' : '' ?>>Delayed</option>
+        </select>
+    </div>
+
+    <div class="filter-bar__actions">
+        <button type="submit" class="btn btn--primary">
+            <i class="fas fa-filter"></i>
+            Apply
+        </button>
+        <a href="/tasks<?= $project_id ? '?project_id=' . $project_id : '' ?>" class="btn btn--secondary">
+            <i class="fas fa-rotate-left"></i>
+            Reset
+        </a>
+    </div>
+</form>
 
     <!-- Tasks List -->
     <?php if (empty($tasks)): ?>

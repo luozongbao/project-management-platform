@@ -170,19 +170,20 @@
   flex-wrap: wrap;
 }
 
-/* Filter bar: the form wrapper only. Fields/inputs/selects come from
- * v2-components.css (.filter-bar, .field, .input, .select). */
-.tk-filter-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: var(--sp-4);
-  align-items: end;
-}
-.tk-filter-form .field { margin: 0; }
-.tk-filter-form__actions {
-  display: flex;
-  gap: var(--sp-2);
-}
+/* Filter bar: DELETED the former .tk-filter-form rules.
+ *
+ * The filter form now uses the shared .filter-bar component from
+ * v2-components.css (line ~646), which is a flex row with align-items:end and
+ * .filter-bar .field { flex: 1 1 180px } -- the same auto-fitting behaviour the
+ * old repeat(auto-fit, minmax(190px,1fr)) grid provided, so the layout is
+ * unchanged while now matching tasks.html and costing no page CSS.
+ *
+ * .tk-filter-form__actions became .filter-bar__actions, which the shared layer
+ * already styles (display:flex; gap:var(--sp-2)) -- identical, so nothing was
+ * lost by deleting the local copy.
+ *
+ * The @media (max-width:640px) stack rule went with it: .filter-bar already
+ * wraps via flex-wrap, so it degrades to one field per row on its own. */
 
 /* Project-scoped context chip next to the H1 */
 .tk-context {
@@ -193,5 +194,4 @@
 /* Narrow screens: stack the card head and drop the indent. */
 @media (max-width: 640px) {
   .tk-card--subtask { margin-left: 0; }
-  .tk-filter-form { grid-template-columns: 1fr; }
 }

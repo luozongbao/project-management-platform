@@ -428,7 +428,56 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     box-shadow: var(--sh-sm);
     overflow: hidden;
 }
-.card + .card { margin-top: var(--sp-5); }
+/* v1.8.0 had `.card + .card { margin-top: var(--sp-5) }` here. It is DELETED,
+   not kept: the "Section rhythm" block below gives .card a margin-bottom of the
+   same --sp-5, so leaving the old rule would have stacked margin-top +
+   margin-bottom and pushed adjacent cards from 20px to 30px apart. One owner,
+   one value. The replacement is strictly more general -- it also covers a .card
+   followed by a grid / filter-bar / list, which the sibling rule never did. */
+
+/* --- Section rhythm ------------------------------------------------------
+   Vertical spacing between the top-level sections inside <main class="content">
+   is currently INCONSISTENT about who owns it:
+
+     .page-header   margin-bottom: var(--sp-6)   (line ~350)
+     .stat-grid     margin-bottom: var(--sp-6)   (line ~457)
+     .filter-bar    margin-bottom: var(--sp-5)   (line ~603)
+     .alert         margin-bottom: var(--sp-4)   (line ~657)
+     .card          owns NOTHING (only .card + .card above)
+     .grid-2/-3     own NOTHING (gap is internal, not outer)
+
+   So a container that FOLLOWS a .card or a grid gets no separation at all.
+   This is the same defect profile.php had to work around by hand with
+   .pf-overview-card / .pf-stat-row (see assets/css/pages/profile.css), and it
+   recurred on dashboard / projects / tasks.
+
+   The rule below gives the un-owned containers a bottom margin so consecutive
+   sections always separate. It deliberately does NOT touch .page-header,
+   .stat-grid, .filter-bar or .alert — those already own a margin, and adding a
+   second one here would double the gap.
+
+   --sp-5 matches .card + .card and .filter-bar, and is what profile.php's
+   hand-written patches already used, so nothing moves that is not currently
+   flush. Page-specific containers (.dash-grid, .tk-list, .proj-grid, and the
+   .pf-* patches) are also excluded: they are already correct, and once their
+   pages are re-checked in review those local overrides can be dropped.
+
+   Removed margins collapse, not double, when a section is the last child.  */
+.grid-2,
+.grid-3,
+.grid-sidebar,
+.card { margin-bottom: var(--sp-5); }
+
+/* A trailing margin on the final section is dead space at the bottom of the
+   page; the footer already provides separation. */
+.content > .card:last-child,
+.content > .grid-2:last-child,
+.content > .grid-3:last-child,
+.content > .grid-sidebar:last-child,
+.content > .stat-grid:last-child,
+.content > .page-header:last-child,
+.content > .filter-bar:last-child,
+.content > .alert:last-child { margin-bottom: 0; }
 .card__header {
     padding: var(--sp-4) var(--sp-5);
     border-bottom: 1px solid var(--gray-100);
