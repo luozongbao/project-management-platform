@@ -683,6 +683,23 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 /* The first column carries the record's name and is the only column allowed
  * to grow; the rest are nowrap values sized by their content. */
 .table th:first-child, .table td:first-child { min-width: 300px; }
+/* …but 300px is sized for a full-width table. Inside a grid sidebar those
+ * minimums exceed the track and force a horizontal scrollbar, so they are
+ * relaxed for this layout. Scoped by DESCENDANT, not by child: the
+ * dashboard groups the two wide tables inside a wrapper <div>
+ * (`.grid-sidebar--wide > div > .card`) while Upcoming Deadlines is a
+ * direct child, so `> .card` would only ever have matched the deadline
+ * table and left the wide pair overflowing their track.
+ *
+ * The wide pair keeps a modest floor and a smaller name column so its
+ * five columns stay legible in ~650px; the deadline table drops both
+ * minimums entirely, since three columns in 400px are already tight. */
+.grid-sidebar--wide .table { min-width: 0; }
+.grid-sidebar--wide .table td:first-child,
+.grid-sidebar--wide .table th:first-child { min-width: 0; }
+.grid-sidebar--wide > div > .card .table { min-width: 420px; }
+.grid-sidebar--wide > div > .card .table td:first-child,
+.grid-sidebar--wide > div > .card .table th:first-child { min-width: 160px; }
 .table th {
     text-align: left; font-weight: var(--fw-semibold);
     color: var(--gray-500); font-size: var(--fs-xs);
@@ -707,12 +724,17 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-5); }
 .grid-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--sp-5); align-items: start; }
-.grid-sidebar--wide { grid-template-columns: minmax(0, 1fr) 400px; }
-.grid-sidebar--left { grid-template-columns: 300px minmax(0, 1fr); }
+/* Self-sufficient: the mockup applies this class alone, with no companion
+ * .grid-sidebar, so it must redeclare display/gap/align-items rather than
+ * only overriding the track size. */
+.grid-sidebar--wide { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--sp-5); align-items: start; }
+.grid-sidebar--left { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
 /* A bare 1fr track has an automatic minimum size, so a wide child (a table
  * with min-width) would grow the track and push the sibling column off-screen.
- * minmax(0,…) lets the track shrink and hand the overflow to .table-wrap. */
-.grid-2 > *, .grid-3 > *, .grid-sidebar > * { min-width: 0; }
+ * minmax(0,…) lets the track shrink and hand the overflow to .table-wrap.
+ * The modifier variants need this too: the dashboard's wide column holds a
+ * table with min-width, and without it the 1fr track is forced open. */
+.grid-2 > *, .grid-3 > *, .grid-sidebar > *, .grid-sidebar--wide > *, .grid-sidebar--left > * { min-width: 0; }
 
 /* --- Alerts / banners ---------------------------------------------------- */
 .alert {

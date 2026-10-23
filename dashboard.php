@@ -319,7 +319,7 @@ $use_v2_shell = true;
                                             <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
                                         </span>
                                     </td>
-                                    <td style="min-width:130px;">
+                                    <td>
                                         <div class="progress">
                                             <div class="progress__fill" style="width: <?= $project['avg_completion_percentage'] ?>%"></div>
                                         </div>
@@ -384,7 +384,7 @@ $use_v2_shell = true;
                                             <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
                                         </span>
                                     </td>
-                                    <td style="min-width:110px;">
+                                    <td>
                                         <div class="progress">
                                             <div class="progress__fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
                                         </div>

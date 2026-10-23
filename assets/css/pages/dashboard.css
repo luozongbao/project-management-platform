@@ -1,23 +1,29 @@
 /* ==========================================================================
-   Dashboard — Phase 1.4b (issue-035)
+   Dashboard — Phase 1.4b (issue-035), tables since 5ebba3a
    --------------------------------------------------------------------------
-   Replaces the 331-line inline <style> block that used to live at the bottom
-   of dashboard.php. Split into two groups:
+   This sheet started as the page's whole visual identity: a 331-line inline
+   <style> block was extracted here, then most of it was deleted once the v2
+   component layer took over. What remains is one rule.
 
-   1. Rules that the v2 component layer already provides (.stat-grid, .stat,
-      .card, .status, .progress, .empty-state, .btn) — those are simply
-      dropped and the markup switched to the component classes. No
-      re-declaration here, so the component sheet stays the single source
-      of truth for look and feel.
+   What the component layer now owns, so nothing is re-declared here:
+   .stat-grid / .stat (the KPI row), .card and .card__header, .status,
+   .progress / .progress__fill (both the Recent Projects and Recent Tasks
+   progress columns), .empty-state (Upcoming Deadlines when a user has no
+   dated projects), .table / .table-wrap / .table--compact, and
+   .grid-sidebar--wide (the two-column feed: the two wide tables left,
+   the deadline table in the 400px sidebar).
 
-   2. Genuinely dashboard-specific layout that no other page owns yet:
-      the two-column feed grid, the list-row anatomy for projects / tasks /
-      deadlines, and the progress-ring sizing.
+   The old .dash-grid, .dash-section__header, .dash-list, .dash-row
+   family, .dash-ring and .dash-section__footer were removed with the card
+   feed they styled, along with both responsive blocks, which existed only
+   to reflow the row anatomy. .grid-sidebar--wide collapses to one column
+   at 1200px from the component sheet.
 
-   Deliberately NOT restyled to match the mockup's table layout
-   (docs/design/2.0/dashboard.html): the real dashboard is a card feed, and
-   converting it to <table> would change the DOM that every screen reader
-   and the 1.4b sibling pages depend on. Structure preserved, look upgraded.
+   The three sections are tables, matching docs/design/2.0/dashboard.html.
+   One deliberate divergence is documented at the markup in dashboard.php:
+   the mockup's deadline table has four columns because it lists milestone
+   TASKS, while $upcoming_deadlines queries projects and has no milestone
+   name, so it renders three.
 
    Class names only — no PHP expression, route, query parameter, name= or
    id= attribute was altered in the markup rewrite.
