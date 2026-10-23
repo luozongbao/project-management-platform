@@ -9,8 +9,14 @@
  *
  * So this file now holds ONLY the task-specific row treatments. Table chrome,
  * status chips, reason sub-rows, row actions, badges, buttons, empty state and
- * the filter bar all come from v2-components.css and are not redefined here.
- */
+ * the filter bar all come from v2-components.css and are not redefined here. *
+ * Deliberately NOT reproduced from tasks.html:
+ * - The mockup's `Export` button. It is `data-toast="Export queued (demo)"` —
+ *   a stub, and no export endpoint exists anywhere in the codebase. A control
+ *   that does nothing is worse than no control; it stays out until real
+ *   export exists.
+ * - The mockup has no type glyph in the Task column, so neither does the
+ *   markup. Subtask-ness is conveyed by the tk-row--subtask accent + indent. */
 
 /* Tasks list table — 9 columns per docs/design/2.0/tasks.html.
  *
@@ -42,12 +48,14 @@
   padding-left: calc(var(--sp-4) + var(--sp-2));
 }
 
-/* Completed rows recede slightly, mirroring the old .tk-card--completed. */
-.tk-row--completed td { opacity: .72; }
-
-/* Keep the reason sub-row visually attached to the row it explains even when
- * the parent row is dimmed. */
-.tk-row--completed + .reason-row .reason-row__cell { opacity: 1; }
+/* DELETED: `.tk-row--completed td { opacity }`.
+ *
+ * Ported from the old card's `.tk-card--completed { opacity: .78 }`, but a
+ * translucent card read as "recessive" whereas the same opacity on a table row
+ * dims the text itself — the row just looked broken, and it fought the
+ * Completed status badge sitting in its own Status cell. The mockup does not
+ * dim completed rows. Completed-ness is already carried by the status chip and
+ * by the green accent bar, so the tint was redundant as well as harmful. */
 
 /* Overdue due-date. */
 .tk-due--overdue { color: var(--danger-700); font-weight: var(--fw-semibold); }

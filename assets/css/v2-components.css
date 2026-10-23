@@ -662,7 +662,24 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
  * satisfies width:100% by crushing the one flexible column (the task/project
  * name) into a tall stack of wrapped words. A min-width lets .table-wrap
  * scroll horizontally instead, so every name stays readable on one line. */
-.table { width: 100%; min-width: 1280px; border-collapse: collapse; font-size: var(--fs-sm); }
+.table {
+    width: 100%; min-width: 1280px;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+    /* RESET legacy properties (style.css:299-305) that this rule is otherwise
+     * silent on. style.css loads FIRST but wins any property it shares, and
+     * legacy `.table` sets background/border-radius/overflow/box-shadow while
+     * v2 declared none of them — so `background: white` bled through and every
+     * row rendered as a white band on the dark surface. The reason sub-rows
+     * (`--gray-25`) then looked like a grey strip floating on white.
+     * Rows must be transparent so the card surface shows through; the card
+     * itself already owns the radius/overflow/shadow.
+     * `color` is inherited, so only the background needs neutralizing. */
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--gray-800);
+}
 /* The first column carries the record's name and is the only column allowed
  * to grow; the rest are nowrap values sized by their content. */
 .table th:first-child, .table td:first-child { min-width: 300px; }

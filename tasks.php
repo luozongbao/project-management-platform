@@ -334,16 +334,15 @@ if ($__t_on_hold > 0) {
         <div class="card tk-table-card">
             <div class="card__header">
                 <h2 class="card__title-icon">
-                    <i class="fas fa-list-check"></i>
+                    <i class="fas fa-list"></i>
                     Task list
                 </h2>
                 <div class="card__actions">
-                    <span class="chip-row">
-                        <span class="badge">Showing <?= count($tasks) ?> of <?= $__t_total ?></span>
-                    </span>
+                    <span class="badge badge--neutral">Showing <?= count($tasks) ?> of <?= $__t_total ?></span>
                 </div>
             </div>
-            <div class="table-wrap">
+            <div class="card__body card__body--flush">
+                <div class="table-wrap">
                 <table class="table tk-table">
                     <thead>
                         <tr>
@@ -397,10 +396,11 @@ if ($__t_on_hold > 0) {
 
                             <!-- 1. Task -->
                             <td>
-                                <div class="chip-row">
-                                    <i class="fas <?= $task['task_type'] === 'subtask' ? 'fa-level-down-alt' : 'fa-circle' ?>"
-                                       title="<?= $task['task_type'] === 'subtask' ? 'Subtask' : 'Main Task' ?>"
-                                       style="font-size:.7em;color:var(--gray-400);"></i>
+                                <div class="chip-row" style="flex-wrap:wrap;">
+                                    <?php // The mockup has no type glyph — subtask-ness
+                                          // is already conveyed by the row accent
+                                          // (tk-row--subtask) and by the indent. A
+                                          // bespoke icon diverged from it. ?>
                                     <a href="/tasks/<?= e($task['slug']) ?>"><strong><?= e($task['name']) ?></strong></a>
                                 </div>
                             </td>
@@ -538,6 +538,7 @@ if ($__t_on_hold > 0) {
                     <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     <?php endif; ?>
