@@ -952,6 +952,14 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .detail-row--stacked .detail-row__k { min-width: 0; font-size: var(--fs-xs); }
 
 /* --- Modal -------------------------------------------------------------- */
+/* The UA stylesheet's `[hidden] { display: none }` has the lowest
+   specificity of any rule, so ANY class that sets `display` (e.g.
+   `.modal-backdrop { display: grid }`) silently overrides the `hidden`
+   attribute. That made every delete-confirmation modal render open on
+   page load and swallow all clicks on the page behind it.
+   This rule re-asserts the attribute with matching specificity. */
+[hidden] { display: none !important; }
+
 .modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(21, 26, 40, .55);

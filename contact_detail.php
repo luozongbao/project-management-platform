@@ -86,7 +86,7 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/contact_detail.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/contact_detail.css')) ?>">
 
 <div class="content">
     <div class="breadcrumb">

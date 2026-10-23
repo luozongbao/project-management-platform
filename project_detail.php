@@ -98,7 +98,7 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/project_detail.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/project_detail.css')) ?>">
 
 <nav class="breadcrumb" aria-label="Breadcrumb">
     <a href="/dashboard">Dashboard</a>

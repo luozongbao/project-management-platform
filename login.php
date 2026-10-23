@@ -75,7 +75,7 @@ $content_bleed = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/auth.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/auth.css')) ?>">
 
 <div class="auth-shell">
     <aside class="auth-aside">

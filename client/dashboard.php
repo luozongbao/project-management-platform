@@ -102,8 +102,8 @@ if (isShareCodeRateLimited($clientIp)) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Too many requests — <?= e(APP_NAME) ?></title>
         <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
-        <link rel="stylesheet" href="/assets/css/v2-tokens.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
+        <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
+        <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
         <link rel="stylesheet" href="assets/client.css">
     </head>
     <body class="client-body">
@@ -170,8 +170,8 @@ if ($error) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><?= e(t('landing.title')) ?> — <?= e(APP_NAME) ?></title>
         <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
-        <link rel="stylesheet" href="/assets/css/v2-tokens.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
+        <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
+        <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
         <link rel="stylesheet" href="assets/client.css">
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -337,8 +337,8 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($project['name']) ?> — <?= e(APP_NAME) ?> <?= e(t('dash.title_suffix')) ?></title>
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
-    <link rel="stylesheet" href="/assets/css/v2-tokens.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
     <link rel="stylesheet" href="assets/client.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>

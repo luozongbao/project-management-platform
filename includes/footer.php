@@ -21,6 +21,6 @@
         </div>
     </footer>
 
-    <script src="/assets/js/script.js"></script>
+    <script src="<?= e(asset_url('/assets/js/script.js')) ?>"></script>
 </body>
 </html>

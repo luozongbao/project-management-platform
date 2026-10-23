@@ -74,7 +74,7 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/contacts.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/contacts.css')) ?>">
 
 <div class="page-header">
     <div class="page-header__text">

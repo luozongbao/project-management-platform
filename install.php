@@ -232,8 +232,8 @@ $csrf_token = getCsrfToken();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Install - Project Management System</title>
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
-    <link rel="stylesheet" href="/assets/css/v2-tokens.css">
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
     <style>
         .install-container {
             max-width: 600px;

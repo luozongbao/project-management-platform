@@ -257,8 +257,8 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/forms.css">
-<link rel="stylesheet" href="/assets/css/pages/project_edit.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/forms.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/project_edit.css')) ?>">
 
 <div class="content">
     <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -278,8 +278,11 @@ $use_v2_shell = true;
             <?php if ($project): ?>
                 <p class="page-header__sub">
                     <?= e($project['name']) ?>
+                    &middot; Project ID <?= (int)$project['id'] ?>
                     <?php if (!empty($project['share_code'])): ?>
                         &middot; Code <?= e($project['share_code']) ?>
+                    <?php else: ?>
+                        &middot; <span class="text-muted">No Code</span>
                     <?php endif; ?>
                 </p>
             <?php else: ?>
@@ -410,24 +413,43 @@ $use_v2_shell = true;
         </form>
 
         <div>
-            <?php if ($project && !empty($project['share_code'])): ?>
+            <?php if ($project): ?>
                 <!-- Issue-023: client share-code rotation nudge. The
                      "Rotate code" button is a separate POST that
                      invalidates the previous share code and sets
-                     share_code_rotated_at = NOW(). -->
+                     share_code_rotated_at = NOW().
+
+                     Issue-048: a project created outside the normal flow
+                     can end up with share_code = NULL. Previously the whole
+                     card was skipped in that case, which left the manager
+                     with no way to obtain a code — and the delete flow needs
+                     a code (the project code is the delete confirmation
+                     secret). The card is now always rendered; when there is
+                     no code yet the button becomes "Generate share code"
+                     and the same handler creates one. -->
                 <div class="card">
                     <div class="card__header">
                         <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Client share</h2>
                     </div>
                     <div class="card__body">
-                        <div class="share-box">
-                            <code><?= e($project['share_code']) ?></code>
-                            <button class="btn btn--sm btn--secondary" type="button"
-                                    data-copy="<?= e($project['share_code']) ?>"
-                                    aria-label="Copy share code">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </div>
+                        <?php if (!empty($project['share_code'])): ?>
+                            <div class="share-box">
+                                <code><?= e($project['share_code']) ?></code>
+                                <button class="btn btn--sm btn--secondary" type="button"
+                                        data-copy="<?= e($project['share_code']) ?>"
+                                        aria-label="Copy share code">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert--info">
+                                <i class="fas fa-circle-info"></i>
+                                <div class="alert__body">
+                                    This project has no Project Code yet. Generate one to share it
+                                    with a client, and to enable the delete confirmation below.
+                                </div>
+                            </div>
+                        <?php endif; ?>
                         <?php if (!empty($project['share_code_rotated_at'])): ?>
                             <?php
                             $rotatedTs = strtotime((string)$project['share_code_rotated_at']);
@@ -453,12 +475,19 @@ $use_v2_shell = true;
                             <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
                             <input type="hidden" name="action" value="rotate_share_code">
                             <input type="hidden" name="project_id" value="<?= (int)$project['id'] ?>">
-                            <button class="btn btn--secondary btn--sm btn--block" type="submit"
-                                    onclick="return confirm('Rotating the share code will invalidate the previous URL. Any client who has bookmarked the old link will see a 404. Continue?');">
-                                <i class="fas fa-rotate"></i> Rotate share code
-                            </button>
+                            <?php if (empty($project['share_code'])): ?>
+                                <button class="btn btn--secondary btn--sm btn--block" type="submit">
+                                    <i class="fas fa-key"></i> Generate share code
+                                </button>
+                                <span class="hint">Creates a Project Code so the project can be shared and deleted.</span>
+                            <?php else: ?>
+                                <button class="btn btn--secondary btn--sm btn--block" type="submit"
+                                        onclick="return confirm('Rotating the share code will invalidate the previous URL. Any client who has bookmarked the old link will see a 404. Continue?');">
+                                    <i class="fas fa-rotate"></i> Rotate share code
+                                </button>
+                                <span class="hint">Generates a new share code and invalidates the previous URL.</span>
+                            <?php endif; ?>
                         </form>
-                        <span class="hint">Generates a new share code and invalidates the previous URL.</span>
                     </div>
                 </div>
             <?php endif; ?>
@@ -489,13 +518,15 @@ $use_v2_shell = true;
                         <?php else: ?>
                             <div class="field pe-danger-field">
                                 <p class="text-sm text-muted">
-                                    This project has no Project Code, so it cannot be deleted from here.
+                                    This project has no Project Code yet, and the code is the
+                                    delete confirmation secret. Generate one in
+                                    <strong>Client share</strong> above, then delete it here.
                                 </p>
                             </div>
                         <?php endif; ?>
                         <button class="btn btn--danger btn--block" type="button"
                                 style="margin-top:1rem;"
-                                <?= empty($project['share_code']) ? 'disabled title="This project has no Project Code."' : '' ?>
+                                <?= empty($project['share_code']) ? 'disabled title="Generate a Project Code first."' : '' ?>
                                 data-modal-open="confirm-delete-project">
                             <i class="fas fa-trash"></i> Delete Project
                         </button>

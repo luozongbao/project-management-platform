@@ -179,7 +179,7 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/forms.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/forms.css')) ?>">
 
 <div class="content">
     <nav class="breadcrumb" aria-label="Breadcrumb">

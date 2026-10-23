@@ -420,8 +420,8 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/forms.css">
-<link rel="stylesheet" href="/assets/css/pages/task_edit.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/forms.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/task_edit.css')) ?>">
 
 <div class="content">
     <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -778,7 +778,7 @@ $use_v2_shell = true;
                 <div class="modal__header">
                     <div>
                         <h3 id="cdt-title">Confirm task deletion</h3>
-                        <p>Type the task code exactly as shown to confirm.</p>
+                        <p>Type the task name exactly as shown to confirm.</p>
                     </div>
                     <button class="modal__close" type="button" data-modal-close aria-label="Close"><i class="fas fa-xmark"></i></button>
                 </div>
@@ -786,7 +786,7 @@ $use_v2_shell = true;
                     <div class="alert alert--danger">
                         <i class="fas fa-triangle-exclamation"></i>
                         <div class="alert__body">
-                            <div class="alert__title"><?= e($task_code) ?></div>
+                            <div class="alert__title"><?= e($task['name']) ?></div>
                             This task<?= $delete_subtask_count > 0 ? ', its ' . $delete_subtask_count . ' subtask' . ($delete_subtask_count === 1 ? '' : 's') : '' ?>
                             and all logged time entries will be permanently removed.
                         </div>
@@ -795,9 +795,10 @@ $use_v2_shell = true;
                         <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
                         <input type="hidden" name="task_id" value="<?= (int)$task['id'] ?>">
                         <div class="field">
-                            <label for="delete-task-confirmation">Task Code <span class="req" aria-hidden="true">*</span></label>
+                            <label for="delete-task-confirmation">Task Name <span class="req" aria-hidden="true">*</span></label>
                             <input class="input text-mono" type="text" id="delete-task-confirmation"
-                                   name="confirmation_code" placeholder="<?= e($task_code) ?>">
+                                   name="confirmation_name" placeholder="<?= e($task['name']) ?>">
+                            <span class="hint">Must exactly match <strong><?= e($task['name']) ?></strong>.</span>
                         </div>
                         <div class="modal__footer">
                             <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>

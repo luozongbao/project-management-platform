@@ -163,7 +163,7 @@ if ($__t_on_hold > 0) {
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/tasks.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/tasks.css')) ?>">
 
 <div class="page-header">
     <div class="page-header__text">

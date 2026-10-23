@@ -46,7 +46,7 @@ sendSecurityHeaders();
           // style.css so the component layer can resolve every colour, size,
           // radius, shadow and z-index through a --* custom property.
           // See docs/design/2.0/docs-design-notes.html §1. ?>
-    <link rel="stylesheet" href="/assets/css/v2-tokens.css">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
     <?php // v2.0: layer 2. OPT-IN — loaded only on pages already converted to
           // the v2 shell/markup (issue-035 Phase 1.3+). It deliberately does
           // NOT replace style.css: .form-grid and .table change behaviour,
@@ -67,12 +67,12 @@ sendSecurityHeaders();
           // gives the v2 layer the final say for v2 pages.
           // Regression tests here are cascade-blind, so this was only ever
           // visible by eye — see the Phase 1.4b screenshot review. ?>
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
     <?php if (!empty($use_v2_shell)): ?>
-    <link rel="stylesheet" href="/assets/css/v2-components.css">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
     <?php endif; ?>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="/assets/js/subtask-manager.js" defer></script>
+    <script src="<?= e(asset_url('/assets/js/subtask-manager.js')) ?>" defer></script>
 </head>
 <body>
     <?php

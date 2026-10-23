@@ -174,7 +174,7 @@ $use_v2_shell = true;
 
 include 'includes/header.php';
 ?>
-<link rel="stylesheet" href="/assets/css/pages/profile.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/profile.css')) ?>">
 
 <div class="page-header">
     <div class="page-header__text">

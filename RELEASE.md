@@ -44,6 +44,38 @@ and the `APP_VERSION` bump).
   per-page inline scripts: `initModals()`, `initRangeSync()`,
   `initStatusReason()`, `initCopy()` and the toast helper `pmpToast()`.
 
+### Edit-mode look fixes and asset cache-busting
+
+[issue-048](docs/issues/issue-048.md)
+
+- **The delete-confirmation modal no longer renders open on page load.** The
+  UA stylesheet's `[hidden] { display: none }` has the lowest possible
+  specificity, so `.modal-backdrop { display: grid }` silently defeated the
+  `hidden` attribute — the full-screen backdrop swallowed every click on the
+  page and the user could not close it. A global `[hidden] { display: none
+  !important; }` rule in `assets/css/v2-components.css` re-asserts the
+  attribute. The modal's JavaScript was always correct.
+- **`asset_url()` cache-busting.** nginx serves static assets with
+  `Cache-Control: public, max-age=2592000` (30 days), so a corrected
+  stylesheet did not reach a returning browser. The new `asset_url()` helper
+  in `includes/functions.php` appends the file's mtime to every local,
+  root-relative stylesheet and script URL. Absolute URLs (the Font Awesome
+  CDN) and the client portal's relative paths are unchanged.
+- **`Projects/<id>/edit` now shows the Project ID** in the page header
+  (`Live Check Proj · Project ID 858 · Code MATVR-E9MDX-J8ZBM`), and the
+  Client-share card is rendered for every project. A project whose
+  `share_code` is `NULL` previously lost the whole card — and with it the
+  only way to obtain a code — leaving it impossible to share or to delete.
+  Such a project now shows a **"Generate share code"** action that reuses the
+  existing rotation handler.
+- **`Tasks/<id>/edit` confirms the deletion with the task name**, matching
+  the contact-delete flow. The internal `TSK-####` code is no longer the
+  confirmation secret. Project deletion is still confirmed with the project
+  code and contact deletion with the contact name — both unchanged.
+- The `_diag.php` md5 pins for `includes/header.php`,
+  `includes/functions.php` and `client/dashboard.php` were re-bumped in the
+  same commit.
+
 ### New delete endpoints (two pre-existing 404 bugs)
 
 - **`contact_delete.php`** (new) — `POST /contacts/<id>/delete` and
@@ -52,9 +84,9 @@ and the `APP_VERSION` bump).
   change the delete link pointed at a file that did not exist and returned
   **HTTP 404**.
 - **`task_delete.php`** (new) — `POST /tasks/<id>/delete` and
-  `POST /tasks/<slug>/delete`. Requires the CSRF token plus the task code
-  (`TSK-####`, derived from the row id at render time — the `tasks` table has
-  no code column). Previously the delete link also 404'd.
+  `POST /tasks/<slug>/delete`. Requires the CSRF token plus the task's **name**
+  as a typed confirmation (`hash_equals`). Previously the delete link also
+  404'd.
 - `tasks.parent_task_id` is `ON DELETE CASCADE`, so deleting a parent removes
   its whole subtree. `tasks.contact_person_id` is `RESTRICT`, so
   `contact_delete.php` clears the assignment first — the tasks themselves are
@@ -68,8 +100,9 @@ and the `APP_VERSION` bump).
   regex, `pattern` attribute, auto-format JS and rate limiting are untouched.
 - The "Rotate code" action, `share_code_rotated_at`, the "Last rotated" line
   and the 90-day nudge are preserved.
-- No `name=` / `id=` attribute renames, no form-action changes, no AJAX
-  endpoint shape changes, no query-parameter renames.
+- No `name=` / `id=` attribute renames on fields read by an unchanged PHP
+  file, no form-action changes, no AJAX endpoint shape changes, no
+  query-parameter renames.
 - The client portal's CSP stays strict (no `'unsafe-inline'`).
 
 ---

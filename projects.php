@@ -81,7 +81,7 @@ $__proj_completed = (int)($__proj_row['completed'] ?? 0);
 ?>
 
 <?php include 'includes/header.php'; ?>
-<link rel="stylesheet" href="/assets/css/pages/projects.css">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/projects.css')) ?>">
 
 <div class="page-header">
     <div class="page-header__text">

@@ -981,6 +981,25 @@ attributes, form actions and AJAX endpoint shapes untouched.
 
 > The `v.2.0` branch is **not** merged into `dev` yet.
 
+### Asset cache-busting
+
+Local stylesheets and scripts are referenced through the `asset_url()`
+helper in [includes/functions.php](includes/functions.php). It appends the
+file's mtime to the URL (`/assets/css/style.css?v=1792685447`), so a changed
+file is fetched immediately even though nginx serves static assets with a
+30-day `Cache-Control`. Absolute URLs (the Font Awesome CDN) and the client
+portal's relative paths are returned unchanged.
+
+When you add or move a stylesheet or script, link it with:
+
+````php
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/<page>.css')) ?>">
+````
+
+> A change to `includes/header.php`, `includes/functions.php` or
+> `client/dashboard.php` must be re-pinned in `_diag.php` in the same commit
+> — see [docs/issues/issue-048.md](docs/issues/issue-048.md) §3.4.
+
 ---
 
 ## Tech stack

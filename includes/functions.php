@@ -557,6 +557,41 @@ function e($string) {
 }
 
 // ---------------------------------------------------------------------------
+// Asset cache-busting (added 2026-10-24, issue-048)
+//
+// nginx serves .css/.js with `expires 30d` + `Cache-Control: public,
+// max-age=2592000`. That is right for images and fonts, but it means a
+// stylesheet fix does not reach a returning browser for up to 30 days —
+// during the v2.0 redesign that was actively harmful: a corrected form
+// kept rendering with the old rules.
+//
+// asset_url() appends the file's mtime as a query string. The URL changes
+// whenever the file changes, so the browser fetches the new bytes; the
+// cached copy stays valid for unchanged files.
+//
+// The mtime is read from disk on first use per request and memoised, so a
+// page that links 5 stylesheets only stats 5 files once.
+// ---------------------------------------------------------------------------
+function asset_url($path) {
+    static $mtimes = [];
+
+    // Only local, root-relative asset paths are versioned. Absolute URLs
+    // (the Font Awesome CDN) and the client portal's relative paths
+    // (assets/client.css) are passed through untouched.
+    if (!is_string($path) || $path === '' || $path[0] !== '/') {
+        return $path;
+    }
+
+    if (!array_key_exists($path, $mtimes)) {
+        $file = __DIR__ . '/..' . $path;
+        $mtimes[$path] = is_file($file) ? (string) filemtime($file) : '1';
+    }
+
+    $sep = strpos($path, '?') === false ? '?' : '&';
+    return $path . $sep . 'v=' . $mtimes[$path];
+}
+
+// ---------------------------------------------------------------------------
 // Client share / project code helpers (added 2026-10-03)
 // ---------------------------------------------------------------------------
 

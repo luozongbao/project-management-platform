@@ -49,19 +49,23 @@ if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
 }
 
 /*
- * Confirmation code.
+ * Confirmation name.
  *
- * The tasks table has no code column, so the task code shown in the delete
- * dialog is derived from the row id: TSK-0007. The comparison uses
- * hash_equals() so the check is not timing-leaky.
+ * The delete dialog asks the user to type the task NAME, the same way the
+ * contact-delete flow asks for the contact name. The task's code
+ * (TSK-0007, derived from the row id) is only an internal identifier and is
+ * not something the user can be expected to reproduce from memory, so it is
+ * not used as the confirmation secret.
+ *
+ * The comparison uses hash_equals() so the check is not timing-leaky.
  */
-$task_code = 'TSK-' . str_pad((string)$task_id, 4, '0', STR_PAD_LEFT);
+$task_name = (string)$task['name'];
 
-$confirmation = $_POST['confirmation_code'] ?? null;
-if (!is_string($confirmation) || !hash_equals($task_code, strtoupper(trim($confirmation)))) {
+$confirmation = $_POST['confirmation_name'] ?? null;
+if (!is_string($confirmation) || !hash_equals($task_name, trim($confirmation))) {
     redirect(
         '/tasks/' . $task_id . '/edit',
-        'The Task Code did not match. The task was not deleted.',
+        'The Task Name did not match. The task was not deleted.',
         'danger'
     );
 }
