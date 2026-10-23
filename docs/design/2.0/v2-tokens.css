@@ -677,6 +677,13 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 /* The first column carries the record's name and is the only column allowed
  * to grow; the rest are nowrap values sized by their content. */
 .table th:first-child, .table td:first-child { min-width: 300px; }
+/* Tables nested inside a card (detail-page sidebars) have far less room than a
+ * full-width list page. They must not inherit the 1280px floor, or the card
+ * scrolls horizontally. Fit to the container and let the name column wrap. */
+.table--fit { min-width: 0; }
+.table--fit th:first-child,
+.table--fit td:first-child { min-width: 0; }
+.table--fit td { white-space: normal; }
 .table th {
     text-align: left; font-weight: var(--fw-semibold);
     color: var(--gray-500); font-size: var(--fs-xs);

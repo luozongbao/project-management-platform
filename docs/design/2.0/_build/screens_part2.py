@@ -140,7 +140,7 @@ def screen_dashboard():
               </div>
               <div class="card__body card__body--flush">
                 <div class="table-wrap">
-                  <table class="table">
+                  <table class="table table--compact table--fit">
                     <thead>
                       <tr><th>Task</th><th>Project</th><th>Status</th><th>Progress</th><th>Owner</th></tr>
                     </thead>
@@ -388,7 +388,7 @@ def screen_project_detail():
               </div>
               <div class="card__body card__body--flush">
                 <div class="table-wrap">
-                  <table class="table">
+                  <table class="table table--compact table--fit">
                     <thead>
                       <tr><th>Task</th><th>Status</th><th>Progress</th><th>Owner</th><th>%</th></tr>
                     </thead>
@@ -409,7 +409,7 @@ def screen_project_detail():
               </div>
               <div class="card__body card__body--flush">
                 <div class="table-wrap">
-                  <table class="table">
+                  <table class="table table--compact table--fit">
                     <thead>
                       <tr><th>Name</th><th>Position</th><th>Company</th><th>Email</th><th>Phone</th></tr>
                     </thead>

@@ -377,7 +377,7 @@ def screen_contact_detail():
               <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-list-check"></i> Recent Tasks</h2></div>
               <div class="card__body card__body--flush">
                 <div class="table-wrap">
-                  <table class="table">
+                  <table class="table table--compact table--fit">
                     <thead><tr><th>Task</th><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
                     <tbody>
 {chr(10).join(task_rows)}
@@ -419,7 +419,7 @@ def screen_contact_detail():
               <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-sitemap"></i> Projects (2)</h2></div>
               <div class="card__body card__body--flush">
                 <div class="table-wrap">
-                  <table class="table table--compact">
+                  <table class="table table--compact table--fit">
                     <thead><tr><th>Project</th><th>Status</th><th>%</th></tr></thead>
                     <tbody>
 {chr(10).join(proj_rows)}
