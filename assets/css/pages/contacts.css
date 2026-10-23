@@ -1,0 +1,257 @@
+/* ===========================================================================
+   contacts.php — Phase 1.4b (issue-035)
+   ---------------------------------------------------------------------------
+   Prefix: .ct-*  (contacts)
+
+   The mockup (docs/design/2.0/contacts.html) reuses the generic
+   .project-card / .project-grid classes because its contact cards happen to
+   look like project cards. That is a mockup artefact, not a contract:
+   projects.php already owns .proj-* and the two have diverged in production
+   (contacts carry project tags, address, added-date). Contacts therefore get
+   their own .ct-* BEM block rather than borrowing projects' names.
+
+   Deliberately NOT adopted from the mockup:
+     - The mockup card foot is Open / Edit / email / phone. v1.8.0 ships the
+       same four actions but the edit link lives in the header cluster, so both
+       were kept and merged into one foot. No action was dropped.
+     - The mockup shows "Assigned: N projects" only. v1.8.0 also shows task
+       count and the added date; both are preserved below.
+
+   Tokens used are verified to exist in v2-tokens.css. Do not invent new ones.
+   =========================================================================== */
+
+/* --- page header context chip ------------------------------------------- */
+/* When contacts.php is reached with ?project_id=N the heading carries the
+   project name. The mockup has no equivalent, so this is v1.8.0 behaviour
+   that must survive the restyle. */
+.ct-context {
+  color: var(--gray-500);
+  font-weight: var(--fw-normal);
+  font-size: var(--fs-xl);
+}
+
+/* --- filter bar ---------------------------------------------------------- */
+/* The mockup uses .filter-bar with .field / .filter-bar__actions, which the
+   shared component layer already styles. Only the responsive grid is new. */
+.ct-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  gap: var(--sp-4);
+  align-items: end;
+  margin-bottom: var(--sp-6);
+}
+.ct-filter__actions {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+/* --- card grid ----------------------------------------------------------- */
+.ct-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--sp-5);
+}
+
+.ct-card {
+  background: var(--gray-0);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.ct-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+/* --- avatar -------------------------------------------------------------- */
+.ct-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: var(--r-full);
+  background: var(--gray-100);
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-lg);
+}
+
+.ct-head__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ct-card__title {
+  margin: 0 0 var(--sp-1) 0;
+  color: var(--gray-900);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  /* Long contact names must not push the head cluster wider than the card. */
+  overflow-wrap: anywhere;
+}
+.ct-card__title a { color: var(--gray-900); text-decoration: none; }
+.ct-card__title a:hover { color: var(--brand-600); text-decoration: underline; }
+
+.ct-card__position {
+  margin: 0 0 var(--sp-1) 0;
+  color: var(--gray-600);
+  font-size: var(--fs-sm);
+}
+.ct-card__company {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: var(--fs-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.ct-card__company i { color: var(--gray-400); }
+
+/* --- detail rows (email / phone / address) -------------------------------- */
+.ct-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.ct-detail {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  /* The label column is fixed so the values align down the card. */
+  min-width: 0;
+}
+.ct-detail__k {
+  flex: 0 0 62px;
+  color: var(--gray-500);
+  font-weight: var(--fw-medium);
+}
+.ct-detail__v {
+  color: var(--gray-700);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ct-detail__v a { color: var(--brand-600); text-decoration: none; }
+.ct-detail__v a:hover { text-decoration: underline; }
+/* An address is prose, not a link — keep it muted so it does not compete
+   with the mailto/tel links above it. */
+.ct-detail__v--muted { color: var(--gray-600); }
+
+/* --- meta strip (projects / tasks / added) -------------------------------- */
+.ct-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--gray-100);
+}
+.ct-meta__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--gray-500);
+  font-size: var(--fs-xs);
+}
+.ct-meta__item i { color: var(--gray-400); }
+
+/* --- project tags -------------------------------------------------------- */
+/* Hidden entirely when ?project_id is set, exactly as in v1.8.0: the user has
+   already narrowed to one project, so listing it back is noise. */
+.ct-projects__label {
+  margin: 0 0 var(--sp-2) 0;
+  color: var(--gray-500);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ct-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.ct-tag {
+  display: inline-flex;
+  align-items: center;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-full);
+  padding: 2px var(--sp-3);
+  font-size: var(--fs-xs);
+}
+.ct-tag--more {
+  background: transparent;
+  border-style: dashed;
+  color: var(--gray-500);
+}
+
+/* --- card foot ----------------------------------------------------------- */
+.ct-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: auto;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--gray-100);
+}
+.ct-foot .btn--icon {
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+
+/* --- empty state --------------------------------------------------------- */
+/* v1.8.0 renders two different messages — one when filters excluded
+   everything, one when the user genuinely has no contacts. Both are kept;
+   only the wrapper is restyled. */
+.ct-empty {
+  text-align: center;
+  padding: var(--sp-10) var(--sp-5);
+  background: var(--gray-0);
+  border: 1px dashed var(--gray-300);
+  border-radius: var(--r-lg);
+}
+.ct-empty__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--gray-100);
+  color: var(--gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-2xl);
+}
+.ct-empty__title {
+  margin: 0 0 var(--sp-2) 0;
+  color: var(--gray-900);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+.ct-empty__text {
+  margin: 0 0 var(--sp-5) 0;
+  color: var(--gray-600);
+  font-size: var(--fs-sm);
+}
+
+/* --- responsive ---------------------------------------------------------- */
+@media (max-width: 900px) {
+  .ct-filter { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .ct-grid { grid-template-columns: 1fr; }
+  .ct-filter__actions { width: 100%; }
+  .ct-filter__actions .btn { flex: 1 1 auto; }
+  .ct-context { display: block; font-size: var(--fs-base); margin-top: var(--sp-1); }
+}
