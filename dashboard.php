@@ -275,180 +275,187 @@ $use_v2_shell = true;
     </div>
 </div>
 
-<div class="grid-sidebar--wide">
-        <div>
-        <!-- Recent Projects: PROJECT / STATUS / PROGRESS / TASKS / DUE -->
-        <div class="card">
-            <div class="card__header">
-                <h2 class="card__title-icon"><i class="fas fa-folder-open"></i> Recent Projects</h2>
-                <div class="card__actions">
-                    <a class="btn btn--sm btn--ghost" href="/projects">View all <i class="fas fa-arrow-right"></i></a>
+    <!-- The three sections below stack FULL-WIDTH, in this order: Recent
+         Projects, Recent Tasks, Upcoming Deadlines. This is a deliberate
+         divergence from docs/design/2.0/dashboard.html, which wraps the
+         first two in .grid-sidebar--wide and places Upcoming Deadlines in a
+         400px sidebar. Chosen after review: at 1440px the wide pair reads
+         better given a full 1440px, and the deadline table's three columns
+         were cramped at 400px. Do not "restore" the sidebar without asking.
+
+         The tables are also allowed to exceed the inherited 1280px min-width
+         at full width; a 1280px floor in a 655px track is what made the
+         first attempt overflow. -->
+    <!-- Recent Projects: PROJECT / STATUS / PROGRESS / TASKS / DUE -->
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-folder-open"></i> Recent Projects</h2>
+            <div class="card__actions">
+                <a class="btn btn--sm btn--ghost" href="/projects">View all <i class="fas fa-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <?php if (empty($recent_projects)): ?>
+            <div class="card__body">
+                <div class="empty-state">
+                    <div class="empty-state__icon"><i class="fas fa-folder-plus"></i></div>
+                    <p>No projects yet. <a href="/projects/new">Create your first project</a></p>
                 </div>
             </div>
-
-            <?php if (empty($recent_projects)): ?>
-                <div class="card__body">
-                    <div class="empty-state">
-                        <div class="empty-state__icon"><i class="fas fa-folder-plus"></i></div>
-                        <p>No projects yet. <a href="/projects/new">Create your first project</a></p>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="card__body card__body--flush">
-                    <div class="table-wrap">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Project</th>
-                                    <th>Status</th>
-                                    <th>Progress</th>
-                                    <th>Tasks</th>
-                                    <th>Due</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($recent_projects as $project): ?>
-                                <?php $__p_total = (int)($project['total_tasks'] ?? 0);
-                                      $__p_done  = (int)($project['completed_tasks'] ?? 0); ?>
-                                <tr>
-                                    <td>
-                                        <a href="/projects/<?= e($project['slug']) ?>"><strong><?= e($project['name']) ?></strong></a>
-                                    </td>
-                                    <td>
-                                        <span class="status status--<?= $project['status'] ?>">
-                                            <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="progress">
-                                            <div class="progress__fill" style="width: <?= $project['avg_completion_percentage'] ?>%"></div>
-                                        </div>
-                                    </td>
-                                    <td class="text-sm text-muted nowrap"><?= $__p_done ?> / <?= $__p_total ?> tasks</td>
-                                    <td class="text-sm nowrap">
-                                        <?= $project['expected_completion_date']
-                                            ? e(formatDateTime($project['expected_completion_date'], 'M j, Y'))
-                                            : '&mdash;' ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Recent Tasks: TASK / PROJECT / STATUS / PROGRESS / OWNER -->
-        <div class="card">
-            <div class="card__header">
-                <h2 class="card__title-icon"><i class="fas fa-clock-rotate-left"></i> Recent Tasks</h2>
-                <div class="card__actions">
-                    <a class="btn btn--sm btn--ghost" href="/tasks">View all <i class="fas fa-arrow-right"></i></a>
+        <?php else: ?>
+            <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Project</th>
+                                <th>Status</th>
+                                <th>Progress</th>
+                                <th>Tasks</th>
+                                <th>Due</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($recent_projects as $project): ?>
+                            <?php $__p_total = (int)($project['total_tasks'] ?? 0);
+                                  $__p_done  = (int)($project['completed_tasks'] ?? 0); ?>
+                            <tr>
+                                <td>
+                                    <a href="/projects/<?= e($project['slug']) ?>"><strong><?= e($project['name']) ?></strong></a>
+                                </td>
+                                <td>
+                                    <span class="status status--<?= $project['status'] ?>">
+                                        <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress__fill" style="width: <?= $project['avg_completion_percentage'] ?>%"></div>
+                                    </div>
+                                </td>
+                                <td class="text-sm text-muted nowrap"><?= $__p_done ?> / <?= $__p_total ?> tasks</td>
+                                <td class="text-sm nowrap">
+                                    <?= $project['expected_completion_date']
+                                        ? e(formatDateTime($project['expected_completion_date'], 'M j, Y'))
+                                        : '&mdash;' ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-
-            <?php if (empty($recent_tasks)): ?>
-                <div class="card__body">
-                    <div class="empty-state">
-                        <div class="empty-state__icon"><i class="fas fa-tasks"></i></div>
-                        <p>No tasks yet</p>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="card__body card__body--flush">
-                    <div class="table-wrap">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Task</th>
-                                    <th>Project</th>
-                                    <th>Status</th>
-                                    <th>Progress</th>
-                                    <th>Owner</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($recent_tasks as $task): ?>
-                                <tr>
-                                    <td>
-                                        <a href="/tasks/<?= e($task['slug']) ?>"><strong><?= e($task['name']) ?></strong></a>
-                                    </td>
-                                    <td class="text-sm text-muted">
-                                        <?php // v2.0: the query now selects p.slug, so
-                                              // the mockup's project link renders. ?>
-                                        <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
-                                    </td>
-                                    <td>
-                                        <span class="status status--<?= $task['status'] ?>">
-                                            <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="progress">
-                                            <div class="progress__fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
-                                        </div>
-                                    </td>
-                                    <td class="text-sm nowrap"><?= $task['responsible_person_name'] ? e($task['responsible_person_name']) : '&mdash;' ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
-        </div>
-
-        <!-- Upcoming Deadlines: no <thead> in the mockup; 4 columns, date
-             coloured by urgency and a relative label beside it.
-
-             ⚠ COLUMN 2 DIVERGES DELIBERATELY. The mockup's column 1 is a
-             milestone/task name ("Site handover drawings") and column 2 its
-             project ("Harbour Point Renovation") -- i.e. it lists TASKS
-             nearing their due date. $upcoming_deadlines queries the PROJECTS
-             table, so there is no milestone name to show and no second
-             identifier to disambiguate with. Rather than print the project
-             name twice, or invent a milestone source that does not exist,
-             this table renders the 3 columns the data actually supports:
-             project / due date / urgency label. The date colouring and the
-             relative label -- the parts the mockup's urgency logic exists to
-             drive -- are reproduced exactly. -->
-        <div class="card">
-            <div class="card__header">
-                <h2 class="card__title-icon"><i class="fas fa-calendar-day"></i> Upcoming Deadlines</h2>
-            </div>
-
-            <?php if (empty($upcoming_deadlines)): ?>
-                <div class="card__body">
-                    <div class="empty-state">
-                        <div class="empty-state__icon"><i class="fas fa-calendar-check"></i></div>
-                        <p>No upcoming deadlines</p>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="card__body card__body--flush">
-                    <div class="table-wrap">
-                        <table class="table table--compact">
-                            <tbody>
-                            <?php foreach ($upcoming_deadlines as $deadline): ?>
-                                <tr>
-                                    <td>
-                                        <a href="/projects/<?= e($deadline['slug']) ?>"><strong><?= e($deadline['name']) ?></strong></a>
-                                    </td>
-                                    <td class="text-sm nowrap <?= $deadline['urgency'] === 'overdue' ? 'text-danger' : ($deadline['urgency'] === 'due_soon' ? 'text-warning' : 'text-muted') ?>">
-                                        <?= e(formatDateTime($deadline['expected_completion_date'], 'M j, Y')) ?>
-                                    </td>
-                                    <td class="text-xs text-muted nowrap"><?= e($deadline['urgency_label']) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
+        <?php endif; ?>
     </div>
+
+    <!-- Recent Tasks: TASK / PROJECT / STATUS / PROGRESS / OWNER -->
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-clock-rotate-left"></i> Recent Tasks</h2>
+            <div class="card__actions">
+                <a class="btn btn--sm btn--ghost" href="/tasks">View all <i class="fas fa-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <?php if (empty($recent_tasks)): ?>
+            <div class="card__body">
+                <div class="empty-state">
+                    <div class="empty-state__icon"><i class="fas fa-tasks"></i></div>
+                    <p>No tasks yet</p>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Task</th>
+                                <th>Project</th>
+                                <th>Status</th>
+                                <th>Progress</th>
+                                <th>Owner</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($recent_tasks as $task): ?>
+                            <tr>
+                                <td>
+                                    <a href="/tasks/<?= e($task['slug']) ?>"><strong><?= e($task['name']) ?></strong></a>
+                                </td>
+                                <td class="text-sm text-muted">
+                                    <?php // v2.0: the query now selects p.slug, so
+                                          // the mockup's project link renders. ?>
+                                    <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
+                                </td>
+                                <td>
+                                    <span class="status status--<?= $task['status'] ?>">
+                                        <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress__fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
+                                    </div>
+                                </td>
+                                <td class="text-sm nowrap"><?= $task['responsible_person_name'] ? e($task['responsible_person_name']) : '&mdash;' ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+    </div>
+
+    <!-- Upcoming Deadlines: no <thead> in the mockup; 4 columns, date
+         coloured by urgency and a relative label beside it.
+
+         ⚠ COLUMN 2 DIVERGES DELIBERATELY. The mockup's column 1 is a
+         milestone/task name ("Site handover drawings") and column 2 its
+         project ("Harbour Point Renovation") -- i.e. it lists TASKS
+         nearing their due date. $upcoming_deadlines queries the PROJECTS
+         table, so there is no milestone name to show and no second
+         identifier to disambiguate with. Rather than print the project
+         name twice, or invent a milestone source that does not exist,
+         this table renders the 3 columns the data actually supports:
+         project / due date / urgency label. The date colouring and the
+         relative label -- the parts the mockup's urgency logic exists to
+         drive -- are reproduced exactly. -->
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-calendar-day"></i> Upcoming Deadlines</h2>
+        </div>
+
+        <?php if (empty($upcoming_deadlines)): ?>
+            <div class="card__body">
+                <div class="empty-state">
+                    <div class="empty-state__icon"><i class="fas fa-calendar-check"></i></div>
+                    <p>No upcoming deadlines</p>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                    <table class="table table--compact">
+                        <tbody>
+                        <?php foreach ($upcoming_deadlines as $deadline): ?>
+                            <tr>
+                                <td>
+                                    <a href="/projects/<?= e($deadline['slug']) ?>"><strong><?= e($deadline['name']) ?></strong></a>
+                                </td>
+                                <td class="text-sm nowrap <?= $deadline['urgency'] === 'overdue' ? 'text-danger' : ($deadline['urgency'] === 'due_soon' ? 'text-warning' : 'text-muted') ?>">
+                                    <?= e(formatDateTime($deadline['expected_completion_date'], 'M j, Y')) ?>
+                                </td>
+                                <td class="text-xs text-muted nowrap"><?= e($deadline['urgency_label']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
 
 
 <?php include 'includes/footer.php'; ?>

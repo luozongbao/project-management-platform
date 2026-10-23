@@ -683,23 +683,12 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 /* The first column carries the record's name and is the only column allowed
  * to grow; the rest are nowrap values sized by their content. */
 .table th:first-child, .table td:first-child { min-width: 300px; }
-/* …but 300px is sized for a full-width table. Inside a grid sidebar those
- * minimums exceed the track and force a horizontal scrollbar, so they are
- * relaxed for this layout. Scoped by DESCENDANT, not by child: the
- * dashboard groups the two wide tables inside a wrapper <div>
- * (`.grid-sidebar--wide > div > .card`) while Upcoming Deadlines is a
- * direct child, so `> .card` would only ever have matched the deadline
- * table and left the wide pair overflowing their track.
- *
- * The wide pair keeps a modest floor and a smaller name column so its
- * five columns stay legible in ~650px; the deadline table drops both
- * minimums entirely, since three columns in 400px are already tight. */
-.grid-sidebar--wide .table { min-width: 0; }
-.grid-sidebar--wide .table td:first-child,
-.grid-sidebar--wide .table th:first-child { min-width: 0; }
-.grid-sidebar--wide > div > .card .table { min-width: 420px; }
-.grid-sidebar--wide > div > .card .table td:first-child,
-.grid-sidebar--wide > div > .card .table th:first-child { min-width: 160px; }
+/* …but 300px is sized for a full-width table. Inside a grid sidebar that
+ * minimum exceeds the track and forces a horizontal scrollbar. No override
+ * is defined here on purpose: the dashboard used to relax it, but it now
+ * stacks its three tables full-width (see the note in dashboard.php), and
+ * no other page embeds a table in a sidebar. A future caller that does
+ * should scope the relaxation to its own layout, not to a shared class. */
 .table th {
     text-align: left; font-weight: var(--fw-semibold);
     color: var(--gray-500); font-size: var(--fs-xs);

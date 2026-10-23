@@ -9,15 +9,18 @@
    .stat-grid / .stat (the KPI row), .card and .card__header, .status,
    .progress / .progress__fill (both the Recent Projects and Recent Tasks
    progress columns), .empty-state (Upcoming Deadlines when a user has no
-   dated projects), .table / .table-wrap / .table--compact, and
-   .grid-sidebar--wide (the two-column feed: the two wide tables left,
-   the deadline table in the 400px sidebar).
+   dated projects), and .table / .table-wrap / .table--compact.
+
+   Layout: the three sections stack full-width, Recent Projects then Recent
+   Tasks then Upcoming Deadlines. They deliberately do NOT use
+   .grid-sidebar--wide, which the mockup applies to put Deadlines in a
+   400px sidebar — see the note at the call site in dashboard.php before
+   "fixing" that divergence.
 
    The old .dash-grid, .dash-section__header, .dash-list, .dash-row
    family, .dash-ring and .dash-section__footer were removed with the card
    feed they styled, along with both responsive blocks, which existed only
-   to reflow the row anatomy. .grid-sidebar--wide collapses to one column
-   at 1200px from the component sheet.
+   to reflow the row anatomy.
 
    The three sections are tables, matching docs/design/2.0/dashboard.html.
    One deliberate divergence is documented at the markup in dashboard.php:
