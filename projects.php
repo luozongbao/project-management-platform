@@ -213,7 +213,13 @@ $__proj_completed = (int)($__proj_row['completed'] ?? 0);
 
                 <!-- Mockup stats block: label above value, not the icon row the
                      real page used. Progress is a percentage here rather than a
-                     separate labelled bar, and Pending keeps the urgent tone. -->
+                     separate labelled bar, and Pending keeps the urgent tone.
+
+                     Contacts is NOT in the mockup, which shows only Progress and
+                     Pending. It was reinstated here by request: the count is
+                     already selected via project_stats.* so it costs no extra
+                     query. Rendered unconditionally, including at zero, so the
+                     card shape does not change between projects. -->
                 <div class="project-card__stats">
                     <div>
                         <div class="project-card__stat-label">Progress</div>
@@ -226,6 +232,12 @@ $__proj_completed = (int)($__proj_row['completed'] ?? 0);
                                  should not render "0 pending" in red. */ ?>
                         <div class="project-card__stat-value<?= (int)$project['uncompleted_tasks'] > 0 ? ' project-card__stat-value--urgent' : '' ?>">
                             <?= (int)$project['uncompleted_tasks'] ?> pending
+                        </div>
+                    </div>
+                    <div>
+                        <div class="project-card__stat-label">Contacts</div>
+                        <div class="project-card__stat-value">
+                            <?= (int)$project['contact_count'] ?>
                         </div>
                     </div>
                 </div>

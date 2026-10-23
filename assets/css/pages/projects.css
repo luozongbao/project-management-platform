@@ -25,11 +25,18 @@
       A trash icon here would imply a one-click delete the app deliberately
       does not offer, so it is omitted rather than faked.
 
-   2. The start_date and completion_date rows were dropped along with the
-      contact_count and tasks stat icons. The mockup's meta row carries only
-      due date and task count, and the stat block only Progress and Pending.
-      Matching the mockup was requested explicitly. This is visible data loss
-      on the list page, though all of it remains on project_detail.php.
+   2. The start_date and completion_date rows were dropped, along with the
+      tasks/contacts stat icons. The mockup's meta row carries only due date
+      and task count. Matching the mockup was requested explicitly. This is
+      visible data loss on the list page, though both dates remain on
+      project_detail.php.
+
+      The contact count was dropped for the same reason and then reinstated
+      by request as a third __stats block. It is the one stat on this card
+      that the mockup does not have. It comes from project_stats.contact_count,
+      which the page's SELECT ps.* already fetches, so it costs no extra
+      query, and it renders at zero as well so the card shape stays
+      consistent across a row.
 
    The description and its empty placeholder also share one element now; the
    old markup wrapped the text in a <p> inside a div and styled the
@@ -120,10 +127,13 @@
    distinct tone rather than inheriting the description colour. */
 .project-card__desc--empty { color: var(--gray-400); font-style: italic; }
 
-/* Stat block: label above value, on a muted inset panel. */
+/* Stat block: label above value, on a muted inset panel. Wraps rather than
+   overflowing: the grid floor is 350px, which is tight for three columns
+   once "4 pending" and a two-digit percentage are set at --fs-base. */
 .project-card__stats {
     display: flex;
-    gap: var(--sp-6);
+    flex-wrap: wrap;
+    gap: var(--sp-4) var(--sp-5);
     padding: var(--sp-3);
     background: var(--gray-50);
     border-radius: var(--r-md);
