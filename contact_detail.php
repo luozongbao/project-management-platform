@@ -76,35 +76,37 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="/assets/css/pages/contact_detail.css">
 
-<div class="page-container">
+<div class="content">
+    <div class="breadcrumb">
+        <a href="/dashboard">Dashboard</a>
+        <span>/</span>
+        <a href="/contacts">Contacts</a>
+        <span>/</span>
+        <span><?= e($contact['name']) ?></span>
+    </div>
+
     <div class="page-header">
-        <div class="page-title">
-            <div class="breadcrumb">
-                <a href="/dashboard">Dashboard</a>
-                <span>/</span>
-                <a href="/contacts">Contacts</a>
-                <span>/</span>
-                <span><?= e($contact['name']) ?></span>
-            </div>
+        <div class="page-header__text">
             <h1>
                 <i class="fas fa-user"></i>
                 <?= e($contact['name']) ?>
             </h1>
         </div>
         <div class="page-actions">
-            <a href="/contacts/<?= (int)$contact['id'] ?>/edit" class="btn btn-primary">
+            <a href="/contacts/<?= (int)$contact['id'] ?>/edit" class="btn btn--secondary">
                 <i class="fas fa-edit"></i>
                 Edit Contact
             </a>
             <?php if ($contact['email']): ?>
-                <a href="mailto:<?= e($contact['email']) ?>" class="btn btn-secondary">
+                <a href="mailto:<?= e($contact['email']) ?>" class="btn btn--secondary">
                     <i class="fas fa-envelope"></i>
                     Send Email
                 </a>
             <?php endif; ?>
             <?php if ($contact['phone']): ?>
-                <a href="tel:<?= e($contact['phone']) ?>" class="btn btn-secondary">
+                <a href="tel:<?= e($contact['phone']) ?>" class="btn btn--secondary">
                     <i class="fas fa-phone"></i>
                     Call
                 </a>
@@ -112,37 +114,36 @@ $use_v2_shell = true;
         </div>
     </div>
 
-    <div class="contact-detail-layout">
-        <!-- Main Contact Information -->
-        <div class="main-content">
-            <!-- Contact Overview Card -->
-            <div class="card contact-overview-card">
-                <div class="card-header">
-                    <h3>Contact Overview</h3>
+    <div class="grid-sidebar">
+        <div>
+            <!-- Contact overview -->
+            <div class="card">
+                <div class="card__header">
+                    <h2>Contact Overview</h2>
                 </div>
-                <div class="card-body">
-                    <div class="contact-avatar-section">
-                        <div class="contact-avatar-large">
+                <div class="card__body">
+                    <div class="cd-identity">
+                        <div class="cd-avatar">
                             <i class="fas fa-user"></i>
                         </div>
-                        <div class="contact-basic-info">
-                            <h2><?= e($contact['name']) ?></h2>
+                        <div class="cd-identity__text">
+                            <h3 class="cd-identity__name"><?= e($contact['name']) ?></h3>
                             <?php if ($contact['position']): ?>
-                                <p class="position"><?= e($contact['position']) ?></p>
+                                <p class="cd-identity__position"><?= e($contact['position']) ?></p>
                             <?php endif; ?>
                             <?php if ($contact['company']): ?>
-                                <p class="company">
+                                <p class="cd-identity__company">
                                     <i class="fas fa-building"></i>
                                     <?= e($contact['company']) ?>
                                 </p>
                             <?php endif; ?>
                         </div>
                     </div>
-                    
+
                     <?php if ($contact['description']): ?>
-                        <div class="description-section">
+                        <div class="cd-description">
                             <h4>Description</h4>
-                            <div class="description-content">
+                            <div class="cd-description__body">
                                 <?= nl2br(e($contact['description'])) ?>
                             </div>
                         </div>
@@ -150,88 +151,87 @@ $use_v2_shell = true;
                 </div>
             </div>
 
-            <!-- Contact Statistics -->
-            <div class="contact-stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon bg-primary">
+            <!-- Contact statistics -->
+            <div class="stat-grid cd-stats">
+                <div class="stat">
+                    <div class="stat__icon">
                         <i class="fas fa-folder"></i>
                     </div>
-                    <div class="stat-content">
-                        <h3><?= $contact_stats['project_count'] ?? 0 ?></h3>
-                        <p>Projects</p>
+                    <div class="stat__text">
+                        <div class="stat__value"><?= (int)($contact_stats['project_count'] ?? 0) ?></div>
+                        <div class="stat__label">Projects</div>
                     </div>
                 </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon bg-info">
+
+                <div class="stat">
+                    <div class="stat__icon">
                         <i class="fas fa-tasks"></i>
                     </div>
-                    <div class="stat-content">
-                        <h3><?= $contact_stats['task_count'] ?? 0 ?></h3>
-                        <p>Total Tasks</p>
+                    <div class="stat__text">
+                        <div class="stat__value"><?= (int)($contact_stats['task_count'] ?? 0) ?></div>
+                        <div class="stat__label">Total Tasks</div>
                     </div>
                 </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon bg-success">
+
+                <div class="stat stat--success">
+                    <div class="stat__icon">
                         <i class="fas fa-check-circle"></i>
                     </div>
-                    <div class="stat-content">
-                        <h3><?= $contact_stats['completed_tasks'] ?? 0 ?></h3>
-                        <p>Completed</p>
+                    <div class="stat__text">
+                        <div class="stat__value"><?= (int)($contact_stats['completed_tasks'] ?? 0) ?></div>
+                        <div class="stat__label">Completed</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Tasks -->
+            <!-- Recent tasks -->
             <?php if (!empty($tasks)): ?>
                 <div class="card">
-                    <div class="card-header">
-                        <h3>Recent Tasks</h3>
+                    <div class="card__header">
+                        <h2>Recent Tasks</h2>
                     </div>
-                    <div class="card-body">
-                        <div class="tasks-list">
+                    <div class="card__body">
+                        <div class="cd-list">
                             <?php foreach ($tasks as $task): ?>
-                                <div class="task-item">
-                                    <div class="task-header">
-                                        <div class="task-info">
-                                            <h4>
-                                                <a href="/tasks/<?= (int)$task['id'] ?>">
-                                                    <?= e($task['name']) ?>
+                                <div class="cd-row">
+                                    <div class="cd-row__main">
+                                        <a class="cd-row__title" href="/tasks/<?= (int)$task['id'] ?>">
+                                            <?= e($task['name']) ?>
+                                        </a>
+                                        <div class="cd-row__meta">
+                                            <span class="cd-meta">
+                                                <i class="fas fa-folder"></i>
+                                                <a href="/projects/<?= (int)$task['project_id'] ?>">
+                                                    <?= e($task['project_name']) ?>
                                                 </a>
-                                            </h4>
-                                            <div class="task-meta">
-                                                <span class="project-name">
-                                                    <i class="fas fa-folder"></i>
-                                                    <a href="/projects/<?= (int)$task['project_id'] ?>">
-                                                        <?= e($task['project_name']) ?>
-                                                    </a>
-                                                </span>
-                                                <span class="task-date">
-                                                    <i class="fas fa-calendar"></i>
-                                                    <?= formatDateTime($task['created_at'], 'M j, Y') ?>
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div class="task-status">
-                                            <span class="status status-<?= $task['status'] ?>">
-                                                <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
                                             </span>
-                                            <div class="progress-mini">
-                                                <div class="progress-bar">
-                                                    <div class="progress-fill" style="width: <?= $task['completion_percentage'] ?>%"></div>
-                                                </div>
-                                                <span class="progress-text"><?= number_format($task['completion_percentage'], 0) ?>%</span>
+                                            <span class="cd-meta">
+                                                <i class="fas fa-calendar"></i>
+                                                <?= formatDateTime($task['created_at'], 'M j, Y') ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="cd-row__aside">
+                                        <span class="status status--<?= e($task['status']) ?>">
+                                            <?= e(ucfirst(str_replace('_', ' ', $task['status']))) ?>
+                                        </span>
+                                        <div class="cd-progress">
+                                            <div class="progress">
+                                                <div class="progress__fill"
+                                                     style="width: <?= (float)$task['completion_percentage'] ?>%"></div>
                                             </div>
+                                            <span class="cd-progress__value">
+                                                <?= number_format($task['completion_percentage'], 0) ?>%
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                        
+
                         <?php if (count($tasks) >= 20): ?>
-                            <div class="view-all-link">
-                                <a href="/tasks?contact_id=<?= $contact_id ?>" class="btn btn-outline">
+                            <div class="cd-view-all">
+                                <a href="/tasks?contact_id=<?= (int)$contact_id ?>" class="btn btn--ghost">
                                     <i class="fas fa-list"></i>
                                     View All Tasks
                                 </a>
@@ -242,139 +242,158 @@ $use_v2_shell = true;
             <?php endif; ?>
         </div>
 
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <!-- Contact Details -->
+        <div>
+            <!-- Contact information -->
             <div class="card">
-                <div class="card-header">
-                    <h3>Contact Information</h3>
+                <div class="card__header">
+                    <h2>Contact Information</h2>
                 </div>
-                <div class="card-body">
-                    <?php if ($contact['email']): ?>
-                        <div class="detail-item">
-                            <label>Email:</label>
-                            <a href="mailto:<?= e($contact['email']) ?>" class="contact-link">
-                                <i class="fas fa-envelope"></i>
-                                <?= e($contact['email']) ?>
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($contact['phone']): ?>
-                        <div class="detail-item">
-                            <label>Phone:</label>
-                            <a href="tel:<?= e($contact['phone']) ?>" class="contact-link">
-                                <i class="fas fa-phone"></i>
-                                <?= e($contact['phone']) ?>
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($contact['mobile']): ?>
-                        <div class="detail-item">
-                            <label>Mobile:</label>
-                            <a href="tel:<?= e($contact['mobile']) ?>" class="contact-link">
-                                <i class="fas fa-mobile-alt"></i>
-                                <?= e($contact['mobile']) ?>
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($contact['address']): ?>
-                        <div class="detail-item">
-                            <label>Address:</label>
-                            <div class="address-content">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <?= nl2br(e($contact['address'])) ?>
+                <div class="card__body">
+                    <div class="detail-list">
+                        <?php if ($contact['email']): ?>
+                            <div class="detail-row">
+                                <div class="detail-row__k">Email</div>
+                                <div class="detail-row__v">
+                                    <a href="mailto:<?= e($contact['email']) ?>" class="cd-link">
+                                        <i class="fas fa-envelope"></i>
+                                        <?= e($contact['email']) ?>
+                                    </a>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($contact['phone']): ?>
+                            <div class="detail-row">
+                                <div class="detail-row__k">Phone</div>
+                                <div class="detail-row__v">
+                                    <a href="tel:<?= e($contact['phone']) ?>" class="cd-link">
+                                        <i class="fas fa-phone"></i>
+                                        <?= e($contact['phone']) ?>
+                                    </a>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($contact['mobile']): ?>
+                            <div class="detail-row">
+                                <div class="detail-row__k">Mobile</div>
+                                <div class="detail-row__v">
+                                    <a href="tel:<?= e($contact['mobile']) ?>" class="cd-link">
+                                        <i class="fas fa-mobile-alt"></i>
+                                        <?= e($contact['mobile']) ?>
+                                    </a>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($contact['address']): ?>
+                            <div class="detail-row detail-row--stacked">
+                                <div class="detail-row__k">Address</div>
+                                <div class="detail-row__v">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <?= nl2br(e($contact['address'])) ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="detail-row">
+                            <div class="detail-row__k">Added</div>
+                            <div class="detail-row__v">
+                                <?= formatDateTime($contact['created_at']) ?>
                             </div>
                         </div>
-                    <?php endif; ?>
-                    
-                    <div class="detail-item">
-                        <label>Added:</label>
-                        <span><?= formatDateTime($contact['created_at']) ?></span>
+
+                        <?php if ($contact['updated_at'] != $contact['created_at']): ?>
+                            <div class="detail-row">
+                                <div class="detail-row__k">Updated</div>
+                                <div class="detail-row__v">
+                                    <?= formatDateTime($contact['updated_at']) ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                    
-                    <?php if ($contact['updated_at'] != $contact['created_at']): ?>
-                        <div class="detail-item">
-                            <label>Updated:</label>
-                            <span><?= formatDateTime($contact['updated_at']) ?></span>
-                        </div>
-                    <?php endif; ?>
                 </div>
             </div>
 
-            <!-- Social Media -->
+            <!-- Social media -->
             <?php if ($contact['wechat'] || $contact['line_id'] || $contact['facebook'] || $contact['linkedin']): ?>
                 <div class="card">
-                    <div class="card-header">
-                        <h3>Social Media</h3>
+                    <div class="card__header">
+                        <h2>Social Media</h2>
                     </div>
-                    <div class="card-body">
-                        <?php if ($contact['wechat']): ?>
-                            <div class="detail-item">
-                                <label>WeChat:</label>
-                                <span class="social-link">
-                                    <i class="fab fa-weixin"></i>
-                                    <?= e($contact['wechat']) ?>
-                                </span>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($contact['line_id']): ?>
-                            <div class="detail-item">
-                                <label>LINE:</label>
-                                <span class="social-link">
-                                    <i class="fab fa-line"></i>
-                                    <?= e($contact['line_id']) ?>
-                                </span>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($contact['facebook']): ?>
-                            <div class="detail-item">
-                                <label>Facebook:</label>
-                                <a href="<?= e($contact['facebook']) ?>" class="social-link" target="_blank">
-                                    <i class="fab fa-facebook"></i>
-                                    View Profile
-                                </a>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($contact['linkedin']): ?>
-                            <div class="detail-item">
-                                <label>LinkedIn:</label>
-                                <a href="<?= e($contact['linkedin']) ?>" class="social-link" target="_blank">
-                                    <i class="fab fa-linkedin"></i>
-                                    View Profile
-                                </a>
-                            </div>
-                        <?php endif; ?>
+                    <div class="card__body">
+                        <div class="detail-list">
+                            <?php if ($contact['wechat']): ?>
+                                <div class="detail-row">
+                                    <div class="detail-row__k">WeChat</div>
+                                    <div class="detail-row__v">
+                                        <span class="cd-link">
+                                            <i class="fab fa-weixin"></i>
+                                            <?= e($contact['wechat']) ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($contact['line_id']): ?>
+                                <div class="detail-row">
+                                    <div class="detail-row__k">LINE</div>
+                                    <div class="detail-row__v">
+                                        <span class="cd-link">
+                                            <i class="fab fa-line"></i>
+                                            <?= e($contact['line_id']) ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($contact['facebook']): ?>
+                                <div class="detail-row">
+                                    <div class="detail-row__k">Facebook</div>
+                                    <div class="detail-row__v">
+                                        <a href="<?= e($contact['facebook']) ?>" class="cd-link" target="_blank" rel="noopener">
+                                            <i class="fab fa-facebook"></i>
+                                            View Profile
+                                        </a>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($contact['linkedin']): ?>
+                                <div class="detail-row">
+                                    <div class="detail-row__k">LinkedIn</div>
+                                    <div class="detail-row__v">
+                                        <a href="<?= e($contact['linkedin']) ?>" class="cd-link" target="_blank" rel="noopener">
+                                            <i class="fab fa-linkedin"></i>
+                                            View Profile
+                                        </a>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
 
-            <!-- Associated Projects -->
+            <!-- Associated projects -->
             <div class="card">
-                <div class="card-header">
-                    <h3>Projects (<?= count($projects) ?>)</h3>
+                <div class="card__header">
+                    <h2>Projects (<?= count($projects) ?>)</h2>
                 </div>
-                <div class="card-body">
+                <div class="card__body">
                     <?php if (!empty($projects)): ?>
-                        <div class="projects-list">
+                        <div class="cd-list">
                             <?php foreach ($projects as $project): ?>
-                                <div class="project-item">
-                                    <div class="project-info">
-                                        <h4>
-                                            <a href="/projects/<?= (int)$project['id'] ?>">
-                                                <?= e($project['name']) ?>
-                                            </a>
-                                        </h4>
-                                        <div class="project-meta">
-                                            <span class="status status-<?= $project['status'] ?>">
-                                                <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+                                <div class="cd-row">
+                                    <div class="cd-row__main">
+                                        <a class="cd-row__title" href="/projects/<?= (int)$project['id'] ?>">
+                                            <?= e($project['name']) ?>
+                                        </a>
+                                        <div class="cd-row__meta">
+                                            <span class="status status--<?= e($project['status']) ?>">
+                                                <?= e(ucfirst(str_replace('_', ' ', $project['status']))) ?>
                                             </span>
-                                            <span class="project-date">
+                                            <span class="cd-meta">
                                                 <i class="fas fa-calendar"></i>
                                                 <?= formatDateTime($project['created_at'], 'M j, Y') ?>
                                             </span>
@@ -384,392 +403,15 @@ $use_v2_shell = true;
                             <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <p class="no-projects">No projects associated with this contact.</p>
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open empty-state__icon"></i>
+                            <p>No projects associated with this contact.</p>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-.page-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.breadcrumb {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 10px;
-}
-
-.breadcrumb a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-.breadcrumb span {
-    margin: 0 8px;
-}
-
-.contact-detail-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 30px;
-    margin-top: 20px;
-}
-
-.contact-overview-card .card-body {
-    padding: 30px;
-}
-
-.contact-avatar-section {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    margin-bottom: 30px;
-}
-
-.contact-avatar-large {
-    width: 80px;
-    height: 80px;
-    background: linear-gradient(45deg, #007bff, #0056b3);
-    border-radius: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 32px;
-    flex-shrink: 0;
-}
-
-.contact-basic-info h2 {
-    margin: 0 0 8px 0;
-    color: #333;
-    font-size: 2rem;
-}
-
-.contact-basic-info .position {
-    margin: 0 0 5px 0;
-    color: #666;
-    font-weight: 500;
-    font-size: 1.1rem;
-}
-
-.contact-basic-info .company {
-    margin: 0;
-    color: #666;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1rem;
-}
-
-.description-section h4 {
-    margin: 0 0 15px 0;
-    color: #333;
-    font-size: 1.1rem;
-}
-
-.description-content {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
-    line-height: 1.6;
-    color: #333;
-}
-
-.contact-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.stat-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.stat-icon {
-    width: 45px;
-    height: 45px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: white;
-}
-
-.stat-icon.bg-primary { background: linear-gradient(45deg, #007bff, #0056b3); }
-.stat-icon.bg-success { background: linear-gradient(45deg, #28a745, #1e7e34); }
-.stat-icon.bg-info { background: linear-gradient(45deg, #17a2b8, #117a8b); }
-
-.stat-content h3 {
-    margin: 0 0 5px 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #333;
-}
-
-.stat-content p {
-    margin: 0;
-    color: #666;
-    font-weight: 500;
-}
-
-.tasks-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.task-item {
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
-}
-
-.task-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 15px;
-}
-
-.task-info h4 {
-    margin: 0 0 8px 0;
-    font-size: 1.1rem;
-}
-
-.task-info h4 a {
-    color: #333;
-    text-decoration: none;
-}
-
-.task-info h4 a:hover {
-    color: #007bff;
-}
-
-.task-meta {
-    display: flex;
-    gap: 15px;
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.project-name a,
-.task-date {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.project-name a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.project-name a:hover {
-    text-decoration: underline;
-}
-
-.task-status {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-end;
-}
-
-.progress-mini {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.progress-mini .progress-bar {
-    width: 60px;
-    height: 6px;
-    background: #e9ecef;
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.progress-mini .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #007bff, #0056b3);
-    border-radius: 3px;
-}
-
-.progress-text {
-    font-size: 0.8rem;
-    color: #666;
-    font-weight: 500;
-}
-
-.view-all-link {
-    margin-top: 20px;
-    text-align: center;
-    padding-top: 20px;
-    border-top: 1px solid #dee2e6;
-}
-
-.sidebar .card {
-    margin-bottom: 20px;
-}
-
-.detail-item {
-    margin-bottom: 15px;
-}
-
-.detail-item:last-child {
-    margin-bottom: 0;
-}
-
-.detail-item label {
-    display: block;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 5px;
-    font-size: 0.9rem;
-}
-
-.contact-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #007bff;
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-
-.contact-link:hover {
-    text-decoration: underline;
-}
-
-.social-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #666;
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-
-.social-link:hover {
-    color: #007bff;
-}
-
-.address-content {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    color: #666;
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-
-.projects-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.project-item {
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
-}
-
-.project-info h4 {
-    margin: 0 0 8px 0;
-    font-size: 1rem;
-}
-
-.project-info h4 a {
-    color: #333;
-    text-decoration: none;
-}
-
-.project-info h4 a:hover {
-    color: #007bff;
-}
-
-.project-meta {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.project-date {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.no-projects {
-    color: #666;
-    font-style: italic;
-    text-align: center;
-    margin: 0;
-}
-
-@media (max-width: 768px) {
-    .page-container {
-        padding: 15px;
-    }
-    
-    .contact-detail-layout {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    
-    .contact-avatar-section {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .contact-stats-grid {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-    
-    .task-header {
-        flex-direction: column;
-        gap: 10px;
-        align-items: stretch;
-    }
-    
-    .task-status {
-        align-items: stretch;
-    }
-    
-    .progress-mini {
-        justify-content: space-between;
-    }
-    
-    .progress-mini .progress-bar {
-        flex: 1;
-        max-width: 120px;
-    }
-}
-</style>
 
 <?php include 'includes/footer.php'; ?>

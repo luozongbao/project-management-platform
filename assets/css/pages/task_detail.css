@@ -1,0 +1,214 @@
+/* Per-page CSS for task_detail.php.
+ *
+ * v2.0 (issue-043): this page previously carried its own v1.8.0 <style> block
+ * with ~350 lines of hardcoded hex colours (#f8f9fa, #007bff, #333). Those
+ * rules cannot survive the dark theme — .card-header in style.css paints a
+ * LIGHT bar (#f8f9fa), so on a v2 dark page the card headers rendered as pale
+ * slabs with near-invisible text. See docs/issues/issue-043.md.
+ *
+ * Everything below uses v2 tokens only. The BEM element names are prefixed
+ * `td-` so they cannot collide with the `card`/`btn`/`status` vocabulary that
+ * v2-components.css already owns.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Progress block
+ * ------------------------------------------------------------------------ */
+.td-progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.td-progress__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--sp-3);
+}
+.td-progress__label {
+    color: var(--gray-500);
+    font-size: var(--fs-sm);
+}
+.td-progress__value {
+    color: var(--brand-500);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+}
+.td-progress__note {
+    margin: 0;
+    color: var(--gray-500);
+    font-size: var(--fs-xs);
+}
+
+/* ---------------------------------------------------------------------------
+ * Description
+ * ------------------------------------------------------------------------ */
+.td-description {
+    margin-top: var(--sp-5);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--gray-100);
+}
+.td-description h3 {
+    margin: 0 0 var(--sp-2) 0;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-700);
+}
+.td-description__body {
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------------------
+ * Parent task link
+ * ------------------------------------------------------------------------ */
+.td-parent-link {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+}
+.td-parent-link i { color: var(--brand-500); }
+
+/* ---------------------------------------------------------------------------
+ * Subtask list
+ * ------------------------------------------------------------------------ */
+.td-subtasks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+.td-subtask {
+    border: 1px solid var(--gray-200);
+    border-left: 3px solid var(--brand-500);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+.td-subtask__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--sp-3);
+}
+.td-subtask__title { min-width: 0; }
+.td-subtask__title h4 {
+    margin: 0 0 var(--sp-2) 0;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+}
+.td-subtask__title h4 a {
+    color: var(--gray-900);
+    text-decoration: none;
+}
+.td-subtask__title h4 a:hover { color: var(--brand-500); }
+.td-subtask__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+}
+.td-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    color: var(--gray-500);
+    font-size: var(--fs-xs);
+}
+.td-subtask__actions {
+    display: flex;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+}
+.td-subtask__desc {
+    color: var(--gray-600);
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sidebar detail values
+ * ------------------------------------------------------------------------ */
+.td-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+.td-overdue  { color: var(--danger-500); font-weight: var(--fw-medium); }
+.td-completed { color: var(--success-500); }
+.td-inherit { color: var(--brand-500); font-size: var(--fs-xs); }
+
+/* ---------------------------------------------------------------------------
+ * Status Reason card (issue-034)
+ * ------------------------------------------------------------------------ */
+.td-reason + .td-reason {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--gray-100);
+}
+.td-reason__label {
+    display: block;
+    color: var(--gray-500);
+    font-size: var(--fs-xs);
+    margin-bottom: var(--sp-1);
+}
+.td-reason__text {
+    margin: 0 0 var(--sp-2) 0;
+    padding: var(--sp-3);
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    border-left: 3px solid transparent;
+}
+.td-reason__text--hold {
+    background: var(--warning-100);
+    border-left-color: var(--warning-500);
+    color: var(--gray-800);
+}
+.td-reason__text--delay {
+    background: var(--danger-100);
+    border-left-color: var(--danger-500);
+    color: var(--gray-800);
+}
+.td-reason-required {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin: 0 0 var(--sp-2) 0;
+    color: var(--danger-500);
+    font-size: var(--fs-sm);
+}
+/* The superscript marker rendered INSIDE the status badge in the Task Overview
+   card header. Kept separate from .td-reason-required above: that rule is a
+   flex block meant for the <p> in the Status Reason card, and applying it to an
+   inline <i> inside a badge would give the badge the wrong internal layout. */
+.td-reason-flag {
+    margin-left: var(--sp-1);
+    color: var(--danger-500);
+    font-size: var(--fs-xs);
+}
+
+/* ---------------------------------------------------------------------------
+ * On-hold / resume inline form (issue-012, issue-034)
+ * ------------------------------------------------------------------------ */
+.inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.parent-hold-reason-input {
+    min-width: 240px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsive
+ * ------------------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .parent-hold-reason-input { min-width: 0; width: 100%; }
+    .inline-form { flex-wrap: wrap; width: 100%; }
+}
