@@ -207,7 +207,7 @@ include 'includes/header.php';
 <!-- Profile Overview: not in the mockup, but v1.8.0 shows identity
      information (name / @username / email / member since) on this page and
      removing it would be a content regression, not a restyle. -->
-<div class="card">
+<div class="card pf-overview-card">
     <div class="card__header">
         <h2 class="card__title-icon"><i class="fas fa-user"></i> Profile Overview</h2>
     </div>
@@ -227,7 +227,7 @@ include 'includes/header.php';
     </div>
 </div>
 
-<div class="stat-grid">
+<div class="stat-grid pf-stat-row">
     <div class="stat">
         <div class="stat__icon"><i class="fas fa-folder-open"></i></div>
         <div><div class="stat__value"><?= $user_stats['projects_count'] ?></div><div class="stat__label">Projects</div></div>
@@ -255,7 +255,7 @@ include 'includes/header.php';
             <h2 class="card__title-icon"><i class="fas fa-id-card"></i> Profile information</h2>
         </div>
         <div class="card__body">
-            <div class="form-grid">
+            <div class="form-grid form-grid--2">
                 <div class="field">
                     <label for="name">Full Name</label>
                     <input class="input" type="text" id="name" name="name"
@@ -295,7 +295,7 @@ include 'includes/header.php';
             <h2 class="card__title-icon"><i class="fas fa-lock"></i> Change Password</h2>
         </div>
         <div class="card__body">
-            <div class="form-grid">
+            <div class="form-grid form-grid--2">
                 <div class="field">
                     <label for="current_password">Current Password</label>
                     <input class="input" type="password" id="current_password" name="current_password" autocomplete="current-password" required>

@@ -25,6 +25,12 @@
    =========================================================================== */
 
 /* --- overview card ------------------------------------------------------- */
+/* .stat-grid supplies its own margin-bottom, but nothing supplies one for the
+   card ABOVE it, so without this the Overview card sits flush against the stat
+   row. Same for the stat row above .pf-body -- .pf-body has no top margin. */
+.pf-overview-card { margin-bottom: var(--sp-5); }
+.pf-stat-row { margin-bottom: var(--sp-5); }
+
 .pf-overview {
   display: flex;
   align-items: center;
@@ -85,8 +91,16 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-5);
-  align-items: start;
+  /* NOT `start`: the two form cards have different field counts, and letting
+     them size to content leaves the Change Password card visibly shorter than
+     Profile information with a ragged bottom edge. Stretch matches the mockup,
+     and .card__body grows to push .card__footer to the bottom. */
+  align-items: stretch;
 }
+/* A stretched card must distribute its extra height to the body, not leave a
+   gap under the footer, so the form card becomes a column flex box. */
+.pf-body > .card { display: flex; flex-direction: column; }
+.pf-body > .card > .card__body { flex: 1 1 auto; }
 /* Account Actions is a short link row, not a form -- it spans the full
    width so the two buttons do not stretch oddly next to tall cards. */
 .pf-body > .pf-actions-card { grid-column: 1 / -1; }
