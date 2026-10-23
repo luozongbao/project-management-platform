@@ -689,6 +689,14 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
  * stacks its three tables full-width (see the note in dashboard.php), and
  * no other page embeds a table in a sidebar. A future caller that does
  * should scope the relaxation to its own layout, not to a shared class. */
+/* ...so provide the scoped modifier the mockups already designed for this
+ * case. `.table--fit` is opt-in: every table that does NOT carry it keeps the
+ * 1280px floor, so the data-dense list pages (tasks, dashboard) are unchanged.
+ * Used by the nested tables on project_detail, contact_detail, and dashboard. */
+.table--fit { min-width: 0; }
+.table--fit th:first-child,
+.table--fit td:first-child { min-width: 0; }
+.table--fit td { white-space: normal; }
 .table th {
     text-align: left; font-weight: var(--fw-semibold);
     color: var(--gray-500); font-size: var(--fs-xs);

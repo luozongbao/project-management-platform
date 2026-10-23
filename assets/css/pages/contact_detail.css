@@ -62,51 +62,6 @@
 /* --- Stats: v2 .stat is a flex row, so it needs a text column ------------- */
 .cd-stats { margin-top: var(--sp-5); margin-bottom: var(--sp-5); }
 .stat__text { min-width: 0; }
-
-/* --- Recent tasks / projects lists ---------------------------------------- */
-.cd-list { display: flex; flex-direction: column; }
-.cd-row {
-    display: flex; gap: var(--sp-4);
-    align-items: flex-start; justify-content: space-between;
-    padding: var(--sp-4) 0;
-    border-bottom: 1px solid var(--gray-100);
-}
-.cd-row:last-child { border-bottom: 0; padding-bottom: 0; }
-.cd-row:first-child { padding-top: 0; }
-.cd-row__main { min-width: 0; }
-.cd-row__title {
-    font-weight: var(--fw-medium); color: var(--gray-900);
-    display: block; margin-bottom: var(--sp-1);
-}
-.cd-row__title:hover { color: var(--brand-600); }
-.cd-row__meta {
-    display: flex; flex-wrap: wrap;
-    align-items: center; gap: var(--sp-3);
-    font-size: var(--fs-sm); color: var(--gray-500);
-}
-.cd-row__aside {
-    display: flex; flex-direction: column;
-    align-items: flex-end; gap: var(--sp-2);
-    flex-shrink: 0;
-}
-.cd-meta {
-    display: inline-flex; align-items: center; gap: var(--sp-2);
-    min-width: 0;
-}
-.cd-meta i { color: var(--gray-400); flex-shrink: 0; }
-.cd-meta a { color: var(--gray-600); }
-.cd-meta a:hover { color: var(--brand-600); }
-
-/* --- Inline progress ------------------------------------------------------ */
-.cd-progress {
-    display: flex; align-items: center; gap: var(--sp-2);
-}
-.cd-progress .progress { width: 80px; }
-.cd-progress__value {
-    font-size: var(--fs-xs); color: var(--gray-500);
-    font-variant-numeric: tabular-nums; min-width: 34px;
-}
-
 /* --- Sidebar links (email / phone / social) ------------------------------- */
 .cd-link {
     display: inline-flex; align-items: baseline;
@@ -115,41 +70,8 @@
 }
 a.cd-link:hover { color: var(--brand-600); }
 .cd-link i { color: var(--gray-400); flex-shrink: 0; }
-
-/* --- "View all tasks" ----------------------------------------------------- */
-.cd-view-all { margin-top: var(--sp-4); padding-top: var(--sp-4);
-              border-top: 1px solid var(--gray-100); }
-
 /* --- Narrow screens ------------------------------------------------------- */
 @media (max-width: 640px) {
-    .cd-row { flex-direction: column; align-items: stretch; }
-    .cd-row__aside { flex-direction: row; align-items: center;
-                     justify-content: space-between; }
     .cd-identity { flex-direction: column; align-items: center; text-align: center; }
     .cd-identity__company { justify-content: center; }
-}
-
-/* --- Projects table inside the sidebar track ------------------------------
-   Same situation as .pd-table on project_detail.php: v2-components.css sizes
-   .table with `min-width: 1280px` and a 300px first-column floor, both sized
-   for a FULL-WIDTH table. Here the table sits in the ~340px sidebar track, so
-   those minimums would force a horizontal scrollbar. Scope the relaxation to
-   this page, as the shared component's comment instructs.
-
-   This table is 3 columns of short values (name / status / %), so wrapping the
-   project name is the right trade -- the opposite of the data-dense tables on
-   tasks.php and dashboard.php, which keep the 1280px floor. */
-.cd-table {
-    min-width: 0;
-}
-
-.cd-table th:first-child,
-.cd-table td:first-child {
-    min-width: 0;
-    width: auto;
-}
-
-.cd-table th,
-.cd-table td {
-    padding: var(--sp-2) var(--sp-3);
 }

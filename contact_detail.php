@@ -103,6 +103,26 @@ $use_v2_shell = true;
                 <i class="fas fa-user"></i>
                 <?= e($contact['name']) ?>
             </h1>
+            <?php /* Position and company ride in the header as chips, matching
+                     the mockup's page-header pattern -- they are the two facts
+                     that identify a contact at a glance, so they belong beside
+                     the name rather than buried in the Contact Information card. */ ?>
+            <?php if (!empty($contact['position']) || !empty($contact['company'])): ?>
+                <div class="chip-row" style="margin-top:.35rem;">
+                    <?php if (!empty($contact['position'])): ?>
+                        <span class="badge badge--outline">
+                            <i class="fas fa-briefcase"></i>
+                            <?= e($contact['position']) ?>
+                        </span>
+                    <?php endif; ?>
+                    <?php if (!empty($contact['company'])): ?>
+                        <span class="badge badge--outline">
+                            <i class="fas fa-building"></i>
+                            <?= e($contact['company']) ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
         <div class="page-actions">
             <a href="/contacts/<?= (int)$contact['id'] ?>/edit" class="btn btn--secondary">
@@ -165,53 +185,41 @@ $use_v2_shell = true;
                     <div class="card__header">
                         <h2 class="card__title-icon"><i class="fas fa-list-check"></i> Recent Tasks</h2>
                     </div>
-                    <div class="card__body">
-                        <div class="cd-list">
-                            <?php foreach ($tasks as $task): ?>
-                                <div class="cd-row">
-                                    <div class="cd-row__main">
-                                        <a class="cd-row__title" href="/tasks/<?= (int)$task['id'] ?>">
-                                            <?= e($task['name']) ?>
-                                        </a>
-                                        <div class="cd-row__meta">
-                                            <span class="cd-meta">
-                                                <i class="fas fa-folder"></i>
-                                                <a href="/projects/<?= (int)$task['project_id'] ?>">
-                                                    <?= e($task['project_name']) ?>
-                                                </a>
-                                            </span>
-                                            <span class="cd-meta">
-                                                <i class="fas fa-calendar"></i>
-                                                <?= formatDateTime($task['created_at'], 'M j, Y') ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div class="cd-row__aside">
-                                        <span class="status status--<?= e($task['status']) ?>">
-                                            <?= e(ucfirst(str_replace('_', ' ', $task['status']))) ?>
-                                        </span>
-                                        <div class="cd-progress">
-                                            <div class="progress">
-                                                <div class="progress__fill"
-                                                     style="width: <?= (float)$task['completion_percentage'] ?>%"></div>
-                                            </div>
-                                            <span class="cd-progress__value">
-                                                <?= number_format($task['completion_percentage'], 0) ?>%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
+                    <div class="card__body card__body--flush">
+                        <div class="table-wrap">
+                            <table class="table table--compact table--fit">
+                                <thead>
+                                    <tr>
+                                        <th>Task</th>
+                                        <th>Project</th>
+                                        <th>Status</th>
+                                        <th>Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($tasks as $task): ?>
+                                        <tr>
+                                            <td>
+                                                <a href="/tasks/<?= (int)$task['id'] ?>"><strong><?= e($task['name']) ?></strong></a>
+                                            </td>
+                                            <td class="text-sm text-muted">
+                                                <a href="/projects/<?= (int)$task['project_id'] ?>"><?= e($task['project_name']) ?></a>
+                                            </td>
+                                            <td>
+                                                <span class="status status--<?= e($task['status']) ?>">
+                                                    <?= e(ucfirst(str_replace('_', ' ', $task['status']))) ?>
+                                                </span>
+                                            </td>
+                                            <td style="min-width:110px;">
+                                                <div class="progress">
+                                                    <div class="progress__fill" style="width: <?= (float)$task['completion_percentage'] ?>%"></div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
-
-                        <?php if (count($tasks) >= 20): ?>
-                            <div class="cd-view-all">
-                                <a href="/tasks?contact_id=<?= (int)$contact_id ?>" class="btn btn--ghost">
-                                    <i class="fas fa-list"></i>
-                                    View All Tasks
-                                </a>
-                            </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>
@@ -358,7 +366,7 @@ $use_v2_shell = true;
                 <div class="card__body card__body--flush">
                     <?php if (!empty($projects)): ?>
                         <div class="table-wrap">
-                            <table class="table table--compact cd-table">
+                            <table class="table table--compact table--fit">
                                 <thead>
                                     <tr>
                                         <th>Project</th>
@@ -377,8 +385,10 @@ $use_v2_shell = true;
                                                     <?= e(ucfirst(str_replace('_', ' ', $project['status']))) ?>
                                                 </span>
                                             </td>
-                                            <td class="text-sm nowrap text-right">
-                                                <?= number_format((float)($projectCompletion[(int)$project['id']] ?? 0), 0) ?>%
+                                            <td style="min-width:110px;">
+                                                <div class="progress">
+                                                    <div class="progress__fill" style="width: <?= (float)($projectCompletion[(int)$project['id']] ?? 0) ?>%"></div>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

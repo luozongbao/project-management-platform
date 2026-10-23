@@ -197,7 +197,7 @@ $use_v2_shell = true;
                     </div>
                 <?php else: ?>
                     <div class="table-wrap">
-                        <table class="table pd-table">
+                        <table class="table table--fit pd-table">
                             <thead>
                                 <tr>
                                     <th>Task</th>
@@ -306,7 +306,7 @@ $use_v2_shell = true;
                     </div>
                 <?php else: ?>
                     <div class="table-wrap">
-                        <table class="table pd-table">
+                        <table class="table table--fit pd-table">
                             <thead>
                                 <tr>
                                     <th>Name</th>

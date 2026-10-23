@@ -45,38 +45,23 @@
 }
 
 /* --- Tables inside the sidebar track (issue-044) --------------------------
-   v2-components.css sizes .table with `min-width: 1280px` and gives the first
-   column `min-width: 300px`. Both numbers assume a FULL-WIDTH table. Here the
-   tables sit in the ~660px content track of .grid-sidebar, so the sum exceeds
-   the track and .table-wrap (overflow-x: auto) grows a horizontal scrollbar
-   under both the tasks table and the contacts table.
+   Both tables sit in the ~660px content track of .grid-sidebar, well under
+   the 1280px floor `.table` assumes for a full-width list.
 
-   The shared component comment anticipated this case and asked callers to
-   "scope the relaxation to its own layout, not to a shared class" — so this is
-   that scoping. It is deliberately page-local: tasks.php and dashboard.php keep
-   the 1280px floor, where it does real work (those tables have many nowrap
-   columns and the wide layout has room).
+   The fit itself now comes from the shared `.table--fit` modifier in
+   v2-components.css -- the same class the mockup uses on these tables -- so
+   the relaxation is one documented, opt-in class instead of a per-page copy.
+   What remains here is the page-specific part that no shared class should
+   carry, because it depends on THESE tables' column count:
 
-   The names in column 1 wrap instead of being crushed, because these tables
-   are narrow (5 and 6 columns) rather than data-dense. */
-.pd-table {
-    min-width: 0;
-}
-
-.pd-table th:first-child,
-.pd-table td:first-child {
-    min-width: 0;
-}
-
-/* With the floor gone the first column would otherwise win every pixel and
-   squeeze the rest. Cap it so Status/Progress/Owner keep usable widths. */
+   1. The 34% cap on the name column. With the floor gone the first column
+      would otherwise win every pixel and squeeze Status/Progress/Owner.
+   2. Email wrapping in the contacts table, which has a long free-text column. */
 .pd-table th:first-child,
 .pd-table td:first-child {
     width: 34%;
 }
 
-/* The contacts table has a long email column; letting it wrap keeps the whole
-   row inside the track instead of pushing the table wider. */
 .pd-table td.wrap-anywhere {
     overflow-wrap: anywhere;
 }

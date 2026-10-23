@@ -90,10 +90,34 @@ $use_v2_shell = true;
             <h1>
                 <i class="fas fa-<?= $task['parent_task_id'] ? 'level-down-alt' : 'tasks' ?>"></i>
                 <?= e($task['name']) ?>
-                <?php if ($task['parent_task_id']): ?>
-                    <span class="badge badge--neutral">Subtask</span>
-                <?php endif; ?>
             </h1>
+            <?php /* Status, subtask count and assignee as header chips. The
+                     status chip is the mockup's primary signal on this page;
+                     subtasks previously only appeared inside the Subtasks card
+                     header, which is below the fold on a long task. */ ?>
+            <div class="chip-row" style="margin-top:.35rem;">
+                <span class="status status--<?= e($task['status']) ?>">
+                    <?= e(ucfirst(str_replace('_', ' ', $task['status']))) ?>
+                </span>
+                <?php if ($task['parent_task_id']): ?>
+                    <span class="badge badge--outline">
+                        <i class="fas fa-diagram-project"></i>
+                        Subtask
+                    </span>
+                <?php endif; ?>
+                <?php if (count($subtasks) > 0): ?>
+                    <span class="badge badge--outline">
+                        <i class="fas fa-diagram-project"></i>
+                        <?= count($subtasks) ?> subtask<?= count($subtasks) === 1 ? '' : 's' ?>
+                    </span>
+                <?php endif; ?>
+                <?php if (!empty($task['responsible_person_name'])): ?>
+                    <span class="badge badge--outline">
+                        <i class="fas fa-user"></i>
+                        <?= e($task['responsible_person_name']) ?>
+                    </span>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="page-actions">
             <?php if ($task['status'] !== 'completed' && empty($subtasks)): ?>
