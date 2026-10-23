@@ -576,8 +576,14 @@ function asset_url($path) {
     static $mtimes = [];
 
     // Only local, root-relative asset paths are versioned. Absolute URLs
-    // (the Font Awesome CDN) and the client portal's relative paths
-    // (assets/client.css) are passed through untouched.
+    // (the Font Awesome CDN) and non-root-relative paths are passed
+    // through untouched.
+    //
+    // Issue-050: the client portal's stylesheet reference moved from the
+    // client-relative "assets/client.css" to the root-absolute
+    // "/client/assets/client.css" (issue-035 §"every asset reference
+    // becomes root-absolute"), so it is now versioned like every other
+    // local asset.
     if (!is_string($path) || $path === '' || $path[0] !== '/') {
         return $path;
     }

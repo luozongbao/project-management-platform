@@ -311,8 +311,16 @@ if (strpos($js_src, 'ul.task-tree:not(.root)') === false) {
 }
 
 // The Tasks & Progress count and the root task-tree are still rendered.
-if (!preg_match('/\(3 total\)/', $with_subs_html)) {
-    $failures[] = "with-subs dashboard should still print '(3 total)' next to the heading (1 top-level + 2 subs = 3 flat tasks)";
+// Issue-050: the count moved from the v1 inline "(3 total)" text into a
+// v2 .badge--neutral chip inside .card__actions. The assertion follows the
+// markup change but keeps its intent: the flat task count (1 top-level +
+// 2 subs = 3) must still be printed next to the heading.
+if (strpos($with_subs_html, 'badge--neutral') === false) {
+    $failures[] = "with-subs dashboard should render the task count as a .badge--neutral chip in .card__actions";
+}
+if (!preg_match('/badge--neutral[^>]*>\s*3\s*total/', $with_subs_html)
+    && !preg_match('/>\s*3\s*total\s*</', $with_subs_html)) {
+    $failures[] = "with-subs dashboard should still print the flat task count '3 total' next to the heading (1 top-level + 2 subs = 3 flat tasks)";
 }
 if (strpos($with_subs_html, '<ul class="task-tree root">') === false) {
     $failures[] = 'with-subs dashboard should still render the root <ul class="task-tree root">';

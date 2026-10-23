@@ -148,7 +148,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
-    <link rel="stylesheet" href="/client/assets/client.css">
+    <?php /* Issue-050: layer 2.5 — the shared v2 component layer. The client
+            portal is not served through includes/header.php, so it has to
+            opt in explicitly. Same order as the internal app: tokens ->
+            legacy base -> v2 components -> page CSS, so the client page
+            CSS gets the final say at equal specificity. */ ?>
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/client/assets/client.css')) ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="client-body">

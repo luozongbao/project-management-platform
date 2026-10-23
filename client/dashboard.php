@@ -104,20 +104,28 @@ if (isShareCodeRateLimited($clientIp)) {
         <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
         <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
         <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
-        <link rel="stylesheet" href="assets/client.css">
+        <?php /* Issue-050: layer 2.5 — the shared v2 component layer. The client
+                portal is not served through includes/header.php, so it has to
+                opt in explicitly. Same order as the internal app: tokens ->
+                legacy base -> v2 components -> page CSS, so the client page
+                CSS gets the final say at equal specificity. */ ?>
+        <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
+        <link rel="stylesheet" href="<?= e(asset_url('/client/assets/client.css')) ?>">
     </head>
     <body class="client-body">
-    <main class="client-shell">
-        <div class="client-card">
-            <div class="client-brand">
-                <i class="fas fa-project-diagram"></i>
-                <h1><?= e(APP_NAME) ?></h1>
+    <main class="client-content" style="max-width: 560px; padding-top: var(--sp-10);">
+        <div class="card">
+            <div class="card__body">
+                <div class="client-brand">
+                    <i class="fas fa-project-diagram"></i>
+                    <h1><?= e(APP_NAME) ?></h1>
+                </div>
+                <div class="alert alert--danger">
+                    <h2><i class="fas fa-ban"></i> Too many requests</h2>
+                    <p>Please try again later.</p>
+                </div>
+                <p><a href="index.php" class="btn btn--secondary"><i class="fas fa-arrow-left"></i> <?= e(t('landing.try_again')) ?></a></p>
             </div>
-            <div class="alert alert-danger">
-                <h2><i class="fas fa-ban"></i> Too many requests</h2>
-                <p>Please try again later.</p>
-            </div>
-            <p><a href="index.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> <?= e(t('landing.try_again')) ?></a></p>
         </div>
     </main>
     </body>
@@ -172,18 +180,26 @@ if ($error) {
         <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
         <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
         <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
-        <link rel="stylesheet" href="assets/client.css">
+        <?php /* Issue-050: layer 2.5 — the shared v2 component layer. The client
+                portal is not served through includes/header.php, so it has to
+                opt in explicitly. Same order as the internal app: tokens ->
+                legacy base -> v2 components -> page CSS, so the client page
+                CSS gets the final say at equal specificity. */ ?>
+        <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
+        <link rel="stylesheet" href="<?= e(asset_url('/client/assets/client.css')) ?>">
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     </head>
     <body class="client-body">
-    <main class="client-shell">
-        <div class="client-card">
-            <div class="client-brand">
-                <i class="fas fa-project-diagram"></i>
-                <h1><?= e(APP_NAME) ?></h1>
+    <main class="client-content" style="max-width: 560px; padding-top: var(--sp-10);">
+        <div class="card">
+            <div class="card__body">
+                <div class="client-brand">
+                    <i class="fas fa-project-diagram"></i>
+                    <h1><?= e(APP_NAME) ?></h1>
+                </div>
+                <div class="alert alert--danger"><?= e($error) ?></div>
+                <p><a href="index.php" class="btn btn--secondary"><i class="fas fa-arrow-left"></i> <?= e(t('landing.try_again')) ?></a></p>
             </div>
-            <div class="alert alert-danger"><?= e($error) ?></div>
-            <p><a href="index.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> <?= e(t('landing.try_again')) ?></a></p>
         </div>
     </main>
     </body>
@@ -253,20 +269,50 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         // Issue-011: resolve the parent's Total Task Time via the shared helper
         // so the client portal agrees with the internal console (issue-011).
         $resolved_total = resolveTaskEstimateHours($task, $child_rows);
-        echo '<li class="task-item status-' . e($task['status']) . '" data-level="' . (int)$level . '">';
-        echo '<div class="task-line">';
-        if ($level > 0) {
-            echo '<span class="tree-indent">└─</span>';
+
+        // Issue-050: v2 mockup vocabulary (docs/design/2.0/client-dashboard.html).
+        // The task node carries three modifier classes:
+        //   task-node--completed  dimmed row
+        //   task-node--on-hold    amber left border
+        //   task-node--delayed    red left border
+        // and the head row uses .task-node__head / .task-node__name /
+        // .task-node__name--done, the meta row .task-node__meta, the progress
+        // row .task-node__progress + .progress + .progress__fill and the
+        // reasons block .task-node__reasons.
+        $status = (string)($task['status'] ?? '');
+        $is_on_hold = ($status === 'on_hold');
+        $is_delayed = ($status !== 'completed')
+            && !empty($task['expected_completion_date'])
+            && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+        $is_completed = ($status === 'completed');
+
+        $node_classes = 'task-node';
+        if ($is_completed) { $node_classes .= ' task-node--completed'; }
+        if ($is_on_hold)   { $node_classes .= ' task-node--on-hold'; }
+        if ($is_delayed)   { $node_classes .= ' task-node--delayed'; }
+
+        // The progress fill colour follows the status, per the mockup:
+        // completed -> success, on hold -> warning, otherwise the brand blue.
+        $progress_mod = '';
+        if ($is_completed) { $progress_mod = ' progress--success'; }
+        elseif ($is_on_hold) { $progress_mod = ' progress--warning'; }
+        elseif ($is_delayed) { $progress_mod = ' progress--danger'; }
+
+        echo '<li class="' . e($node_classes) . '" data-level="' . (int)$level . '">';
+        echo '<div class="task-node__head">';
+        echo '<span class="task-node__name' . ($is_completed ? ' task-node__name--done' : '') . '">' . e($task['name']) . '</span>';
+        echo '<span class="status status--' . e($status) . '">' . e(t_status($status)) . '</span>';
+        // Issue-050: the mockup shows the derived "Delayed" state as its own
+        // status chip next to the task's own status (issue-034's delayed
+        // condition: past due AND not completed).
+        if ($is_delayed) {
+            echo '<span class="status status--delayed"><i class="fas fa-clock-rotate-left"></i> ' . e(t('dash.delayed')) . '</span>';
         }
-        echo '<div class="task-body">';
-        echo '<div class="task-head">';
-        echo '<span class="task-name">' . e($task['name']) . '</span>';
-        echo '<span class="status-badge status-' . e($task['status']) . '">' . e(t_status($task['status'])) . '</span>';
         echo '</div>';
         if (!empty($task['description'])) {
-            echo '<p class="task-desc">' . e($task['description']) . '</p>';
+            echo '<p class="task-desc text-sm text-muted">' . e($task['description']) . '</p>';
         }
-        echo '<div class="task-meta">';
+        echo '<div class="task-node__meta">';
         if (!empty($task['responsible_name'])) {
             echo '<span><i class="fas fa-user"></i> ' . e($task['responsible_name']) . '</span>';
         }
@@ -287,8 +333,9 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
             echo '<span class="not-estimated"><i class="fas fa-clock"></i> ' . e(t('dash.not_estimated_parent')) . '</span>';
         }
         echo '</div>';
-        echo '<div class="task-progress"><div class="progress-bar"><div class="progress-fill" style="width:' . e(number_format((float)$task['completion_percentage'], 1)) . '%"></div></div>';
-        echo '<span class="progress-text">' . e(number_format((float)$task['completion_percentage'], 1)) . '%</span></div>';
+        echo '<div class="task-node__progress">';
+        echo '<div class="progress' . $progress_mod . '"><div class="progress__fill" style="width:' . e(number_format((float)$task['completion_percentage'], 1)) . '%"></div></div>';
+        echo '<span class="task-node__pct">' . e(number_format((float)$task['completion_percentage'], 1)) . '%</span>';
         echo '</div>';
         // Issue-034 v1.8.0: per-task status reason chips. Delayed chips
         // render whenever expected_completion_date < today AND status
@@ -299,26 +346,31 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         // chip when the reason column has text). The previous text is
         // escaped; trim() is applied so the chip never prints whitespace
         // from a half-saved form.
-        $is_on_hold = ($task['status'] ?? '') === 'on_hold';
-        $is_delayed = ($task['status'] ?? '') !== 'completed'
-            && !empty($task['expected_completion_date'])
-            && strtotime((string)$task['expected_completion_date']) < strtotime(date('Y-m-d'));
+        // Issue-050: retagged from .task-reason to the mockup's
+        // .reason-chip / .reason-chip--delay / .reason-chip--on-hold.
         $on_hold_reason = isset($task['on_hold_reason']) ? trim((string)$task['on_hold_reason']) : '';
         $delay_reason   = isset($task['delay_reason'])   ? trim((string)$task['delay_reason'])   : '';
         if ($is_on_hold && $on_hold_reason !== '') {
-            echo '<div class="task-reason on-hold">'
-                . '<span class="task-reason-label">' . e(t('dash.on_hold')) . ':</span>'
-                . e($on_hold_reason)
+            echo '<div class="task-node__reasons">';
+            echo '<div class="reason-chip reason-chip--on-hold">'
+                . '<i class="fas fa-pause"></i>'
+                . '<span><strong>' . e(t('dash.on_hold')) . ':</strong> ' . e($on_hold_reason) . '</span>'
                 . '</div>';
-        }
-        if ($is_delayed && $delay_reason !== '') {
-            echo '<div class="task-reason delay">'
-                . '<span class="task-reason-label">' . e(t('dash.delayed')) . ':</span>'
-                . e($delay_reason)
+            if ($is_delayed && $delay_reason !== '') {
+                echo '<div class="reason-chip reason-chip--delay">'
+                    . '<i class="fas fa-clock-rotate-left"></i>'
+                    . '<span><strong>' . e(t('dash.delayed')) . ':</strong> ' . e($delay_reason) . '</span>'
+                    . '</div>';
+            }
+            echo '</div>';
+        } elseif ($is_delayed && $delay_reason !== '') {
+            echo '<div class="task-node__reasons">';
+            echo '<div class="reason-chip reason-chip--delay">'
+                . '<i class="fas fa-clock-rotate-left"></i>'
+                . '<span><strong>' . e(t('dash.delayed')) . ':</strong> ' . e($delay_reason) . '</span>'
                 . '</div>';
+            echo '</div>';
         }
-        echo '</div>';
-        echo '</div>';
 
         // Recurse into subtasks.
         if (!empty($child_rows)) {
@@ -339,10 +391,18 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
-    <link rel="stylesheet" href="assets/client.css">
+    <?php /* Issue-050: layer 2.5 — the shared v2 component layer. The client
+            portal is not served through includes/header.php, so it has to
+            opt in explicitly. Same order as the internal app: tokens ->
+            legacy base -> v2 components -> page CSS, so the client page
+            CSS gets the final say at equal specificity. */ ?>
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/client/assets/client.css')) ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="client-body">
+
+<div class="client-shell">
 
 <header class="client-header">
     <div class="client-header__inner">
@@ -353,11 +413,10 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         <div class="client-header__project">
             <div class="client-header__project-name"><?= e($project['name']) ?></div>
             <div class="client-header__project-meta">
-                <span><?= e(t('dash.code_label')) ?>: <code><?= e($project['share_code']) ?></code></span>
+                <?= e(t('dash.code_label')) ?>: <code><?= e($project['share_code']) ?></code>
             </div>
         </div>
         <div class="client-header__tools">
-            <span class="text-muted"><?= e(t('dash.code_label')) ?>: <code><?= e($project['share_code']) ?></code></span>
             <details class="app-about" aria-label="<?= e(t('about.trigger_aria')) ?>">
                 <summary class="app-about-trigger" aria-label="<?= e(t('about.trigger_aria')) ?>" title="<?= e(t('about.trigger_aria')) ?>">?</summary>
                 <div class="app-about-panel" role="dialog" aria-label="<?= e(t('about.trigger_aria')) ?>">
@@ -377,111 +436,107 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
     </div>
 </header>
 
-<main class="client-shell">
+<main class="client-content">
 
     <!-- Project header -->
-    <section class="card client-section">
-        <div class="project-header">
-            <h1><i class="fas fa-folder-open"></i> <?= e($project['name']) ?></h1>
-            <span class="status-badge status-<?= e($project['status']) ?> big">
-                <?= e(t_status($project['status'])) ?>
-            </span>
+    <div class="client-hero">
+        <div class="client-hero__label"><?= e(t('dash.overall')) ?></div>
+        <div class="client-hero__value"><?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%</div>
+        <div class="client-hero__bar">
+            <div class="client-hero__bar-fill" style="width:<?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%"></div>
         </div>
-        <?php if (!empty($project['description'])): ?>
-            <p class="project-description"><?= nl2br(e($project['description'])) ?></p>
-        <?php endif; ?>
-
-        <div class="client-hero">
-            <div class="client-hero__label"><?= e(t('dash.overall')) ?></div>
-            <div class="client-hero__value"><?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%</div>
-            <div class="client-hero__bar">
-                <div class="client-hero__bar-fill" style="width:<?= e(number_format((float)$project['avg_completion_percentage'], 1)) ?>%"></div>
+        <div class="client-hero__stats">
+            <div>
+                <div class="client-hero__stat-label"><?= e(t('dash.tasks')) ?></div>
+                <div class="client-hero__stat-value"><?= (int)$project['total_tasks'] ?></div>
             </div>
-            <div class="client-hero__stats">
-                <div>
-                    <div class="client-hero__stat-label"><?= e(t('dash.tasks')) ?></div>
-                    <div class="client-hero__stat-value"><?= (int)$project['total_tasks'] ?></div>
-                </div>
-                <div>
-                    <div class="client-hero__stat-label"><?= e(t('dash.completed_count')) ?></div>
-                    <div class="client-hero__stat-value"><?= (int)$project['completed_tasks'] ?></div>
-                </div>
-                <div>
-                    <div class="client-hero__stat-label"><?= e(t('dash.open')) ?></div>
-                    <div class="client-hero__stat-value"><?= (int)$project['uncompleted_tasks'] ?></div>
-                </div>
+            <div>
+                <div class="client-hero__stat-label"><?= e(t('dash.completed_count')) ?></div>
+                <div class="client-hero__stat-value"><?= (int)$project['completed_tasks'] ?></div>
+            </div>
+            <div>
+                <div class="client-hero__stat-label"><?= e(t('dash.open')) ?></div>
+                <div class="client-hero__stat-value"><?= (int)$project['uncompleted_tasks'] ?></div>
             </div>
         </div>
+    </div>
 
-        <div class="client-info-grid">
-            <div class="client-info-item">
-                <div class="client-info-item__k"><?= e(t('dash.started')) ?></div>
-                <div class="client-info-item__v"><?= !empty($project['start_date']) ? e(formatDateTime($project['start_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></div>
+    <?php // Issue-034 v1.8.0 — project-level "X delayed, Y on hold" summary.
+          // Issue-050: moved OUT of the info grid into the mockup's
+          // .client-alert-strip, which sits directly under the hero. ?>
+    <?php if ($project_delayed_count > 0 || $project_on_hold_count > 0): ?>
+        <div class="client-alert-strip" style="margin-bottom: var(--sp-5);">
+            <?php if ($project_delayed_count > 0): ?>
+                <span class="badge badge--danger"><i class="fas fa-clock-rotate-left"></i> <?= (int)$project_delayed_count ?> <?= e(t('dash.delayed')) ?></span>
+            <?php endif; ?>
+            <?php if ($project_on_hold_count > 0): ?>
+                <span class="badge badge--warning"><i class="fas fa-pause"></i> <?= (int)$project_on_hold_count ?> <?= e(t('dash.on_hold')) ?></span>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Project information -->
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> <?= e(t('dash.project_info')) ?></h2>
+            <div class="card__actions">
+                <span class="status status--<?= e($project['status']) ?>"><?= e(t_status($project['status'])) ?></span>
             </div>
-            <div class="client-info-item">
-                <div class="client-info-item__k"><?= e(t('dash.expected')) ?></div>
-                <div class="client-info-item__v"><?= $project['expected_completion_date'] ? e(formatDateTime($project['expected_completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></div>
+        </div>
+        <div class="card__body">
+            <div class="project-header">
+                <h1><i class="fas fa-folder-open"></i> <?= e($project['name']) ?></h1>
             </div>
-            <div class="client-info-item">
-                <div class="client-info-item__k"><?= e(t('dash.completed')) ?></div>
-                <div class="client-info-item__v"><?= $project['completion_date'] ? e(formatDateTime($project['completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.in_progress')) . '</em>' ?></div>
-            </div>
-            <div class="client-info-item">
-                <div class="client-info-item__k"><?= e(t('dash.manager')) ?></div>
-                <div class="client-info-item__v"><?= e($project['owner_name']) ?></div>
-            </div>
-            <?php // Issue-034 v1.8.0 — project-level "X delayed, Y on hold"
-                  // summary chip row. Renders ONLY when at least one
-                  // of the two counters is non-zero so the manager
-                  // row stays uncluttered on healthy projects. ?>
-            <?php if ($project_delayed_count > 0 || $project_on_hold_count > 0): ?>
+            <?php if (!empty($project['description'])): ?>
+                <p class="project-description"><?= nl2br(e($project['description'])) ?></p>
+            <?php endif; ?>
+
+            <div class="client-info-grid">
                 <div class="client-info-item">
-                    <div class="client-info-item__k"><i class="fas fa-flag" aria-hidden="true"></i> <?= e(t('dash.project_info')) ?></div>
-                    <div class="client-info-item__v client-alert-strip">
-                        <?php if ($project_delayed_count > 0): ?>
-                            <span class="reason-pill delay">
-                                <?= (int)$project_delayed_count ?> <?= e(t('dash.delayed')) ?>
-                            </span>
-                        <?php endif; ?>
-                        <?php if ($project_on_hold_count > 0): ?>
-                            <span class="reason-pill on-hold">
-                                <?= (int)$project_on_hold_count ?> <?= e(t('dash.on_hold')) ?>
-                            </span>
+                    <div class="client-info-item__k"><?= e(t('dash.started')) ?></div>
+                    <div class="client-info-item__v"><?= !empty($project['start_date']) ? e(formatDateTime($project['start_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></div>
+                </div>
+                <div class="client-info-item">
+                    <div class="client-info-item__k"><?= e(t('dash.expected')) ?></div>
+                    <div class="client-info-item__v"><?= $project['expected_completion_date'] ? e(formatDateTime($project['expected_completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.not_set')) . '</em>' ?></div>
+                </div>
+                <div class="client-info-item">
+                    <div class="client-info-item__k"><?= e(t('dash.completed')) ?></div>
+                    <div class="client-info-item__v"><?= $project['completion_date'] ? e(formatDateTime($project['completion_date'], 'M j, Y')) : '<em class="text-muted">' . e(t('dash.in_progress')) . '</em>' ?></div>
+                </div>
+                <div class="client-info-item">
+                    <div class="client-info-item__k"><?= e(t('dash.manager')) ?></div>
+                    <div class="client-info-item__v"><?= e($project['owner_name']) ?></div>
+                </div>
+                <div class="client-info-item">
+                    <div class="client-info-item__k"><i class="fas fa-coins"></i> <?= e(t('dash.budget')) ?></div>
+                    <div class="client-info-item__v">
+                        <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
+                            <span class="budget-amount"><?= e(formatMoney($project['budget_amount'], $project['currency'])) ?></span>
+                        <?php else: ?>
+                            <em class="text-muted"><?= e(t('dash.budget_none')) ?></em>
                         <?php endif; ?>
                     </div>
                 </div>
-            <?php endif; ?>
-            <div class="client-info-item">
-                <div class="client-info-item__k"><i class="fas fa-coins"></i> <?= e(t('dash.budget')) ?></div>
-                <div class="client-info-item__v">
-                    <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
-                        <span class="budget-amount"><?= e(formatMoney($project['budget_amount'], $project['currency'])) ?></span>
-                    <?php else: ?>
-                        <em class="text-muted"><?= e(t('dash.budget_none')) ?></em>
-                    <?php endif; ?>
+                <div class="client-info-item">
+                    <div class="client-info-item__k"><i class="fas fa-chart-bar"></i> <?= e(t('dash.counts')) ?></div>
+                    <div class="client-info-item__v"><?= (int)$project['contact_count'] ?> <?= e(t('dash.contacts')) ?></div>
                 </div>
             </div>
-            <div class="client-info-item">
-                <div class="client-info-item__k"><i class="fas fa-chart-bar"></i> <?= e(t('dash.counts')) ?></div>
-                <div class="client-info-item__v"><?= (int)$project['contact_count'] ?> <?= e(t('dash.contacts')) ?></div>
-            </div>
-        </div>
-    </section>
 
-    <!-- Scope -->
-    <section class="card client-section">
-        <h2 class="section-title"><i class="fas fa-list-check"></i> <?= e(t('dash.scope')) ?></h2>
-        <?php if (!empty($project['scope'])): ?>
-            <ul class="scope-list">
-                <?php foreach (preg_split('/\r\n|\r|\n/', (string)$project['scope']) as $line):
-                    $line = trim($line); if ($line === '') continue; ?>
-                    <li><?= e($line) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        <?php else: ?>
-            <p class="text-muted"><em><?= e(t('dash.scope_none')) ?></em></p>
-        <?php endif; ?>
-    </section>
+            <?php if (!empty($project['scope'])): ?>
+                <div style="margin-top: var(--sp-5);">
+                    <div class="client-info-item__k" style="margin-bottom: .35rem;"><?= e(t('dash.scope')) ?></div>
+                    <ul class="scope-list">
+                        <?php foreach (preg_split('/\r\n|\r|\n/', (string)$project['scope']) as $line):
+                            $line = trim($line); if ($line === '') continue; ?>
+                            <li><?= e($line) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
     <!-- Tasks -->
     <?php
@@ -493,40 +548,49 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
         }
         unset($_t);
     ?>
-    <section class="card client-section" id="tasks-progress" data-subtasks="hidden">
-        <h2 class="section-title">
-            <i class="fas fa-tasks"></i> <?= e(t('dash.tasks_heading')) ?>
-            <small class="text-muted">(<?= (int)count($flat_tasks) ?> <?= e(t('dash.total_suffix')) ?>)</small>
-            <?php if ($has_subtasks): ?>
-                <button type="button" id="subtasks-toggle"
-                        class="btn btn-secondary btn-sm subtasks-toggle"
-                        data-state="hidden"
-                        data-share-code="<?= e($project['share_code']) ?>"
-                        data-label-show-all="<?= e(t('dash.subtasks_show_all')) ?>"
-                        data-label-show-top="<?= e(t('dash.subtasks_show_top')) ?>"
-                        aria-controls="tasks-progress"
-                        aria-pressed="false"
-                        aria-label="<?= e(t('dash.subtasks_toggle_aria')) ?>">
-                    <i class="fas fa-eye" aria-hidden="true"></i>
-                    <span class="subtasks-toggle-label"><?= e(t('dash.subtasks_show_all')) ?></span>
-                </button>
+    <div class="card" id="tasks-progress" data-subtasks="hidden">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-tasks"></i> <?= e(t('dash.tasks_heading')) ?></h2>
+            <div class="card__actions">
+                <span class="badge badge--neutral"><?= (int)count($flat_tasks) ?> <?= e(t('dash.total_suffix')) ?></span>
+                <?php if ($has_subtasks): ?>
+                    <button type="button" id="subtasks-toggle"
+                            class="btn btn--secondary btn--sm subtasks-toggle"
+                            data-state="hidden"
+                            data-share-code="<?= e($project['share_code']) ?>"
+                            data-label-show-all="<?= e(t('dash.subtasks_show_all')) ?>"
+                            data-label-show-top="<?= e(t('dash.subtasks_show_top')) ?>"
+                            aria-controls="tasks-progress"
+                            aria-pressed="false"
+                            aria-label="<?= e(t('dash.subtasks_toggle_aria')) ?>">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
+                        <span class="subtasks-toggle-label"><?= e(t('dash.subtasks_show_all')) ?></span>
+                    </button>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="card__body">
+            <?php if (empty($flat_tasks)): ?>
+                <div class="empty-state">
+                    <i class="fas fa-list-check"></i>
+                    <p><?= e(t('dash.no_tasks')) ?></p>
+                </div>
+            <?php else: ?>
+                <ul class="task-tree root">
+                    <?php render_task_tree($by_parent[0] ?? [], $by_parent, 0); ?>
+                </ul>
             <?php endif; ?>
-        </h2>
-        <?php if (empty($flat_tasks)): ?>
-            <p class="text-muted"><em><?= e(t('dash.no_tasks')) ?></em></p>
-        <?php else: ?>
-            <ul class="task-tree root">
-                <?php render_task_tree($by_parent[0] ?? [], $by_parent, 0); ?>
-            </ul>
-        <?php endif; ?>
-    </section>
-
-    <p class="client-foot">
-        <?= e(t('dash.last_updated')) ?> <?= e(formatDateTime($project['completion_date'] ?? $project['expected_completion_date'] ?? $project['created_at'], 'M j, Y')) ?>.
-        <?= e(t('dash.contact_pm')) ?>
-    </p>
+        </div>
+    </div>
 
 </main>
+
+<footer class="footer">
+    <?= e(t('dash.last_updated')) ?> <?= e(formatDateTime($project['completion_date'] ?? $project['expected_completion_date'] ?? $project['created_at'], 'M j, Y')) ?>.
+    <?= e(t('dash.contact_pm')) ?>
+</footer>
+
+</div>
 
 <?php if ($has_subtasks): ?>
 <!-- Sub-tasks toggle controller — external file so the issue-020 CSP

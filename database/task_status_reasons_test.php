@@ -151,12 +151,23 @@ ok(strpos($dash_css, '.stat--delayed') !== false
     'v2-components.css is missing the .stat--delayed / .stat--on-hold colour hooks');
 
 // ---------------------------------------------------------------------
-// 5. client/dashboard.php renders a .reason-pill chip and the
+// 5. client/dashboard.php renders a .reason-chip chip and the
 //    project-level delayed + on_hold counters.
+//
+//    v2.0 issue-050: the page-local `.reason-pill` class was replaced by
+//    the shared v2 component `.reason-chip` (defined in
+//    assets/css/v2-components.css) with the `--on-hold` / `--delay`
+//    modifiers carrying the colour coding. The assertion follows the
+//    markup change but keeps its intent: the client dashboard must still
+//    render a colour-coded reason chip, and BOTH reason kinds must be
+//    distinguishable (issue-034 asked for two distinct chips).
 // ---------------------------------------------------------------------
 $cdash = read($root . '/client/dashboard.php');
-ok(strpos($cdash, 'reason-pill') !== false,
-    'client/dashboard.php is missing the .reason-pill chip rendering');
+ok(strpos($cdash, 'reason-chip') !== false,
+    'client/dashboard.php is missing the .reason-chip chip rendering');
+ok(strpos($cdash, 'reason-chip--on-hold') !== false
+    && strpos($cdash, 'reason-chip--delay') !== false,
+    'client/dashboard.php must render both reason-chip variants (--on-hold and --delay) so the two reason kinds stay colour-coded');
 ok(strpos($cdash, 'on_hold_reason') !== false
     && strpos($cdash, 'delay_reason') !== false,
     'client/dashboard.php is missing the on_hold_reason / delay_reason SELECT columns');
