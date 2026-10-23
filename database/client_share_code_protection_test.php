@@ -337,21 +337,26 @@ ok("dashboard.php does NOT call X-Forwarded-For",
     stripos($dashCode, 'HTTP_X_FORWARDED') === false && stripos($dashCode, 'X-Forwarded') === false);
 
 // ---------------------------------------------------------------------------
-// 6. Source-grep on index.php
-// ---------------------------------------------------------------------------
-section("6. Source-grep on index.php");
+// 6. Source-grep on includes/landing.php
+//
+// issue-042: the landing-page body moved out of index.php and now lives in
+// includes/landing.php; index.php is a thin shim that routes to it. Grepping
+// index.php proved nothing, so these assertions now target the real file. The
+// code being asserted — rate limit, attempt recording, 429, translation key —
+// is unchanged and still present, on both the GET and the POST entry point.
+section("6. Source-grep on includes/landing.php");
 
-$idxSrc  = file_get_contents($repo_root . '/index.php');
+$idxSrc  = file_get_contents($repo_root . '/includes/landing.php');
 $idxCode = strip_php_comments($idxSrc);
 
-ok("index.php calls isShareCodeRateLimited", strpos($idxCode, 'isShareCodeRateLimited($clientIp)') !== false);
-ok("index.php calls recordShareCodeAttempt", substr_count($idxCode, 'recordShareCodeAttempt(') >= 3);
-ok("index.php reads client IP from REMOTE_ADDR", strpos($idxCode, "\$_SERVER['REMOTE_ADDR']") !== false);
-ok("index.php sets HTTP 429 on rate-limit hit",
+ok("includes/landing.php calls isShareCodeRateLimited", strpos($idxCode, 'isShareCodeRateLimited($clientIp)') !== false);
+ok("includes/landing.php calls recordShareCodeAttempt", substr_count($idxCode, 'recordShareCodeAttempt(') >= 3);
+ok("includes/landing.php reads client IP from REMOTE_ADDR", strpos($idxCode, "\$_SERVER['REMOTE_ADDR']") !== false);
+ok("includes/landing.php sets HTTP 429 on rate-limit hit",
     substr_count($idxCode, 'http_response_code(429)') >= 1);
-ok("index.php renders 'err.too_many_requests' translation key",
+ok("includes/landing.php renders 'err.too_many_requests' translation key",
     strpos($idxCode, "t('err.too_many_requests')") !== false || strpos($idxCode, 't("err.too_many_requests")') !== false);
-ok("index.php does NOT call X-Forwarded-For",
+ok("includes/landing.php does NOT call X-Forwarded-For",
     stripos($idxCode, 'HTTP_X_FORWARDED') === false && stripos($idxCode, 'X-Forwarded') === false);
 
 // ---------------------------------------------------------------------------
@@ -408,23 +413,25 @@ ok("functions.php has defined() fallback for SHARE_CODE_IP_WINDOW",
     preg_match("/defined\(['\"]SHARE_CODE_IP_WINDOW['\"]\)/", $fnCode) === 1);
 ok("functions.php has defined() fallback for SHARE_CODE_DISTINCT_LIMIT",
     preg_match("/defined\(['\"]SHARE_CODE_DISTINCT_LIMIT['\"]\)/", $fnCode) === 1);
+// issue-042: the previous version of this test asserted config.php *defines*
+// these three constants. It never did, and it is not supposed to — the
+// defined() guards above are the whole point, so the limits stay tunable per
+// deployment without shipping a modified config.php. The guards alone are
+// weak coverage though: a guard with a nonsense default (say 0, which would
+// lock every client out, or 999999, which would disable the limit) would
+// still pass. Assert the actual fallback values.
+ok("SHARE_CODE_IP_LIMIT default is 20", preg_match(
+    "/defined\(['\"]SHARE_CODE_IP_LIMIT['\"]\)\s*\?\s*SHARE_CODE_IP_LIMIT\s*:\s*20\b/", $fnCode) === 1);
+ok("SHARE_CODE_IP_WINDOW default is 300", preg_match(
+    "/defined\(['\"]SHARE_CODE_IP_WINDOW['\"]\)\s*\?\s*SHARE_CODE_IP_WINDOW\s*:\s*300\b/", $fnCode) === 1);
+ok("SHARE_CODE_DISTINCT_LIMIT default is 5", preg_match(
+    "/defined\(['\"]SHARE_CODE_DISTINCT_LIMIT['\"]\)\s*\?\s*SHARE_CODE_DISTINCT_LIMIT\s*:\s*5\b/", $fnCode) === 1);
 
 // ---------------------------------------------------------------------------
-// 9. Source-grep on config.php (constants)
 // ---------------------------------------------------------------------------
-section("9. Source-grep on config.php (constants)");
-
-$cfgSrc  = file_get_contents($repo_root . '/config.php');
-$cfgCode = strip_php_comments($cfgSrc);
-
-ok("config.php defines SHARE_CODE_IP_LIMIT", strpos($cfgCode, "const SHARE_CODE_IP_LIMIT") !== false);
-ok("config.php defines SHARE_CODE_IP_WINDOW", strpos($cfgCode, "const SHARE_CODE_IP_WINDOW") !== false);
-ok("config.php defines SHARE_CODE_DISTINCT_LIMIT", strpos($cfgCode, "const SHARE_CODE_DISTINCT_LIMIT") !== false);
-
+// 9. Source-grep on database/schema.sql
 // ---------------------------------------------------------------------------
-// 10. Source-grep on database/schema.sql
-// ---------------------------------------------------------------------------
-section("10. Source-grep on database/schema.sql");
+section("9. Source-grep on database/schema.sql");
 
 $schemaSrc  = file_get_contents($repo_root . '/database/schema.sql');
 $schemaCode = strip_php_comments($schemaSrc);
@@ -439,9 +446,9 @@ ok("schema.sql projects table has share_code_rotated_at column",
     strpos($schemaCode, 'share_code_rotated_at') !== false);
 
 // ---------------------------------------------------------------------------
-// 11. Source-grep on migrations (idempotency)
+// 10. Source-grep on migrations (idempotency)
 // ---------------------------------------------------------------------------
-section("11. Source-grep on migrations (idempotency)");
+section("10. Source-grep on migrations (idempotency)");
 
 $mig1Src = file_get_contents($migAttemptsPath);
 $mig2Src = file_get_contents($migColumnPath);
@@ -461,9 +468,9 @@ ok("Migration 2 has a backfill UPDATE",
     preg_match('/UPDATE projects\s+SET share_code_rotated_at\s*=\s*NOW\(\)\s+WHERE share_code_rotated_at IS NULL/s', $mig2Src) === 1);
 
 // ---------------------------------------------------------------------------
-// 12. Source-grep on client/lang.php (translation key)
+// 11. Source-grep on client/lang.php (translation key)
 // ---------------------------------------------------------------------------
-section("12. Source-grep on client/lang.php (translation key)");
+section("11. Source-grep on client/lang.php (translation key)");
 
 $langSrc  = file_get_contents($repo_root . '/client/lang.php');
 
@@ -473,13 +480,13 @@ ok("client/lang.php has 'err.too_many_requests' key in ZH",
     preg_match("/'err\.too_many_requests'\s*=>\s*['\"].{0,30}请求过于频繁/", $langSrc) === 1);
 
 // ---------------------------------------------------------------------------
-// 13. Lint
+// 12. Lint
 // ---------------------------------------------------------------------------
-section("13. Lint touched files");
+section("12. Lint touched files");
 
 $lintFiles = [
     'client/dashboard.php'     => $repo_root . '/client/dashboard.php',
-    'index.php'                => $repo_root . '/index.php',
+    'includes/landing.php'     => $repo_root . '/includes/landing.php',
     'project_edit.php'         => $repo_root . '/project_edit.php',
     'client/lang.php'          => $repo_root . '/client/lang.php',
     'includes/functions.php'   => $repo_root . '/includes/functions.php',
@@ -495,9 +502,9 @@ foreach ($lintFiles as $label => $path) {
 }
 
 // ---------------------------------------------------------------------------
-// 14. Live HTTP probe: 25 sequential GETs trigger a 429
+// 13. Live HTTP probe: 25 sequential GETs trigger a 429
 // ---------------------------------------------------------------------------
-section("14. Live HTTP probe (25 sequential GETs to /client/dashboard.php)");
+section("13. Live HTTP probe (25 sequential GETs to /client/dashboard.php)");
 
 // The probe runs from inside the pmp-app container and targets the
 // pmp-web container over the Docker network. nginx (in pmp-web) sees

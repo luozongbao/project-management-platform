@@ -10,7 +10,7 @@
  *      sendClientPortalSecurityHeaders()).
  *   2. Source-grep on the wired-up call sites:
  *        - includes/header.php calls sendSecurityHeaders()
- *        - client/dashboard.php and index.php call
+ *        - client/dashboard.php and includes/landing.php call
  *          sendClientPortalSecurityHeaders()
  *   3. Source-grep on the session-cookie hardening in
  *      includes/functions.php (session_set_cookie_params with
@@ -22,14 +22,14 @@
  *      (nginx add_header does NOT inherit from server to nested
  *      location, so both must be present).
  *   5. Live HTTP through the nginx container:
- *        - /login.php returns all 5 PHP-side headers + the 3 nginx-side
+ *        - /login returns all 5 PHP-side headers + the 3 nginx-side
  *          headers (overlap on 3 is expected and documented)
  *        - /client/dashboard.php?code=... returns the tightened
  *          script-src (no 'unsafe-inline')
- *        - /index.php returns the tightened script-src
+ *        - / returns the tightened script-src
  *        - /assets/css/style.css returns the 3 nginx-side headers
  *          and does NOT carry a Content-Security-Policy (CSP is PHP-only)
- *        - POST /login.php with valid creds returns Set-Cookie with
+ *        - POST /login with valid creds returns Set-Cookie with
  *          HttpOnly and SameSite=Lax; session ID before/after differs
  *          (rotation)
  *
@@ -155,9 +155,13 @@ if ($htmlPos !== false && $callPos !== false && $callPos > $htmlPos) {
     $failures[] = 'sendSecurityHeaders() in includes/header.php is called AFTER the <!DOCTYPE> — too late';
 }
 
+// issue-042: the landing page body moved to includes/landing.php (index.php is
+// now a thin shim that routes to it), so grepping index.php for the require and
+// the call no longer proves anything — the code is still there, in its new home.
+// client/dashboard.php keeps its own require and is listed unchanged.
 foreach ([
     __DIR__ . '/../client/dashboard.php' => 'sendClientPortalSecurityHeaders()',
-    __DIR__ . '/../index.php'            => 'sendClientPortalSecurityHeaders()',
+    __DIR__ . '/../includes/landing.php'  => 'sendClientPortalSecurityHeaders()',
 ] as $file => $call) {
     $src = file_get_contents($file);
     if (strpos($src, 'security_headers.php') === false) {
@@ -248,13 +252,22 @@ foreach ([
 // ---------------------------------------------------------------------------
 // 5. Live HTTP through the nginx container.
 // ---------------------------------------------------------------------------
-function httpHead($url) {
+// issue-042: $follow controls CURLOPT_FOLLOWLOCATION.
+//
+// The canonical URLs are now extension-less (/login, /). The legacy .php paths
+// still exist but only as 301s, and a 301 carries neither the PHP-side security
+// headers nor a session cookie — so probing them tested the redirect, not the
+// page. Live probes below therefore use the canonical URLs and follow
+// redirects, so the assertions describe the response the browser actually gets.
+function httpHead($url, $follow = true) {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_NOBODY         => true,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HEADER         => true,
         CURLOPT_TIMEOUT        => 5,
+        CURLOPT_FOLLOWLOCATION => (bool) $follow,
+        CURLOPT_MAXREDIRS      => 5,
     ]);
     $resp = curl_exec($ch);
     $err  = curl_error($ch);
@@ -273,10 +286,10 @@ function httpHead($url) {
     return ['headers' => $headers];
 }
 
-// 5a. /login.php — internal app.
-$r = httpHead("$BASE/login.php");
+// 5a. /login — internal app (canonical; /login.php is a 301 since issue-040).
+$r = httpHead("$BASE/login");
 if (isset($r['error'])) {
-    $failures[] = "live HTTP GET /login.php failed: {$r['error']} (BASE=$BASE)";
+    $failures[] = "live HTTP GET /login failed: {$r['error']} (BASE=$BASE)";
 } else {
     $h = $r['headers'];
     foreach ([
@@ -287,7 +300,7 @@ if (isset($r['error'])) {
         'permissions-policy',
     ] as $required) {
         if (empty($h[$required])) {
-            $failures[] = "live /login.php is missing the $required header";
+            $failures[] = "live /login is missing the $required header";
         }
     }
     if (!empty($h['content-security-policy'])) {
@@ -295,14 +308,14 @@ if (isset($r['error'])) {
         // (the app has inline onclick= and inline <script>). Tightening to
         // nonces is a v2.0 item.
         if (strpos($h['content-security-policy'], "'unsafe-inline'") === false) {
-            $failures[] = "live /login.php Content-Security-Policy has dropped 'unsafe-inline' — internal app's inline onclick= would break";
+            $failures[] = "live /login Content-Security-Policy has dropped 'unsafe-inline' — internal app's inline onclick= would break";
         }
         if (strpos($h['content-security-policy'], "frame-ancestors 'none'") === false) {
-            $failures[] = "live /login.php Content-Security-Policy is missing frame-ancestors 'none' — clickjacking defence is gone";
+            $failures[] = "live /login Content-Security-Policy is missing frame-ancestors 'none' — clickjacking defence is gone";
         }
     }
     if (!empty($h['x-frame-options']) && stripos($h['x-frame-options'], 'DENY') === false) {
-        $failures[] = "live /login.php X-Frame-Options is not DENY (got '{$h['x-frame-options']}')";
+        $failures[] = "live /login X-Frame-Options is not DENY (got '{$h['x-frame-options']}')";
     }
 }
 
@@ -330,15 +343,15 @@ if (isset($r['error'])) {
     }
 }
 
-// 5c. /index.php — root, also client-portal-shaped.
-$r = httpHead("$BASE/index.php");
+// 5c. / — root, also client-portal-shaped (canonical; /index.php is a 301).
+$r = httpHead("$BASE/");
 if (isset($r['error'])) {
-    $failures[] = "live HTTP GET /index.php failed: {$r['error']} (BASE=$BASE)";
+    $failures[] = "live HTTP GET / failed: {$r['error']} (BASE=$BASE)";
 } else {
     $h = $r['headers'];
     if (!empty($h['content-security-policy'])) {
         if (preg_match("/script-src[^;]*'unsafe-inline'/", $h['content-security-policy'])) {
-            $failures[] = "live /index.php Content-Security-Policy still has 'unsafe-inline' in script-src";
+            $failures[] = "live / Content-Security-Policy still has 'unsafe-inline' in script-src";
         }
     }
 }
@@ -394,8 +407,11 @@ $extractSid = function (string $rawResponse): ?string {
 };
 
 try {
-    // GET /login.php to obtain an initial PHPSESSID.
-    $ch = curl_init("$BASE/login.php");
+    // GET /login to obtain an initial PHPSESSID. Canonical URL: /login.php is
+    // a 301 since issue-040, and a 301 sets no session cookie, so probing it
+    // could never pass. login.php's form has no action attribute, so it posts
+    // to the same extension-less URL it was served from.
+    $ch = curl_init("$BASE/login");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HEADER         => true,
@@ -405,13 +421,13 @@ try {
     curl_close($ch);
     $initialSid = $extractSid($getResp);
     if ($initialSid === null) {
-        $failures[] = 'live login: GET /login.php did not set a PHPSESSID cookie';
+        $failures[] = 'live login: GET /login did not set a PHPSESSID cookie';
     } else {
-        // POST /login.php with the known credentials. We send the
+        // POST /login with the known credentials. We send the
         // initial PHPSESSID back as a Cookie header so the server
         // associates the POST with the same session, which is what
         // session_regenerate_id(true) rotates.
-        $ch = curl_init("$BASE/login.php");
+        $ch = curl_init("$BASE/login");
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER         => true,
@@ -427,10 +443,10 @@ try {
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         if ($code !== 302) {
-            $failures[] = "live login: POST /login.php returned HTTP $code, expected 302";
+            $failures[] = "live login: POST /login returned HTTP $code, expected 302";
         }
-        if (stripos($postResp, "Location: dashboard.php") === false) {
-            $failures[] = 'live login: POST /login.php did not redirect to dashboard.php';
+        if (stripos($postResp, 'Location: /dashboard') === false) {
+            $failures[] = 'live login: POST /login did not redirect to /dashboard';
         }
         if (stripos($postResp, 'HttpOnly') === false) {
             $failures[] = "live login: Set-Cookie is missing HttpOnly";
@@ -443,7 +459,7 @@ try {
         // it here; the source-grep in section 3 is the coverage.
         $newSid = $extractSid($postResp);
         if ($newSid === null) {
-            $failures[] = "live login: POST /login.php did not return a new PHPSESSID";
+            $failures[] = "live login: POST /login did not return a new PHPSESSID";
         } elseif ($newSid === $initialSid) {
             $failures[] = "live login: PHPSESSID did NOT rotate (still $initialSid) — session_regenerate_id(true) is not running";
         }
