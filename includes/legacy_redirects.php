@@ -26,12 +26,15 @@
 /**
  * Legacy file → [target kind, table for slug lookup].
  *
- *   'plain'  → the target needs no slug lookup; the literal is used as-is.
- *   'slug'   → read ?id=<n>, look the slug up, build /<collection>/<slug>.
- *   'slugEdit'→ as above but the target ends in /edit.
+ *   'plain'  → the target needs no lookup; the literal is used as-is.
+ *   'id'     → read ?id=<n>, build /<collection>/<n>.
+ *   'idEdit' → as above but the target ends in /edit.
  *
- * project_delete.php is POST-only and resolves to a slug route that is also
- * POST-only, so it lives here too and is reached the same way.
+ * The kinds were named 'slug'/'slugEdit' when the canonical URL was the slug
+ * and this file had to look it up. issue-040 made the id canonical, so the
+ * names follow the behaviour. project_delete.php is POST-only and resolves to
+ * an id route that is also POST-only, so it lives here too and is reached the
+ * same way.
  */
 function pmpLegacyMap(): array
 {
@@ -39,14 +42,14 @@ function pmpLegacyMap(): array
         'dashboard.php'         => ['plain', '/dashboard'],
         'projects.php'          => ['plain', '/projects'],
         'project_edit.php'      => ['editOrNew', 'projects'],
-        'project_detail.php'    => ['slug', 'projects'],
-        'project_delete.php'    => ['slugEdit', 'projects'],
+        'project_detail.php'    => ['id', 'projects'],
+        'project_delete.php'    => ['idEdit', 'projects'],
         'tasks.php'             => ['plain', '/tasks'],
         'task_edit.php'         => ['editOrNew', 'tasks'],
-        'task_detail.php'       => ['slug', 'tasks'],
+        'task_detail.php'       => ['id', 'tasks'],
         'contacts.php'          => ['plain', '/contacts'],
         'contact_edit.php'      => ['editOrNew', 'contacts'],
-        'contact_detail.php'    => ['slug', 'contacts'],
+        'contact_detail.php'    => ['id', 'contacts'],
         'profile.php'           => ['plain', '/profile'],
         'logout.php'            => ['plain', '/logout'],
         'login.php'             => ['plain', '/login'],
@@ -63,22 +66,21 @@ function pmpCollectionPath(string $table): string
 }
 
 /**
- * Build the slug URL for a legacy `?id=` link.
+ * Build the canonical URL for a legacy `?id=` link.
  *
- * Returns null when the id is missing or no longer resolves — e.g. the
- * project was deleted after the email went out. In that case there is no
- * canonical URL to point at, so we fall back to the collection's index rather
- * than redirecting into a 404 loop.
+ * issue-040: the canonical form is the id, so this no longer looks the slug up.
+ * It used to, because the slug was the public URL; now that it is not, the
+ * lookup was a round-trip whose only output was a string we can build directly.
+ *
+ * No longer falls back to the collection index: an id taken from the old URL is
+ * a real id, and whether the row still exists is the router's answer to give.
+ * Redirecting to the index for a live id would hide a broken record, and the
+ * delete-then-old-email case now produces the same 404 a bookmarked slug does,
+ * which is consistent.
  */
-function pmpLegacySlugUrl(string $table, int $id, bool $edit = false): string
+function pmpLegacyIdUrl(string $table, int $id, bool $edit = false): string
 {
-    require_once __DIR__ . '/slug.php';
-    $slug = getSlugById($table, $id);
-    $base = '/' . pmpCollectionPath($table);
-    if ($slug === '') {
-        return $base;
-    }
-    return $base . '/' . $slug . ($edit ? '/edit' : '');
+    return '/' . pmpCollectionPath($table) . '/' . $id . ($edit ? '/edit' : '');
 }
 
 /**
@@ -133,7 +135,7 @@ function pmpRedirectLegacyUrl(string $path): void
         // the create form. Same file, two different destinations.
         $id = (int) ($_GET['id'] ?? 0);
         $url = $id > 0
-            ? pmpLegacySlugUrl($target, $id, true)
+            ? pmpLegacyIdUrl($target, $id, true)
             : '/' . pmpCollectionPath($target) . '/new';
     } else {
         $id = (int) ($_GET['id'] ?? 0);
@@ -142,7 +144,7 @@ function pmpRedirectLegacyUrl(string $path): void
             // bouncing off the 404 page.
             $url = '/' . pmpCollectionPath($target);
         } else {
-            $url = pmpLegacySlugUrl($target, $id, $kind === 'slugEdit');
+            $url = pmpLegacyIdUrl($target, $id, $kind === 'idEdit');
         }
     }
 

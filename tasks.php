@@ -56,7 +56,7 @@ $where_clause = "WHERE " . implode(" AND ", $where_conditions);
 
 // Get tasks with project and user information
 $tasks = $db->fetchAll(
-    "SELECT t.*, p.name as project_name, p.slug as project_slug, u.name as responsible_person_name,
+    "SELECT t.*, p.name as project_name, p.id as project_id, u.name as responsible_person_name,
             c.name as contact_person_name,
             (SELECT COUNT(*) FROM tasks st WHERE st.parent_task_id = t.id) as subtask_count,
             CASE 
@@ -401,7 +401,7 @@ if ($__t_on_hold > 0) {
                                           // is already conveyed by the row accent
                                           // (tk-row--subtask) and by the indent. A
                                           // bespoke icon diverged from it. ?>
-                                    <a href="/tasks/<?= e($task['slug']) ?>"><strong><?= e($task['name']) ?></strong></a>
+                                    <a href="/tasks/<?= (int)$task['id'] ?>"><strong><?= e($task['name']) ?></strong></a>
                                 </div>
                             </td>
 
@@ -410,7 +410,7 @@ if ($__t_on_hold > 0) {
                                 <?php if ($project_id): ?>
                                     &mdash;
                                 <?php else: ?>
-                                    <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
+                                    <a href="/projects/<?= (int)$task['project_id'] ?>"><?= e($task['project_name']) ?></a>
                                 <?php endif; ?>
                             </td>
 
@@ -499,10 +499,10 @@ if ($__t_on_hold > 0) {
                                             <i class="fas fa-check"></i>
                                         </button>
                                     <?php endif; ?>
-                                    <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn--sm btn--secondary btn--icon" title="Edit Task">
+                                    <a href="/tasks/<?= (int)$task['id'] ?>/edit" class="btn btn--sm btn--secondary btn--icon" title="Edit Task">
                                         <i class="fas fa-pen"></i>
                                     </a>
-                                    <a href="/tasks/<?= e($task['slug']) ?>" class="btn btn--sm btn--ghost btn--icon" title="Open">
+                                    <a href="/tasks/<?= (int)$task['id'] ?>" class="btn btn--sm btn--ghost btn--icon" title="Open">
                                         <i class="fas fa-arrow-right"></i>
                                     </a>
                                 </div>

@@ -45,7 +45,7 @@ $filters_active = ($search !== '' || $status_filter !== 'all');
 
 // Get projects with statistics
 $projects = $db->fetchAll(
-    "SELECT ps.*, p.name, p.slug, p.status, p.description, p.created_at, p.start_date, u.name as responsible_person_name
+    "SELECT ps.*, p.name, p.status, p.description, p.created_at, p.start_date, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
@@ -179,7 +179,7 @@ $__proj_completed = (int)($__proj_row['completed'] ?? 0);
                 <div class="project-card__head">
                     <div class="project-card__id">
                         <h3 class="project-card__title">
-                            <a href="/projects/<?= e($project['slug']) ?>"><?= e($project['name']) ?></a>
+                            <a href="/projects/<?= (int)$project['id'] ?>"><?= e($project['name']) ?></a>
                         </h3>
                         <div class="project-card__meta">
                             <?php if (!empty($project['expected_completion_date'])): ?>
@@ -248,11 +248,11 @@ $__proj_completed = (int)($__proj_row['completed'] ?? 0);
                      imply a one-click delete this app deliberately does not
                      offer. See the note in assets/css/pages/projects.css. -->
                 <div class="project-card__foot">
-                    <a href="/projects/<?= e($project['slug']) ?>" class="btn btn--sm btn--primary">
+                    <a href="/projects/<?= (int)$project['id'] ?>" class="btn btn--sm btn--primary">
                         <i class="fas fa-eye"></i>
                         Open
                     </a>
-                    <a href="/projects/<?= e($project['slug']) ?>/edit" class="btn btn--sm btn--secondary">
+                    <a href="/projects/<?= (int)$project['id'] ?>/edit" class="btn btn--sm btn--secondary">
                         <i class="fas fa-pen"></i>
                         Edit
                     </a>

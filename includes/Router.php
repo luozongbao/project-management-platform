@@ -9,18 +9,24 @@
  *
  * A route is [method, pattern, script, mode]:
  *   method  — GET|POST, or '*' for either.
- *   pattern — literal path, or a pattern whose <slug> / <token> segment is
- *             captured into $matches[1]/$matches[2].
+ *   pattern — literal path, or a pattern whose <id> / <slug> / <token> segment
+ *             is captured into $matches[1]/$matches[2].
  *   script  — file to run, relative to the project root.
  *   mode    — 'file'  : just include the script (it validates its own inputs).
- *             'slug'  : resolve <slug> to a record id, inject $_GET['id'],
- *                       then include. Unknown slug => 404, never a redirect.
+ *             'id'    : inject $_GET['id'] from the <id> segment, then include.
+ *             'slug'  : issue-040. Resolve <slug> to an id and 301 to the id
+ *                       URL. Nothing renders at a slug URL any more. Unknown
+ *                       slug => 404, never a redirect to the list page.
  *             'token' : pass <token> through as $_GET['token'].
  *
- * Why 'slug' injects $_GET['id'] instead of rewriting the page scripts: the
- * v1.8.0 page bodies read $_GET['id'] in a dozen places. Rewriting them all in
- * one pass would be a much larger diff than the routing change needs, and the
- * slug's real job is to be the public URL. The id stays an internal detail.
+ * issue-040 moved the public URL from slug to id, because a slug changes when a
+ * record is renamed and ids do not. The 'id' and 'slug' modes both end at the
+ * same script with the same $_GET['id'], so the six page bodies were not touched
+ * — they read $_GET['id'] in a dozen places each and that contract is unchanged.
+ *
+ * The slug routes are retained solely as a redirect surface. Deleting them would
+ * 404 every bookmark, inbox link and search result that already points at a slug
+ * URL; keeping them costs three table rows and one 301.
  *
  * Red line (C.1): the client portal is NOT in this table. /client/dashboard.php
  * keeps its existing entry point, and ?code= is never treated as a slug.
@@ -52,6 +58,12 @@ function pmpRouteTable(): array
         // --- authenticated: projects ---
         '/projects'           => ['*',     'projects.php',                          'projList','file'],
         '/projects/new'       => ['*',     'project_edit.php',                      'projNew', 'file'],
+        '/projects/<id>'      => ['*',     'project_detail.php',                    'projDet', 'id'],
+        '/projects/<id>/edit' => ['*',     'project_edit.php',                      'projEdit','id'],
+        '/projects/<id>/delete' => ['POST','project_delete.php',                  'projDel', 'id'],
+        // issue-040: the slug forms are still routed, solely so
+        // pmpRedirectLegacyUrl can 301 them to the id form. Nothing links
+        // here any more, but old bookmarks and search results must survive.
         '/projects/<slug>'    => ['*',     'project_detail.php',                    'projDet', 'slug'],
         '/projects/<slug>/edit' => ['*',   'project_edit.php',                      'projEdit','slug'],
         '/projects/<slug>/delete' => ['POST','project_delete.php',                  'projDel', 'slug'],
@@ -59,12 +71,16 @@ function pmpRouteTable(): array
         // --- authenticated: tasks ---
         '/tasks'              => ['*',     'tasks.php',                             'taskList','file'],
         '/tasks/new'          => ['*',     'task_edit.php',                          'taskNew', 'file'],
+        '/tasks/<id>'         => ['*',     'task_detail.php',                       'taskDet', 'id'],
+        '/tasks/<id>/edit'    => ['*',     'task_edit.php',                          'taskEdit','id'],
         '/tasks/<slug>'       => ['*',     'task_detail.php',                       'taskDet', 'slug'],
         '/tasks/<slug>/edit'  => ['*',     'task_edit.php',                          'taskEdit','slug'],
 
         // --- authenticated: contacts ---
         '/contacts'           => ['*',     'contacts.php',                          'contList','file'],
         '/contacts/new'       => ['*',     'contact_edit.php',                      'contNew', 'file'],
+        '/contacts/<id>'      => ['*',     'contact_detail.php',                    'contDet', 'id'],
+        '/contacts/<id>/edit' => ['*',     'contact_edit.php',                      'contEdit','id'],
         '/contacts/<slug>'    => ['*',     'contact_detail.php',                    'contDet', 'slug'],
         '/contacts/<slug>/edit' => ['*',   'contact_edit.php',                      'contEdit','slug'],
 
@@ -103,10 +119,18 @@ function pmpRouteSlugTable(): array
  */
 function pmpCompilePattern(string $pattern): string
 {
-    $parts = preg_split('/(<slug>|<token>)/', $pattern, -1, PREG_SPLIT_DELIM_CAPTURE);
+    $parts = preg_split('/(<id>|<slug>|<token>)/', $pattern, -1, PREG_SPLIT_DELIM_CAPTURE);
     $out = '#^';
     foreach ($parts as $part) {
-        if ($part === '<slug>' || $part === '<token>') {
+        if ($part === '<id>') {
+            // issue-040: digits only, and at least one. This is what makes
+            // /projects/new safe without a special case — "new" cannot match
+            // this, so the literal route above is never shadowed. [1-9] also
+            // refuses id 0, which no autoincrement row ever has.
+            $out .= '([1-9][0-9]*)';
+        } elseif ($part === '<slug>') {
+            $out .= '([a-z0-9]+(?:-[a-z0-9]+)*)';
+        } elseif ($part === '<token>') {
             $out .= '([^/]+)';
         } elseif ($part !== '') {
             $out .= preg_quote($part, '#');
@@ -131,10 +155,11 @@ function pmpMatchRoute(string $method, string $path): ?array
             continue;
         }
 
-        // /projects/new must win over /projects/<slug>. The table lists the
-        // literal first, and PHP keeps the first match, so this is already
-        // correct — but assert it, because the failure mode is a project
-        // called "new" silently becoming unreachable.
+        // issue-040: <id> is compiled to [1-9][0-9]* so /projects/new can
+        // never be shadowed by /projects/<id> — no ordering guard is needed
+        // for it any more. The guard below still stands for the slug table,
+        // where "new" is a legitimate value and the table's ordering is the
+        // only thing keeping it out of the slug routes.
         if ($mode === 'slug' && isset($m[1]) && $m[1] === '') {
             continue;
         }
@@ -156,11 +181,17 @@ function pmpMatchRoute(string $method, string $path): ?array
  * A slug is lowercase alphanumeric plus single dashes. Anything else can never
  * exist in the database, so rejecting it here turns "weird URL" into a plain
  * 404 instead of a query against the UNIQUE index.
+ *
+ * issue-040: a purely numeric segment is refused. The id routes own numbers, so
+ * /projects/0 and /projects/007 are typos against an id, not slugs — sending
+ * them to the slug branch would resolve 007 to a record whose slug happens to
+ * look like a number, which is exactly the kind of alias nobody wants. They 404.
  */
 function pmpIsWellFormedSlug(string $slug): bool
 {
     return $slug !== '' && strlen($slug) <= 80
-        && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) === 1;
+        && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) === 1
+        && preg_match('/^[0-9]+$/', $slug) !== 1;
 }
 
 /**
@@ -195,10 +226,13 @@ function pmpSendNotFound(string $detail = ''): void
  * Dispatch the current request.
  *
  * Order matters here (C.1 R20):
- *   1. Legacy 301s run FIRST, before session and permission logic, so an
+ *   1. Legacy .php 301s run FIRST, before session and permission logic, so an
  *      old bookmark is redirected even when the visitor is not logged in.
  *   2. The route table is consulted next.
- *   3. Only then is the target script included.
+ *   3. A <slug> segment is resolved to an id and 301'd to the canonical id
+ *      URL (issue-040). This happens before the script is included, so a slug
+ *      URL never renders anything itself.
+ *   4. Only then is the target script included.
  */
 function pmpDispatch(): void
 {
@@ -220,7 +254,10 @@ function pmpDispatch(): void
         return;
     }
 
-    // (3) Resolve a <slug> segment to an id the script can use.
+    // (3) A <slug> segment is no longer canonical (issue-040). Resolve it to an
+    // id and 301 to the id form rather than rendering, so the address bar
+    // settles on the canonical URL and nothing internal ever depends on a slug.
+    // This runs before session/permission logic, like the .php redirects.
     if ($route['mode'] === 'slug') {
         $slug = pmpSlugSegment($path);
         if (!pmpIsWellFormedSlug($slug)) {
@@ -229,13 +266,28 @@ function pmpDispatch(): void
         }
         $id = findIdBySlug($slug, $route['slugTable']);
         if ($id === null) {
-            // R13: a 404, not a redirect to the list page. This is what makes
-            // a renamed-then-restored record fail loudly instead of silently
-            // showing the wrong project.
+            // Still a 404, not a redirect to the list page (C.2 R13). The old
+            // URL no longer exists, so it fails loudly rather than silently
+            // landing the user on the wrong project.
             pmpSendNotFound('No record matches this address.');
             return;
         }
-        $_GET['id'] = $id;
+        $target = pmpRedirectSlugToId($route, $id, $path);
+        if ($target !== null) {
+            // R12: the query string survives the 301, so filter/sort/page
+            // params and ?code= still work on the canonical URL. pmpRequestPath()
+            // strips the query, so it has to be re-attached here — dropping it
+            // would silently reset any view state the visitor had set.
+            $qs = pmpRawQueryString();
+            header('Location: ' . $target . $qs, true, 301);
+            exit;
+        }
+        return;
+    }
+
+    // (4) The canonical form: <id> is already the id, so hand it to the script.
+    if ($route['mode'] === 'id') {
+        $_GET['id'] = (int)pmpIdSegment($path);
     }
 
     if ($route['mode'] === 'token') {
@@ -276,6 +328,24 @@ function pmpRequestPath(): string
 }
 
 /**
+ * The request's raw query string, including the leading '?', or '' if none.
+ *
+ * Raw rather than rebuilt from $_GET, for the same reason legacy_redirects
+ * keeps it raw: re-encoding would change the spelling of any parameter the app
+ * does not own, and a 301 that rewrites the URL it is forwarding is a redirect
+ * that can lose information.
+ */
+function pmpRawQueryString(): string
+{
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    $qs  = parse_url($uri, PHP_URL_QUERY);
+    if (!is_string($qs) || $qs === '') {
+        return '';
+    }
+    return '?' . $qs;
+}
+
+/**
  * Pull the <slug> value back out of the path.
  *
  * Matched position depends on the route shape: /projects/<slug> has one
@@ -293,6 +363,58 @@ function pmpSlugSegment(string $path): string
         }
     }
     return '';
+}
+
+/**
+ * Pull the <id> value back out of the path.
+ *
+ * Same reasoning as pmpSlugSegment(): every <id> route has the id as its first
+ * captured group, whether or not /edit or /delete follows.
+ */
+function pmpIdSegment(string $path): string
+{
+    foreach (pmpRouteTable() as $pattern => [$m, , , $mode]) {
+        if ($mode !== 'id') {
+            continue;
+        }
+        if (preg_match(pmpCompilePattern($pattern), $path, $mm)) {
+            return $mm[1] ?? '';
+        }
+    }
+    return '';
+}
+
+/**
+ * Build the canonical id URL for a slug URL that has been resolved.
+ *
+ * The slug is replaced in place rather than rebuilt from the route table, so
+ * the suffix (/edit, /delete) and any query string survive untouched. That
+ * matters because /projects/<slug>/edit must land on /projects/<id>/edit and
+ * not on the detail page.
+ *
+ * @return string|null absolute path, or null if the route shape is unrecognised
+ */
+function pmpRedirectSlugToId(array $route, int $id, string $path): ?string
+{
+    $slug = pmpSlugSegment($path);
+    if ($slug === '') {
+        return null;
+    }
+    // Replace only the segment that matched, and only that one occurrence in
+    // the canonical shape. str_replace on the whole path would also rewrite a
+    // query value that happens to equal the slug; preg_replace with $limit 1
+    // anchored to the path portion avoids that because $path is already
+    // stripped of the query string by pmpRequestPath().
+    $replaced = preg_replace(
+        '#/' . preg_quote($slug, '#') . '(?=/|$)#',
+        '/' . $id,
+        $path,
+        1
+    );
+    if (!is_string($replaced) || $replaced === $path) {
+        return null;
+    }
+    return $replaced;
 }
 
 /**

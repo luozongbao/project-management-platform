@@ -30,7 +30,7 @@ if (!$project) {
 
 if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
     redirect(
-        '/projects/' . getSlugById('projects', $project_id) . '/edit',
+        '/projects/' . $project_id . '/edit',
         'Your session could not be verified. Please try deleting the project again.',
         'danger'
     );
@@ -38,7 +38,7 @@ if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
 
 if (empty($project['share_code'])) {
     redirect(
-        '/projects/' . getSlugById('projects', $project_id) . '/edit',
+        '/projects/' . $project_id . '/edit',
         'This project has no Project Code, so it cannot be deleted using this confirmation.',
         'danger'
     );
@@ -47,7 +47,7 @@ if (empty($project['share_code'])) {
 if (!is_string($_POST['confirmation_code'] ?? null)
     || !hash_equals((string)$project['share_code'], trim($_POST['confirmation_code']))) {
     redirect(
-        '/projects/' . getSlugById('projects', $project_id) . '/edit',
+        '/projects/' . $project_id . '/edit',
         'The Project Code did not match. The project was not deleted.',
         'danger'
     );

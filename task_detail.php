@@ -15,9 +15,9 @@ if (!$task_id) {
 
 // Get task details with project and user information
 $task = $db->fetchOne(
-    "SELECT t.*, p.name as project_name, p.id as project_id, p.slug as project_slug, u.name as responsible_person_name,
+    "SELECT t.*, p.name as project_name, p.id as project_id, u.name as responsible_person_name,
             c.name as contact_person_name, c.email as contact_email, c.phone as contact_phone,
-            parent.name as parent_task_name, parent.slug as parent_slug
+            parent.name as parent_task_name, parent.id as parent_task_id
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
      LEFT JOIN users u ON t.responsible_person_id = u.id
@@ -77,7 +77,7 @@ $show_nav = true;
                 <span>/</span>
                 <a href="/tasks">Tasks</a>
                 <span>/</span>
-                <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
+                <a href="/projects/<?= (int)$task['project_id'] ?>"><?= e($task['project_name']) ?></a>
                 <span>/</span>
                 <span><?= e($task['name']) ?></span>
             </div>
@@ -130,7 +130,7 @@ $show_nav = true;
                     </form>
                 <?php endif; ?>
             <?php endif; ?>
-            <a href="/tasks/<?= e($task['slug']) ?>/edit" class="btn btn-primary">
+            <a href="/tasks/<?= (int)$task['id'] ?>/edit" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
                 Edit Task
             </a>
@@ -214,7 +214,7 @@ $show_nav = true;
                     <div class="card-body">
                         <div class="parent-task-link">
                             <i class="fas fa-arrow-up"></i>
-                            <a href="/tasks/<?= e($task['parent_slug']) ?>">
+                            <a href="/tasks/<?= (int)$task['id'] ?>">
                                 <?= e($task['parent_task_name']) ?>
                             </a>
                         </div>
@@ -242,7 +242,7 @@ $show_nav = true;
                                     <div class="subtask-header">
                                         <div class="subtask-title">
                                             <h4>
-                                                <a href="/tasks/<?= e($subtask['slug']) ?>">
+                                                <a href="/tasks/<?= (int)$subtask['id'] ?>">
                                                     <?= e($subtask['name']) ?>
                                                 </a>
                                             </h4>
@@ -281,7 +281,7 @@ $show_nav = true;
                                                     <i class="fas fa-check"></i>
                                                 </button>
                                             <?php endif; ?>
-                                            <a href="/tasks/<?= e($subtask['slug']) ?>/edit" class="btn btn-sm btn-outline">
+                                            <a href="/tasks/<?= (int)$subtask['id'] ?>/edit" class="btn btn-sm btn-outline">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         </div>
@@ -338,7 +338,7 @@ $show_nav = true;
                 <div class="card-body">
                     <div class="detail-item">
                         <label>Project:</label>
-                        <a href="/projects/<?= e($task['project_slug']) ?>">
+                        <a href="/projects/<?= (int)$task['project_id'] ?>">
                             <?= e($task['project_name']) ?>
                         </a>
                     </div>

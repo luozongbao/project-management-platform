@@ -103,7 +103,7 @@ $overall_completion = count($completionByProject) > 0
 
 // Recent projects
 $recent_projects = $db->fetchAll(
-    "SELECT ps.*, p.slug, u.name as responsible_person_name
+    "SELECT ps.*, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
@@ -120,7 +120,7 @@ unset($project);
 
 // Upcoming deadlines
 $upcoming_deadlines = $db->fetchAll(
-    "SELECT p.id, p.name, p.slug, p.expected_completion_date, ps.avg_completion_percentage, p.status
+    "SELECT p.id, p.name, p.expected_completion_date, ps.avg_completion_percentage, p.status
      FROM projects p
      LEFT JOIN project_stats ps ON p.id = ps.id
      WHERE p.responsible_person_id = ? 
@@ -157,7 +157,7 @@ unset($deadline);
 
 // Recent tasks
 $recent_tasks = $db->fetchAll(
-    "SELECT t.id, t.project_id, t.name, t.slug, t.status, t.completion_percentage, p.name as project_name, p.slug as project_slug,
+    "SELECT t.id, t.project_id, t.name, t.status, t.completion_percentage, p.name as project_name,
             t.expected_completion_date, u.name as responsible_person_name
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
@@ -321,7 +321,7 @@ $use_v2_shell = true;
                                   $__p_done  = (int)($project['completed_tasks'] ?? 0); ?>
                             <tr>
                                 <td>
-                                    <a href="/projects/<?= e($project['slug']) ?>"><strong><?= e($project['name']) ?></strong></a>
+                                    <a href="/projects/<?= (int)$project['id'] ?>"><strong><?= e($project['name']) ?></strong></a>
                                 </td>
                                 <td>
                                     <span class="status status--<?= $project['status'] ?>">
@@ -381,12 +381,12 @@ $use_v2_shell = true;
                         <?php foreach ($recent_tasks as $task): ?>
                             <tr>
                                 <td>
-                                    <a href="/tasks/<?= e($task['slug']) ?>"><strong><?= e($task['name']) ?></strong></a>
+                                    <a href="/tasks/<?= (int)$task['id'] ?>"><strong><?= e($task['name']) ?></strong></a>
                                 </td>
                                 <td class="text-sm text-muted">
                                     <?php // v2.0: the query now selects p.slug, so
                                           // the mockup's project link renders. ?>
-                                    <a href="/projects/<?= e($task['project_slug']) ?>"><?= e($task['project_name']) ?></a>
+                                    <a href="/projects/<?= (int)$task['project_id'] ?>"><?= e($task['project_name']) ?></a>
                                 </td>
                                 <td>
                                     <span class="status status--<?= $task['status'] ?>">
@@ -442,7 +442,7 @@ $use_v2_shell = true;
                         <?php foreach ($upcoming_deadlines as $deadline): ?>
                             <tr>
                                 <td>
-                                    <a href="/projects/<?= e($deadline['slug']) ?>"><strong><?= e($deadline['name']) ?></strong></a>
+                                    <a href="/projects/<?= (int)$deadline['id'] ?>"><strong><?= e($deadline['name']) ?></strong></a>
                                 </td>
                                 <td class="text-sm nowrap <?= $deadline['urgency'] === 'overdue' ? 'text-danger' : ($deadline['urgency'] === 'due_soon' ? 'text-warning' : 'text-muted') ?>">
                                     <?= e(formatDateTime($deadline['expected_completion_date'], 'M j, Y')) ?>

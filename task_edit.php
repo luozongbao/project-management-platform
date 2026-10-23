@@ -370,7 +370,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 syncProjectTaskCompletions($db, $task['project_id']);
 
-                redirect('/tasks/' . getSlugById('tasks', $task_id), 'Task updated successfully!', 'success');
+                redirect('/tasks/' . $task_id, 'Task updated successfully!', 'success');
             } else {
                 // Create new task
                 $final_project_id = $is_subtask ? $parent_task['project_id'] : $form_project_id;
@@ -398,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_task_id = $db->lastInsertId();
                 syncProjectTaskCompletions($db, $final_project_id);
 
-                redirect('/tasks/' . getSlugById('tasks', $new_task_id), 'Task created successfully!', 'success');
+                redirect('/tasks/' . $new_task_id, 'Task created successfully!', 'success');
             }
         } catch (Exception $e) {
             // Issue-016: log the underlying PDO message server-side but
@@ -426,12 +426,12 @@ $show_nav = true;
                 <a href="/tasks">Tasks</a>
                 <?php if ($is_editing): ?>
                     <span>/</span>
-                    <a href="/tasks/<?= e($task['slug']) ?>"><?= e($task['name']) ?></a>
+                    <a href="/tasks/<?= (int)$task['id'] ?>"><?= e($task['name']) ?></a>
                     <span>/</span>
                     <span>Edit</span>
                 <?php elseif ($is_subtask): ?>
                     <span>/</span>
-                    <a href="/tasks/<?= e($parent_task['slug']) ?>"><?= e($parent_task['name']) ?></a>
+                    <a href="/tasks/<?= (int)$parent_task['id'] ?>"><?= e($parent_task['name']) ?></a>
                     <span>/</span>
                     <span>New Subtask</span>
                 <?php else: ?>
@@ -786,7 +786,7 @@ $show_nav = true;
                         <i class="fas fa-save"></i>
                         <?= $is_editing ? 'Update Task' : 'Create Task' ?>
                     </button>
-                    <a href="<?= $is_editing ? '/tasks/' . e($task['slug']) : ($is_subtask ? '/tasks/' . e($parent_task['slug']) : '/tasks') ?>" 
+                    <a href="<?= $is_editing ? '/tasks/' . (int)$task['id'] : ($is_subtask ? '/tasks/' . (int)$parent_task['id'] : '/tasks') ?>" 
                        class="btn btn-secondary">
                         <i class="fas fa-times"></i>
                         Cancel

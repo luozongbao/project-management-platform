@@ -210,7 +210,7 @@ $use_v2_shell = true;
                     <span class="ct-avatar"><i class="fas fa-user"></i></span>
                     <div class="ct-head__text">
                         <h3 class="ct-card__title">
-                            <a href="/contacts/<?= e($contact['slug']) ?>">
+                            <a href="/contacts/<?= (int)$contact['id'] ?>">
                                 <?= e($contact['name']) ?>
                             </a>
                         </h3>
@@ -288,10 +288,10 @@ $use_v2_shell = true;
                 <?php endif; ?>
 
                 <div class="ct-foot">
-                    <a href="/contacts/<?= e($contact['slug']) ?>" class="btn btn--sm btn--primary">
+                    <a href="/contacts/<?= (int)$contact['id'] ?>" class="btn btn--sm btn--primary">
                         <i class="fas fa-eye"></i> Open
                     </a>
-                    <a href="/contacts/<?= e($contact['slug']) ?>/edit" class="btn btn--sm btn--secondary">
+                    <a href="/contacts/<?= (int)$contact['id'] ?>/edit" class="btn btn--sm btn--secondary">
                         <i class="fas fa-pen"></i> Edit
                     </a>
                     <?php if ($contact['email']): ?>

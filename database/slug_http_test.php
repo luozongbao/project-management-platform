@@ -12,7 +12,8 @@
  *   V34  isValidShareCodeFormat() source still carries the 5-5-5 regex
  *   V35  the share-code rate-limit test still runs
  *   V36  the slug migration is idempotent (run twice → identical slugs)
- *   V37  slug immutability: rename → slug unchanged, old slug still resolves
+ *   V37  slug immutability: rename → slug unchanged, and the old slug URL
+ *        still 301s to the right id (issue-040 made the id canonical)
  *   V38  every §C.2 legacy .php URL returns 301 + the correct Location
  *   V39  query strings survive the 301 (?foo=bar is carried across)
  *   V40  an unknown slug 404s — not 500, not a 302 back to the list
@@ -301,8 +302,18 @@ ok('V37 renaming a project leaves its slug unchanged',
     $after37['slug'] === $origSlug, "slug={$after37['slug']}");
 
 $res37 = http("$ORIGIN/projects/$origSlug");
-ok('V37 /projects/<old-slug> still resolves after the rename',
-    in_array($res37['status'], [200, 302], true), "status={$res37['status']}");
+// issue-040: the slug URL is no longer canonical, so it 301s to the id form
+// instead of rendering. What matters is that it still LEADS to the project —
+// which the Location header proves by carrying the id.
+$loc37 = location($res37);
+ok('V37 /projects/<old-slug> 301s to the id form after the rename',
+    $res37['status'] === 301 && $loc37 === '/projects/' . $projId,
+    "status={$res37['status']} location=$loc37");
+
+$res37b = http("$ORIGIN/projects/$origSlug/edit");
+ok('V37 /projects/<old-slug>/edit 301s to the id form, suffix preserved',
+    $res37b['status'] === 301 && location($res37b) === '/projects/' . $projId . '/edit',
+    "status={$res37b['status']} location=" . location($res37b));
 
 // ===========================================================================
 section('V38–V39  legacy 301s and query-string preservation');
@@ -335,11 +346,12 @@ foreach ($legacy as [$path, $want]) {
 }
 
 // Detail pages carry the id in the query string, so their Location depends on
-// the fixture's slug.
+// the fixture's id. issue-040: that id IS the canonical URL, so the redirect is
+// direct — no slug lookup on the way out.
 foreach ([
-    ['/project_detail.php?id=' . $projId, '/projects/' . $proj['slug']],
-    ['/task_detail.php?id=' . $taskId,   '/tasks/' . $task['slug']],
-    ['/contact_detail.php?id=' . $conId, '/contacts/' . $con['slug']],
+    ['/project_detail.php?id=' . $projId, '/projects/' . $projId],
+    ['/task_detail.php?id=' . $taskId,   '/tasks/' . $taskId],
+    ['/contact_detail.php?id=' . $conId, '/contacts/' . $conId],
 ] as [$path, $want]) {
     $r   = http($ORIGIN . $path);
     $got = location($r);
@@ -349,15 +361,18 @@ foreach ([
 }
 
 // V39 ----------------------------------------------------------------------
+// issue-040: the 301 now targets the id URL. The query string still has to
+// survive it, which is the part of R12 that is easy to break when the target
+// shape changes.
 $r   = http($ORIGIN . '/project_detail.php?id=' . $projId . '&foo=bar');
 $got = location($r);
-ok('V39 ?foo=bar survives the 301 to /projects/<slug>?foo=bar',
-    $got === '/projects/' . $proj['slug'] . '?foo=bar', "location=$got");
+ok('V39 ?foo=bar survives the 301 to /projects/<id>?foo=bar',
+    $got === '/projects/' . $projId . '?foo=bar', "location=$got");
 
 $r   = http($ORIGIN . '/task_detail.php?id=' . $taskId . '&parent_id=7');
 $got = location($r);
 ok('V39 ?parent_id=7 survives the 301',
-    $got === '/tasks/' . $task['slug'] . '?parent_id=7', "location=$got");
+    $got === '/tasks/' . $taskId . '?parent_id=7', "location=$got");
 
 $r   = http($ORIGIN . '/dashboard.php?status=active');
 $got = location($r);

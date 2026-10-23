@@ -124,9 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Redirect based on context
                 if ($project_id) {
-                    redirect('/projects/' . getSlugById('projects', $project_id), 'Contact updated successfully!', 'success');
+                    redirect('/projects/' . $project_id, 'Contact updated successfully!', 'success');
                 } else {
-                    redirect('/contacts/' . getSlugById('contacts', $contact_id), 'Contact updated successfully!', 'success');
+                    redirect('/contacts/' . $contact_id, 'Contact updated successfully!', 'success');
                 }
             } else {
                 // Create new contact
@@ -154,9 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Redirect based on context
                 if ($project_id) {
-                    redirect('/projects/' . getSlugById('projects', $project_id), 'Contact created successfully!', 'success');
+                    redirect('/projects/' . $project_id, 'Contact created successfully!', 'success');
                 } else {
-                    redirect('/contacts/' . getSlugById('contacts', $new_contact_id), 'Contact created successfully!', 'success');
+                    redirect('/contacts/' . $new_contact_id, 'Contact created successfully!', 'success');
                 }
             }
         } catch (Exception $e) {
@@ -188,7 +188,7 @@ $show_nav = true;
                     ?>
                     <a href="/projects">Projects</a>
                     <span>/</span>
-                    <a href="/projects/<?= e(getSlugById('projects', $project_id)) ?>"><?= e($project_name) ?></a>
+                    <a href="/projects/<?= (int)$project_id ?>"><?= e($project_name) ?></a>
                     <span>/</span>
                     <a href="/contacts?project_id=<?= $project_id ?>">Contacts</a>
                 <?php else: ?>
@@ -196,7 +196,7 @@ $show_nav = true;
                 <?php endif; ?>
                 <?php if ($is_editing): ?>
                     <span>/</span>
-                    <a href="/contacts/<?= e($contact['slug']) ?>"><?= e($contact['name']) ?></a>
+                    <a href="/contacts/<?= (int)$contact['id'] ?>"><?= e($contact['name']) ?></a>
                     <span>/</span>
                     <span>Edit</span>
                 <?php else: ?>
@@ -354,7 +354,7 @@ $show_nav = true;
                         <i class="fas fa-save"></i>
                         <?= $is_editing ? 'Update Contact' : 'Create Contact' ?>
                     </button>
-                    <a href="<?= $is_editing ? '/contacts/' . e($contact['slug']) : '/contacts' ?>" 
+                    <a href="<?= $is_editing ? '/contacts/' . (int)$contact['id'] : '/contacts' ?>" 
                        class="btn btn-secondary">
                         <i class="fas fa-times"></i>
                         Cancel

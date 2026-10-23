@@ -79,7 +79,7 @@ $project_contacts = $db->fetchAll(
 
 // Get recent activity (last 10 task updates)
 $recent_activity = $db->fetchAll(
-    "SELECT t.id, t.name, t.slug, t.status, t.updated_at, u.name as responsible_person_name
+    "SELECT t.id, t.name, t.status, t.updated_at, u.name as responsible_person_name
      FROM tasks t
      LEFT JOIN users u ON t.responsible_person_id = u.id
      WHERE t.project_id = ?
@@ -132,7 +132,7 @@ $show_nav = true;
         </div>
         
         <div class="project-actions">
-            <a href="/projects/<?= e($project['slug']) ?>/edit" class="btn btn-primary">
+            <a href="/projects/<?= (int)$project['id'] ?>/edit" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
                 Edit Project
             </a>
@@ -265,7 +265,7 @@ $show_nav = true;
                         <div class="task-item">
                             <div class="task-info">
                                 <h4>
-                                    <a href="/tasks/<?= e($task['slug']) ?>">
+                                    <a href="/tasks/<?= (int)$task['id'] ?>">
                                         <?= e($task['name']) ?>
                                     </a>
                                 </h4>
@@ -370,7 +370,7 @@ $show_nav = true;
                             </div>
                             <div class="contact-info">
                                 <h5>
-                                    <a href="/contacts/<?= e($contact['slug']) ?>">
+                                    <a href="/contacts/<?= (int)$contact['id'] ?>">
                                         <?= e($contact['name']) ?>
                                     </a>
                                 </h5>
@@ -431,7 +431,7 @@ $show_nav = true;
                                 <p>
                                     <strong><?= e($activity['responsible_person_name']) ?></strong>
                                     updated task
-                                    <a href="/tasks/<?= e($activity['slug']) ?>"><?= e($activity['name']) ?></a>
+                                    <a href="/tasks/<?= (int)$activity['id'] ?>"><?= e($activity['name']) ?></a>
                                     to <span class="status status-<?= $activity['status'] ?>"><?= ucfirst(str_replace('_', ' ', $activity['status'])) ?></span>
                                 </p>
                                 <time><?= formatDateTime($activity['updated_at'], 'M j, Y g:i A') ?></time>

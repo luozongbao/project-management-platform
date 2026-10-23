@@ -29,7 +29,7 @@ if (!$contact) {
 
 // Get projects associated with this contact
 $projects = $db->fetchAll(
-    "SELECT DISTINCT p.id, p.name, p.slug, p.status, p.created_at
+    "SELECT DISTINCT p.id, p.name, p.status, p.created_at
      FROM projects p
      JOIN project_contacts pc ON p.id = pc.project_id
      WHERE pc.contact_id = ? AND p.responsible_person_id = ?
@@ -39,7 +39,7 @@ $projects = $db->fetchAll(
 
 // Get tasks associated with this contact
 $tasks = $db->fetchAll(
-    "SELECT t.id, t.name, t.slug, t.status, t.completion_percentage, t.created_at, p.name as project_name, p.id as project_id, p.slug as project_slug
+    "SELECT t.id, t.name, t.status, t.completion_percentage, t.created_at, p.name as project_name, p.id as project_id
      FROM tasks t
      JOIN projects p ON t.project_id = p.id
      WHERE t.contact_person_id = ? AND p.responsible_person_id = ?
@@ -89,7 +89,7 @@ $show_nav = true;
             </h1>
         </div>
         <div class="page-actions">
-            <a href="/contacts/<?= e($contact['slug']) ?>/edit" class="btn btn-primary">
+            <a href="/contacts/<?= (int)$contact['id'] ?>/edit" class="btn btn-primary">
                 <i class="fas fa-edit"></i>
                 Edit Contact
             </a>
@@ -192,14 +192,14 @@ $show_nav = true;
                                     <div class="task-header">
                                         <div class="task-info">
                                             <h4>
-                                                <a href="/tasks/<?= e($task['slug']) ?>">
+                                                <a href="/tasks/<?= (int)$task['id'] ?>">
                                                     <?= e($task['name']) ?>
                                                 </a>
                                             </h4>
                                             <div class="task-meta">
                                                 <span class="project-name">
                                                     <i class="fas fa-folder"></i>
-                                                    <a href="/projects/<?= e($task['project_slug']) ?>">
+                                                    <a href="/projects/<?= (int)$task['project_id'] ?>">
                                                         <?= e($task['project_name']) ?>
                                                     </a>
                                                 </span>
@@ -362,7 +362,7 @@ $show_nav = true;
                                 <div class="project-item">
                                     <div class="project-info">
                                         <h4>
-                                            <a href="/projects/<?= e($project['slug']) ?>">
+                                            <a href="/projects/<?= (int)$project['id'] ?>">
                                                 <?= e($project['name']) ?>
                                             </a>
                                         </h4>

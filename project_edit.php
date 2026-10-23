@@ -57,7 +57,7 @@ if (($_POST['action'] ?? '') === 'rotate_share_code') {
                         );
                     }
                     redirect(
-                        '/projects/' . getSlugById('projects', $rotateId) . '/edit',
+                        '/projects/' . $rotateId . '/edit',
                         'Share code rotated. The previous URL is now invalid.',
                         'success'
                     );
@@ -169,15 +169,19 @@ if ($_POST && ($_POST['action'] ?? '') !== 'rotate_share_code') {
                      $expected_completion_date, $start_date, $completion_date, $status,
                      $project_id, $user_id]
                 );
-                redirect('/projects/' . getSlugById('projects', $project_id), 'Project updated successfully!', 'success');
+                redirect('/projects/' . $project_id, 'Project updated successfully!', 'success');
             } else {
                 // Create new project — auto-generate share_code (with one retry on
                 // the astronomically-unlikely collision).
                 $share_code = generateShareCode();
                 // v2.0 (issue-035 C.2): assign the slug once, at creation. The
-                // UPDATE branch above deliberately does not touch it - a slug is
-                // immutable, so renaming a project does not break the URL a
-                // client already has (C.5 / R15).
+                // UPDATE branch above deliberately does not touch it.
+                //
+                // issue-040: the slug is no longer the public URL - the id is.
+                // It is still written, because the column is NOT NULL and
+                // because legacy_redirects resolves an old slug URL to its id
+                // through it. New records keep a slug so their pre-issue-040
+                // URL shape would have worked, but nothing links to it.
                 $slug = generateUniqueSlug($name, 'projects');
                 try {
                     $db->execute(
@@ -202,10 +206,9 @@ if ($_POST && ($_POST['action'] ?? '') !== 'rotate_share_code') {
                     );
                 }
                 $new_project_id = $db->lastInsertId();
-                // Redirect to the canonical slug URL, fetching the stored slug
-                // rather than re-deriving it - re-deriving could disagree with
-                // what the INSERT actually wrote.
-                redirect('/projects/' . getSlugById('projects', $new_project_id), 'Project created successfully!', 'success');
+                // Redirect to the canonical id URL. lastInsertId() is the
+                // authoritative id, so there is nothing to look up.
+                redirect('/projects/' . $new_project_id, 'Project created successfully!', 'success');
             }
         } catch (Exception $e) {
             $errors[] = "Failed to save project. Please try again.";
@@ -246,7 +249,7 @@ $csrf_token = getCsrfToken();
             <p><?= $project ? 'Update your project details' : 'Create a new project to get started' ?></p>
         </div>
         <div class="page-actions">
-            <a href="<?= $project ? '/projects/' . e($project['slug']) : '/projects' ?>" class="btn btn-secondary">
+            <a href="<?= $project ? '/projects/' . (int)$project['id'] : '/projects' ?>" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i>
                 <?= $project ? 'Back to Project' : 'Back to Projects' ?>
             </a>
@@ -382,7 +385,7 @@ $csrf_token = getCsrfToken();
                             <?= $project ? 'Update Project' : 'Create Project' ?>
                         </button>
 
-                        <a href="<?= $project ? '/projects/' . e($project['slug']) : '/projects' ?>" class="btn btn-secondary">
+                        <a href="<?= $project ? '/projects/' . (int)$project['id'] : '/projects' ?>" class="btn btn-secondary">
                             <i class="fas fa-times"></i>
                             Cancel
                         </a>
@@ -428,7 +431,7 @@ $csrf_token = getCsrfToken();
                                 </p>
                             <?php endif; ?>
                         <?php endif; ?>
-                        <form method="POST" action="/projects/<?= e(getSlugById('projects', $project['id'])) ?>/edit" class="share-rotation-form"
+                        <form method="POST" action="/projects/<?= (int)$project['id'] ?>/edit" class="share-rotation-form"
                               onsubmit="return confirm('Rotating the share code will invalidate the previous URL. Any client who has bookmarked the old link will see a 404. Continue?');">
                             <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
                             <input type="hidden" name="action" value="rotate_share_code">
@@ -450,7 +453,7 @@ $csrf_token = getCsrfToken();
 
 <?php if ($project): ?>
 <dialog id="delete-project-dialog" class="delete-project-dialog" aria-labelledby="delete-project-title" aria-describedby="delete-project-warning">
-    <form method="POST" action="/projects/<?= e(getSlugById('projects', $project_id)) ?>/delete" class="delete-project-form">
+    <form method="POST" action="/projects/<?= (int)$project_id ?>/delete" class="delete-project-form">
         <h2 id="delete-project-title">Delete project?</h2>
         <p id="delete-project-warning">
             This permanently deletes this project and may also delete its associated tasks and contacts.
