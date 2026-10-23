@@ -170,375 +170,180 @@ $user_stats = [
 
 $title = "User Profile";
 $show_nav = true;
+$use_v2_shell = true;
 
 include 'includes/header.php';
 ?>
+<link rel="stylesheet" href="/assets/css/pages/profile.css">
 
 <div class="page-container">
 <div class="page-header">
-    <div class="page-title">
-        <h1>
-            <i class="fas fa-user-circle"></i>
-            User Profile
-        </h1>
-        <p>Manage your account information and settings</p>
+    <div class="page-header__text">
+        <h1><i class="fas fa-user-circle"></i> User Profile</h1>
+        <p class="page-header__sub">Manage your account information and settings</p>
     </div>
 </div>
 
 <?php if ($success_message): ?>
-    <div class="alert alert-success">
+    <div class="alert alert--success">
         <i class="fas fa-check-circle"></i>
-        <?= e($success_message) ?>
+        <div class="alert__body"><?= e($success_message) ?></div>
     </div>
 <?php endif; ?>
 
 <?php if (!empty($error_messages)): ?>
-    <div class="alert alert-danger">
+    <div class="alert alert--danger">
         <i class="fas fa-exclamation-circle"></i>
-        <ul style="margin: 0; padding-left: 20px;">
-            <?php foreach ($error_messages as $error): ?>
-                <li><?= e($error) ?></li>
-            <?php endforeach; ?>
-        </ul>
+        <div class="alert__body">
+            <ul class="pf-errors">
+                <?php foreach ($error_messages as $error): ?>
+                    <li><?= e($error) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
     </div>
 <?php endif; ?>
 
-<div class="profile-layout">
-    <!-- Profile Overview -->
-    <div class="profile-overview">
-        <div class="card">
-            <div class="card-header">
-                <h3>Profile Overview</h3>
-            </div>
-            <div class="card-body">
-                <div class="profile-avatar">
-                    <div class="avatar-circle">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="profile-info">
-                        <h2><?= e($user['name']) ?></h2>
-                        <p class="username">@<?= e($user['username']) ?></p>
-                        <p class="email"><?= e($user['email']) ?></p>
-                        <p class="member-since">
-                            <i class="fas fa-calendar"></i>
-                            Member since <?= formatDateTime($user['created_at'], 'F j, Y') ?>
-                        </p>
-                    </div>
-                </div>
-                
-                <div class="profile-stats">
-                    <div class="stat-item">
-                        <div class="stat-value"><?= $user_stats['projects_count'] ?></div>
-                        <div class="stat-label">Projects</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value"><?= $user_stats['tasks_count'] ?></div>
-                        <div class="stat-label">Tasks</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value"><?= $user_stats['completed_tasks'] ?></div>
-                        <div class="stat-label">Completed</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value"><?= $user_stats['contacts_count'] ?></div>
-                        <div class="stat-label">Contacts</div>
-                    </div>
-                </div>
+<!-- Profile Overview: not in the mockup, but v1.8.0 shows identity
+     information (name / @username / email / member since) on this page and
+     removing it would be a content regression, not a restyle. -->
+<div class="card">
+    <div class="card__header">
+        <h2 class="card__title-icon"><i class="fas fa-user"></i> Profile Overview</h2>
+    </div>
+    <div class="card__body">
+        <div class="pf-overview">
+            <div class="pf-avatar"><i class="fas fa-user"></i></div>
+            <div class="pf-overview__text">
+                <p class="pf-overview__name"><?= e($user['name']) ?></p>
+                <p class="pf-overview__handle">@<?= e($user['username']) ?></p>
+                <p class="pf-overview__email"><?= e($user['email']) ?></p>
+                <p class="pf-overview__since">
+                    <i class="fas fa-calendar"></i>
+                    Member since <?= formatDateTime($user['created_at'], 'F j, Y') ?>
+                </p>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Profile Settings -->
-    <div class="profile-settings">
-        <!-- Edit Profile Form -->
-        <div class="card">
-            <div class="card-header">
-                <h3>
-                    <i class="fas fa-user-edit"></i>
-                    Edit Profile
-                </h3>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="">
-                    <input type="hidden" name="action" value="update_profile">
-                    <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+<div class="stat-grid">
+    <div class="stat">
+        <div class="stat__icon"><i class="fas fa-folder-open"></i></div>
+        <div><div class="stat__value"><?= $user_stats['projects_count'] ?></div><div class="stat__label">Projects</div></div>
+    </div>
+    <div class="stat">
+        <div class="stat__icon"><i class="fas fa-list-check"></i></div>
+        <div><div class="stat__value"><?= $user_stats['tasks_count'] ?></div><div class="stat__label">Tasks</div></div>
+    </div>
+    <div class="stat stat--success">
+        <div class="stat__icon"><i class="fas fa-circle-check"></i></div>
+        <div><div class="stat__value"><?= $user_stats['completed_tasks'] ?></div><div class="stat__label">Completed</div></div>
+    </div>
+    <div class="stat stat--info">
+        <div class="stat__icon"><i class="fas fa-address-book"></i></div>
+        <div><div class="stat__value"><?= $user_stats['contacts_count'] ?></div><div class="stat__label">Contacts</div></div>
+    </div>
+</div>
 
-                    <div class="form-group">
-                        <label for="name">Full Name</label>
-                        <input type="text" id="name" name="name" 
-                               value="<?= e($_POST['name'] ?? $user['name']) ?>" 
-                               required maxlength="100">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="username">Username</label>
-                        <input type="text" id="username" name="username" 
-                               value="<?= e($_POST['username'] ?? $user['username']) ?>" 
-                               required maxlength="50"
-                               pattern="[a-zA-Z0-9_.-]+"
-                               title="Username can only contain letters, numbers, dots, hyphens, and underscores">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="email">Email Address</label>
-                        <input type="email" id="email" name="email" 
-                               value="<?= e($_POST['email'] ?? $user['email']) ?>" 
-                               required maxlength="255">
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i>
-                            Update Profile
-                        </button>
-                    </div>
-                </form>
-            </div>
+<div class="pf-body">
+    <!-- Edit Profile Form -->
+    <form class="card" method="POST" action="">
+        <input type="hidden" name="action" value="update_profile">
+        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-id-card"></i> Profile information</h2>
         </div>
-
-        <!-- Change Password Form -->
-        <div class="card">
-            <div class="card-header">
-                <h3>
-                    <i class="fas fa-key"></i>
-                    Change Password
-                </h3>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="">
-                    <input type="hidden" name="action" value="change_password">
-                    <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
-
-                    <div class="form-group">
-                        <label for="current_password">Current Password</label>
-                        <input type="password" id="current_password" name="current_password" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="new_password">New Password</label>
-                        <input type="password" id="new_password" name="new_password" 
-                               required minlength="8"
-                               title="Password must be at least 8 characters long">
-                        <small class="form-text">Password must be at least 8 characters long.</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm New Password</label>
-                        <input type="password" id="confirm_password" name="confirm_password" required>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-key"></i>
-                            Change Password
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Account Actions -->
-        <div class="card">
-            <div class="card-header">
-                <h3>
-                    <i class="fas fa-cogs"></i>
-                    Account Actions
-                </h3>
-            </div>
-            <div class="card-body">
-                <div class="action-buttons">
-                    <a href="/dashboard" class="btn btn-outline">
-                        <i class="fas fa-tachometer-alt"></i>
-                        Back to Dashboard
-                    </a>
-                    <a href="/logout" class="btn btn-secondary">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Logout
-                    </a>
+        <div class="card__body">
+            <div class="form-grid">
+                <div class="field">
+                    <label for="name">Full Name</label>
+                    <input class="input" type="text" id="name" name="name"
+                           value="<?= e($_POST['name'] ?? $user['name']) ?>"
+                           required maxlength="100">
                 </div>
+
+                <div class="field">
+                    <label for="username">Username</label>
+                    <input class="input" type="text" id="username" name="username"
+                           value="<?= e($_POST['username'] ?? $user['username']) ?>"
+                           required maxlength="50"
+                           pattern="[a-zA-Z0-9_.-]+"
+                           title="Username can only contain letters, numbers, dots, hyphens, and underscores">
+                </div>
+
+                <div class="field">
+                    <label for="email">Email Address</label>
+                    <input class="input" type="email" id="email" name="email"
+                           value="<?= e($_POST['email'] ?? $user['email']) ?>"
+                           required maxlength="255">
+                </div>
+            </div>
+        </div>
+        <div class="card__footer">
+            <button type="submit" class="btn btn--primary">
+                <i class="fas fa-floppy-disk"></i> Update Profile
+            </button>
+        </div>
+    </form>
+
+    <!-- Change Password Form -->
+    <form class="card" method="POST" action="">
+        <input type="hidden" name="action" value="change_password">
+        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-lock"></i> Change Password</h2>
+        </div>
+        <div class="card__body">
+            <div class="form-grid">
+                <div class="field">
+                    <label for="current_password">Current Password</label>
+                    <input class="input" type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+                </div>
+
+                <div class="field">
+                    <label for="new_password">New Password</label>
+                    <input class="input" type="password" id="new_password" name="new_password" autocomplete="new-password" required minlength="8"
+                           title="Password must be at least 8 characters long">
+                    <span class="hint">Password must be at least 8 characters long.</span>
+                </div>
+
+                <div class="field">
+                    <label for="confirm_password">Confirm New Password</label>
+                    <input class="input" type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required>
+                </div>
+            </div>
+        </div>
+        <div class="card__footer">
+            <button type="submit" class="btn btn--primary">
+                <i class="fas fa-key"></i> Change Password
+            </button>
+        </div>
+    </form>
+
+    <!-- Account Actions: also not in the mockup. v1.8.0 offers a logout one
+         click from the password form; the sidebar links are not a substitute
+         for a deliberate action. btn-outline has no v2 equivalent, so the
+         dashboard link uses btn--secondary and logout uses btn--danger to
+         keep the destructive action visually distinct. -->
+    <div class="card pf-actions-card">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-cogs"></i> Account Actions</h2>
+        </div>
+        <div class="card__body">
+            <div class="pf-actions">
+                <a href="/dashboard" class="btn btn--secondary">
+                    <i class="fas fa-tachometer-alt"></i> Back to Dashboard
+                </a>
+                <a href="/logout" class="btn btn--danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
             </div>
         </div>
     </div>
 </div>
 </div>
 
-<style>
-.page-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid #f1f3f4;
-}
-
-.page-title h1 {
-    margin: 0 0 8px 0;
-    color: #333;
-    font-size: 2rem;
-}
-
-.page-title p {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
-}
-
-.profile-layout {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.profile-overview .card {
-    position: sticky;
-    top: 20px;
-}
-
-.profile-avatar {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.avatar-circle {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 32px;
-    flex-shrink: 0;
-}
-
-.profile-info h2 {
-    margin: 0 0 5px 0;
-    color: #333;
-}
-
-.profile-info .username {
-    margin: 0 0 5px 0;
-    color: #666;
-    font-weight: 500;
-}
-
-.profile-info .email {
-    margin: 0 0 10px 0;
-    color: #666;
-}
-
-.profile-info .member-since {
-    margin: 0;
-    color: #999;
-    font-size: 14px;
-}
-
-.profile-stats {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-}
-
-.stat-item {
-    text-align: center;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-}
-
-.stat-value {
-    font-size: 24px;
-    font-weight: bold;
-    color: var(--primary-color);
-    margin-bottom: 5px;
-}
-
-.stat-label {
-    font-size: 14px;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.profile-settings {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.form-text {
-    display: block;
-    margin-top: 5px;
-    color: #666;
-    font-size: 12px;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .page-container {
-        padding: 15px;
-    }
-
-    .page-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 15px;
-    }
-
-    .profile-layout {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-    
-    .profile-avatar {
-        flex-direction: column;
-        text-align: center;
-        gap: 15px;
-    }
-    
-    .profile-stats {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-    }
-    
-    .stat-item {
-        padding: 10px;
-    }
-    
-    .stat-value {
-        font-size: 20px;
-    }
-    
-    .action-buttons {
-        flex-direction: column;
-    }
-    
-    .action-buttons .btn {
-        width: 100%;
-        justify-content: center;
-    }
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
