@@ -1,5 +1,79 @@
 # Release Notes
 
+## Unreleased — v2.0 (in progress, branch `v.2.0`)
+
+**Major release: the v2.0 front-end redesign.** Closes
+[issue-035](docs/issues/issue-035.md) and its follow-up alignment issues.
+**Not yet released** — `APP_VERSION` is still `v1.8.0` and the branch has not
+been merged into `dev`. The notes below describe the work landed so far;
+two Phase 1 steps remain (stripping the superseded v1 rules from `style.css`
+and the `APP_VERSION` bump).
+
+### Phase 0 — slug routing
+
+- `slug` columns added to `projects`, `tasks` and `contacts` via
+  `database/migrations/20261022_add_slugs.sql`; `slugify()` /
+  `generateUniqueSlug()` in `includes/functions.php`.
+- A front controller (`includes/Router.php`) with a route table, plus the
+  `.htaccess` and nginx rules. Legacy `.php` URLs 301-redirect to the slug
+  form ([issue-040](docs/issues/issue-040.md)).
+- Query-parameter names, form field names and the client share-code URL shape
+  are unchanged.
+
+### Phase 1 — visual redesign
+
+- **`assets/css/v2-tokens.css`** — the token layer (colour, spacing, radius,
+  typography, shadow, duration). Semantic tints use `-100` / `-500` / `-700`.
+- **`assets/css/v2-components.css`** — the shared component vocabulary
+  (`.card`, `.btn`, `.status`, `.badge`, `.modal*`, `.toast*`, `.stat-grid`,
+  `.detail-list`, `.table`, `.task-tree`, `.form-grid`, `.field`, `.alert`, …).
+- **Page conversions** — every page rebuilt on the v2 vocabulary, with its
+  styles moved to `assets/css/pages/<page>.css` and its inline `<style>` and
+  inline `<script>` blocks deleted:
+
+  | Page | Issue |
+  |---|---|
+  | `dashboard.php` | [issue-038](docs/issues/issue-038.md) |
+  | `projects.php`, `tasks.php`, `contacts.php`, `profile.php` | [issue-038](docs/issues/issue-038.md) |
+  | Detail pages — `project_detail.php`, `task_detail.php`, `contact_detail.php` | [issue-045](docs/issues/issue-045.md), [issue-046](docs/issues/issue-046.md) |
+  | New/Edit forms — `project_edit.php`, `contact_edit.php`, `task_edit.php` | [issue-047](docs/issues/issue-047.md) |
+  | Auth pages — `login.php`, `register.php`, `forgot_password.php`, `reset_password.php` | [issue-038](docs/issues/issue-038.md) |
+  | Client portal — `client/dashboard.php` | [issue-038](docs/issues/issue-038.md) |
+
+- **`assets/js/script.js`** — the shared client-side behaviour moved out of
+  per-page inline scripts: `initModals()`, `initRangeSync()`,
+  `initStatusReason()`, `initCopy()` and the toast helper `pmpToast()`.
+
+### New delete endpoints (two pre-existing 404 bugs)
+
+- **`contact_delete.php`** (new) — `POST /contacts/<id>/delete` and
+  `POST /contacts/<slug>/delete`. Requires the standard CSRF token plus the
+  contact's own name as a typed confirmation (`hash_equals`). Before this
+  change the delete link pointed at a file that did not exist and returned
+  **HTTP 404**.
+- **`task_delete.php`** (new) — `POST /tasks/<id>/delete` and
+  `POST /tasks/<slug>/delete`. Requires the CSRF token plus the task code
+  (`TSK-####`, derived from the row id at render time — the `tasks` table has
+  no code column). Previously the delete link also 404'd.
+- `tasks.parent_task_id` is `ON DELETE CASCADE`, so deleting a parent removes
+  its whole subtree. `tasks.contact_person_id` is `RESTRICT`, so
+  `contact_delete.php` clears the assignment first — the tasks themselves are
+  kept, matching the mockup.
+- Routes added to `includes/Router.php`; `task_delete` added to the
+  `.htaccess` rewrite list.
+
+### Invariants preserved
+
+- The client share-code format, length, storage width, URL shape, validator
+  regex, `pattern` attribute, auto-format JS and rate limiting are untouched.
+- The "Rotate code" action, `share_code_rotated_at`, the "Last rotated" line
+  and the 90-day nudge are preserved.
+- No `name=` / `id=` attribute renames, no form-action changes, no AJAX
+  endpoint shape changes, no query-parameter renames.
+- The client portal's CSP stays strict (no `'unsafe-inline'`).
+
+---
+
 ## v1.8.0 — 2026-10-19
 
 **Minor release: on-hold and delay reasons for tasks.** Closes [issue-034](docs/issues/issue-034.md). Adds a non-empty, ≤2000-char **on-hold reason** and **delay reason** to every task, with enforced validation on every write path. One backwards-incompatible schema migration; no public API change; no CSP change.

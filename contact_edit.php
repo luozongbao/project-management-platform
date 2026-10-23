@@ -179,387 +179,245 @@ $use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="/assets/css/pages/forms.css">
 
-<div class="page-container">
+<div class="content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/dashboard">Dashboard</a>
+        <span aria-hidden="true">/</span>
+        <?php if ($project_id): ?>
+            <?php
+            $project_name = $db->fetchOne("SELECT name FROM projects WHERE id = ?", [$project_id])['name'];
+            ?>
+            <a href="/projects">Projects</a>
+            <span aria-hidden="true">/</span>
+            <a href="/projects/<?= (int)$project_id ?>"><?= e($project_name) ?></a>
+            <span aria-hidden="true">/</span>
+            <a href="/contacts?project_id=<?= (int)$project_id ?>">Contacts</a>
+        <?php else: ?>
+            <a href="/contacts">Contacts</a>
+        <?php endif; ?>
+        <span aria-hidden="true">/</span>
+        <span><?= $is_editing ? 'Edit Contact' : 'New Contact' ?></span>
+    </nav>
+
     <div class="page-header">
-        <div class="page-title">
-            <div class="breadcrumb">
-                <a href="/dashboard">Dashboard</a>
-                <span>/</span>
-                <?php if ($project_id): ?>
-                    <?php 
-                    $project_name = $db->fetchOne("SELECT name FROM projects WHERE id = ?", [$project_id])['name'];
-                    ?>
-                    <a href="/projects">Projects</a>
-                    <span>/</span>
-                    <a href="/projects/<?= (int)$project_id ?>"><?= e($project_name) ?></a>
-                    <span>/</span>
-                    <a href="/contacts?project_id=<?= $project_id ?>">Contacts</a>
-                <?php else: ?>
-                    <a href="/contacts">Contacts</a>
-                <?php endif; ?>
-                <?php if ($is_editing): ?>
-                    <span>/</span>
-                    <a href="/contacts/<?= (int)$contact['id'] ?>"><?= e($contact['name']) ?></a>
-                    <span>/</span>
-                    <span>Edit</span>
-                <?php else: ?>
-                    <span>/</span>
-                    <span>New Contact</span>
-                <?php endif; ?>
-            </div>
+        <div class="page-header__text">
             <h1>
-                <i class="fas fa-<?= $is_editing ? 'edit' : 'plus' ?>"></i>
-                <?= $title ?>
+                <i class="fas fa-address-card"></i>
+                <?= $is_editing ? 'Edit Contact' : 'New Contact' ?>
             </h1>
+            <?php if ($is_editing): ?>
+                <p class="page-header__sub"><?= e($contact['name']) ?></p>
+            <?php endif; ?>
+        </div>
+        <div class="page-actions">
+            <a class="btn btn--secondary"
+               href="<?= $is_editing ? '/contacts/' . (int)$contact['id'] : '/contacts' ?>">
+                Cancel
+            </a>
         </div>
     </div>
 
     <?php if (!empty($errors)): ?>
-        <div class="alert alert-danger">
-            <ul>
-                <?php foreach ($errors as $error): ?>
-                    <li><?= e($error) ?></li>
-                <?php endforeach; ?>
-            </ul>
+        <div class="alert alert--danger">
+            <i class="fas fa-circle-exclamation"></i>
+            <div class="alert__body">
+                <div class="alert__title">Please fix the following before saving</div>
+                <ul style="margin:.35rem 0 0; padding-left:1.1rem;">
+                    <?php foreach ($errors as $error): ?>
+                        <li><?= e($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         </div>
     <?php endif; ?>
 
-    <div class="form-layout">
-        <form method="POST" class="contact-form">
-            <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
-            <div class="form-grid">
-                <!-- Basic Information -->
-                <div class="form-section">
-                    <h3>Basic Information</h3>
-                    
-                    <div class="form-group">
-                        <label for="name" class="required">Contact Name:</label>
-                        <input type="text" id="name" name="name" 
-                               value="<?= e($_POST['name'] ?? $contact['name'] ?? '') ?>" 
-                               required maxlength="255">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="position">Position/Title:</label>
-                        <input type="text" id="position" name="position" 
-                               value="<?= e($_POST['position'] ?? $contact['position'] ?? '') ?>" 
-                               maxlength="255" placeholder="e.g., Project Manager, CEO">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="company">Company:</label>
-                        <input type="text" id="company" name="company" 
-                               value="<?= e($_POST['company'] ?? $contact['company'] ?? '') ?>" 
-                               maxlength="255" placeholder="Company name">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="description">Description/Notes:</label>
-                        <textarea id="description" name="description" rows="4" 
-                                  placeholder="Additional notes about this contact..."><?= e($_POST['description'] ?? $contact['description'] ?? '') ?></textarea>
-                    </div>
+    <form method="POST" class="card">
+        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Contact details</h2>
+        </div>
+        <div class="card__body">
+            <div class="form-grid form-grid--3">
+                <div class="field form-section">
+                    <label for="name">Contact Name <span class="req" aria-hidden="true">*</span></label>
+                    <input class="input" type="text" id="name" name="name"
+                           value="<?= e($_POST['name'] ?? $contact['name'] ?? '') ?>"
+                           required maxlength="255">
                 </div>
 
-                <!-- Contact Information -->
-                <div class="form-section">
-                    <h3>Contact Information</h3>
-                    
-                    <div class="form-group">
-                        <label for="email">Email Address:</label>
-                        <input type="email" id="email" name="email" 
-                               value="<?= e($_POST['email'] ?? $contact['email'] ?? '') ?>" 
-                               maxlength="255" placeholder="contact@example.com">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="phone">Phone Number:</label>
-                        <input type="tel" id="phone" name="phone" 
-                               value="<?= e($_POST['phone'] ?? $contact['phone'] ?? '') ?>" 
-                               maxlength="20" placeholder="+1 (555) 123-4567">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="mobile">Mobile Number:</label>
-                        <input type="tel" id="mobile" name="mobile" 
-                               value="<?= e($_POST['mobile'] ?? $contact['mobile'] ?? '') ?>" 
-                               maxlength="20" placeholder="+1 (555) 987-6543">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="address">Address:</label>
-                        <textarea id="address" name="address" rows="3" 
-                                  placeholder="Full address including street, city, state, zip..."><?= e($_POST['address'] ?? $contact['address'] ?? '') ?></textarea>
-                    </div>
+                <div class="field">
+                    <label for="position">Position / Title</label>
+                    <input class="input" type="text" id="position" name="position"
+                           value="<?= e($_POST['position'] ?? $contact['position'] ?? '') ?>"
+                           maxlength="255" placeholder="e.g. Project Manager">
                 </div>
 
-                <!-- Social Media -->
-                <div class="form-section">
-                    <h3>Social Media & Messaging</h3>
-                    
-                    <div class="form-group">
-                        <label for="wechat">WeChat ID:</label>
-                        <input type="text" id="wechat" name="wechat" 
-                               value="<?= e($_POST['wechat'] ?? $contact['wechat'] ?? '') ?>" 
-                               maxlength="100" placeholder="WeChat username">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="line_id">LINE ID:</label>
-                        <input type="text" id="line_id" name="line_id" 
-                               value="<?= e($_POST['line_id'] ?? $contact['line_id'] ?? '') ?>" 
-                               maxlength="100" placeholder="LINE username">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="facebook">Facebook Profile:</label>
-                        <input type="url" id="facebook" name="facebook" 
-                               value="<?= e($_POST['facebook'] ?? $contact['facebook'] ?? '') ?>" 
-                               maxlength="255" placeholder="https://facebook.com/username">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="linkedin">LinkedIn Profile:</label>
-                        <input type="url" id="linkedin" name="linkedin" 
-                               value="<?= e($_POST['linkedin'] ?? $contact['linkedin'] ?? '') ?>" 
-                               maxlength="255" placeholder="https://linkedin.com/in/username">
-                    </div>
+                <div class="field">
+                    <label for="company">Company</label>
+                    <input class="input" type="text" id="company" name="company"
+                           value="<?= e($_POST['company'] ?? $contact['company'] ?? '') ?>"
+                           maxlength="255" placeholder="Company name">
                 </div>
 
-                <!-- Project Assignment -->
-                <div class="form-section">
-                    <h3>Project Assignment</h3>
-                    
-                    <div class="form-group">
-                        <label class="required">Assign to Projects:</label>
-                        <div class="project-checkboxes">
-                            <?php if (empty($user_projects)): ?>
-                                <div class="no-projects-message">
-                                    <p>No projects available. <a href="/projects/new">Create a project first</a>.</p>
-                                </div>
-                            <?php else: ?>
-                                <?php foreach ($user_projects as $project): ?>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="projects[]" value="<?= $project['id'] ?>"
-                                               <?= in_array($project['id'], $_POST['projects'] ?? $assigned_projects ?? ($project_id ? [$project_id] : [])) ? 'checked' : '' ?>>
-                                        <span class="checkbox-text"><?= e($project['name']) ?></span>
-                                    </label>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                <div class="field form-section">
+                    <label for="description">Description / Notes</label>
+                    <textarea class="textarea" id="description" name="description" rows="4"
+                              placeholder="Additional notes about this contact..."><?= e($_POST['description'] ?? $contact['description'] ?? '') ?></textarea>
+                </div>
+
+                <div class="field">
+                    <label for="email">Email Address</label>
+                    <input class="input" type="email" id="email" name="email"
+                           value="<?= e($_POST['email'] ?? $contact['email'] ?? '') ?>"
+                           maxlength="255" placeholder="contact@example.com">
+                </div>
+
+                <div class="field">
+                    <label for="phone">Phone Number</label>
+                    <input class="input" type="tel" id="phone" name="phone"
+                           value="<?= e($_POST['phone'] ?? $contact['phone'] ?? '') ?>"
+                           maxlength="20" placeholder="+1 (555) 123-4567">
+                </div>
+
+                <div class="field">
+                    <label for="mobile">Mobile Number</label>
+                    <input class="input" type="tel" id="mobile" name="mobile"
+                           value="<?= e($_POST['mobile'] ?? $contact['mobile'] ?? '') ?>"
+                           maxlength="20" placeholder="+1 (555) 987-6543">
+                </div>
+
+                <div class="field form-section">
+                    <label for="address">Address</label>
+                    <textarea class="textarea" id="address" name="address" rows="3"
+                              placeholder="Street, city, state, postal code"><?= e($_POST['address'] ?? $contact['address'] ?? '') ?></textarea>
+                </div>
+
+                <div class="field">
+                    <label for="wechat">WeChat ID</label>
+                    <input class="input" type="text" id="wechat" name="wechat"
+                           value="<?= e($_POST['wechat'] ?? $contact['wechat'] ?? '') ?>"
+                           maxlength="100" placeholder="WeChat username">
+                </div>
+
+                <div class="field">
+                    <label for="line_id">LINE ID</label>
+                    <input class="input" type="text" id="line_id" name="line_id"
+                           value="<?= e($_POST['line_id'] ?? $contact['line_id'] ?? '') ?>"
+                           maxlength="100" placeholder="LINE username">
+                </div>
+
+                <div class="field">
+                    <label for="facebook">Facebook Profile</label>
+                    <input class="input" type="url" id="facebook" name="facebook"
+                           value="<?= e($_POST['facebook'] ?? $contact['facebook'] ?? '') ?>"
+                           maxlength="255" placeholder="https://facebook.com/username">
+                </div>
+
+                <div class="field">
+                    <label for="linkedin">LinkedIn Profile</label>
+                    <input class="input" type="url" id="linkedin" name="linkedin"
+                           value="<?= e($_POST['linkedin'] ?? $contact['linkedin'] ?? '') ?>"
+                           maxlength="255" placeholder="https://linkedin.com/in/username">
+                </div>
+
+                <div class="field form-section">
+                    <label>Assign to Projects <span class="req" aria-hidden="true">*</span></label>
+                    <?php if (empty($user_projects)): ?>
+                        <div class="no-projects-message">
+                            <p>No projects available. <a href="/projects/new">Create a project first</a>.</p>
                         </div>
-                        <p class="field-help">Select one or more projects to associate with this contact</p>
-                    </div>
+                    <?php else: ?>
+                        <div class="checkbox-list checkbox-list--grid project-checkboxes">
+                            <?php foreach ($user_projects as $project): ?>
+                                <label class="checkbox">
+                                    <input type="checkbox" name="projects[]" value="<?= (int)$project['id'] ?>"
+                                        <?= in_array($project['id'], $_POST['projects'] ?? $assigned_projects ?? ($project_id ? [$project_id] : [])) ? 'checked' : '' ?>>
+                                    <span><?= e($project['name']) ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    <span class="hint">A contact must belong to at least one project.</span>
                 </div>
             </div>
+        </div>
+        <div class="card__footer">
+            <button class="btn btn--primary" type="submit">
+                <i class="fas fa-floppy-disk"></i>
+                <?= $is_editing ? 'Save Contact' : 'Create Contact' ?>
+            </button>
+            <a class="btn btn--secondary"
+               href="<?= $is_editing ? '/contacts/' . (int)$contact['id'] : '/contacts' ?>">
+                Cancel
+            </a>
+        </div>
+    </form>
 
-            <div class="form-actions">
-                <div class="form-actions-left">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i>
-                        <?= $is_editing ? 'Update Contact' : 'Create Contact' ?>
-                    </button>
-                    <a href="<?= $is_editing ? '/contacts/' . (int)$contact['id'] : '/contacts' ?>" 
-                       class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
-                        Cancel
-                    </a>
-                </div>
-                <?php if ($is_editing): ?>
-                    <div class="form-actions-right">
-                        <button type="button" class="btn btn-danger" onclick="confirmDelete()">
-                            <i class="fas fa-trash"></i>
-                            Delete Contact
-                        </button>
-                    </div>
-                <?php endif; ?>
+    <?php if ($is_editing): ?>
+        <div class="card danger-zone">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-triangle-exclamation"></i> Danger zone</h2>
             </div>
-        </form>
-    </div>
+            <div class="card__body">
+                <p class="text-sm text-muted">
+                    Deleting removes <?= e($contact['name']) ?> from the
+                    <?= count($assigned_projects) ?> project(s) they are assigned to.
+                    Tasks already assigned to them are kept. This cannot be undone.
+                </p>
+                <button class="btn btn--danger btn--block" type="button" style="margin-top:1rem;"
+                        data-modal-open="confirm-delete-contact">
+                    <i class="fas fa-trash"></i> Delete Contact
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="confirm-delete-contact" hidden>
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cdc-title">
+                <div class="modal__header">
+                    <div>
+                        <h3 id="cdc-title">Confirm contact deletion</h3>
+                        <p>Type the contact name exactly as shown to confirm.</p>
+                    </div>
+                    <button class="modal__close" type="button" data-modal-close aria-label="Close">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal__body">
+                    <div class="alert alert--danger">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <div class="alert__body">
+                            <div class="alert__title"><?= e($contact['name']) ?></div>
+                            This contact will be unassigned from <?= count($assigned_projects) ?>
+                            project(s). Tasks already assigned to them are kept.
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="delete-contact-confirmation">
+                            Contact Name <span class="req" aria-hidden="true">*</span>
+                        </label>
+                        <input class="input text-mono" type="text" id="delete-contact-confirmation"
+                               name="confirmation_name"
+                               value="<?= e($_POST['confirmation_name'] ?? '') ?>"
+                               placeholder="<?= e($contact['name']) ?>">
+                        <span class="hint">Must exactly match <strong><?= e($contact['name']) ?></strong>.</span>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
+                    <form method="POST" action="/contacts/<?= (int)$contact['id'] ?>/delete" class="inline-form">
+                        <input type="hidden" name="contact_id" value="<?= (int)$contact['id'] ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+                        <button class="btn btn--danger" type="submit">
+                            <i class="fas fa-trash"></i> Delete permanently
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 
-<style>
-/* Per-page CSS for contact_edit.php.
- *
- * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
- * provide the baseline (page-container, breadcrumb, form-layout,
- * form-grid, form-section, form-group, btn, alert, checkbox-label,
- * field-help, form-actions, and the @media (max-width: 768px) collapse).
- * Rules below are EITHER page-unique to this form OR explicit
- * per-page overrides of a global rule (the divergence is intentional;
- * comments tag them).
- */
-
-/* Per-page override of .form-grid in style.css: this form prefers wider
- * gaps (30px) and an extra bottom margin. The 2-column structure
- * itself matches the global rule. */
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 30px;
-    margin-bottom: 30px;
-}
-
-/* Per-page override of .form-grid .form-section h3 in style.css:
- * heavier border-bottom (2px vs 1px) and larger font (1.2rem vs 1rem). */
-.form-section h3 {
-    margin: 0 0 20px 0;
-    color: #333;
-    font-size: 1.2rem;
-    border-bottom: 2px solid #f1f3f4;
-    padding-bottom: 10px;
-}
-
-/* Per-page override of .form-group input/select/textarea in style.css:
- * 1px border (vs global 2px) and a tighter 0.95rem font size. */
-.form-group label.required::after {
-    content: ' *';
-    color: #dc3545;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.project-checkboxes {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background: #f8f9fa;
-}
-
-/* Per-page override of .checkbox-label in style.css: adds padding and
- * hover background. The issue-013 global rule sets display:flex +
- * align-items:center + gap:8px + cursor:pointer; this one extends
- * `gap: 10px` and adds interactive feedback. */
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-}
-
-.checkbox-label:hover {
-    background: #e9ecef;
-}
-
-.checkbox-label input[type="checkbox"] {
-    width: auto;
-    margin: 0;
-    cursor: pointer;
-}
-
-.checkbox-text {
-    font-size: 0.95rem;
-    color: #333;
-}
-
-.no-projects-message {
-    text-align: center;
-    padding: 20px;
-    color: #666;
-}
-
-.no-projects-message p {
-    margin: 0;
-}
-
-.no-projects-message a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.no-projects-message a:hover {
-    text-decoration: underline;
-}
-
-/* Per-page override of .alert / .alert-danger in style.css: this form
- * uses an all-around 1px border (vs the global 4px border-left). */
-.alert {
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.alert-danger {
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
-}
-
-@media (max-width: 768px) {
-    /* Per-page mobile overrides. The baseline mobile collapse for
-     * .form-grid now lives in style.css; only the contact-page-specific
-     * mobile tweaks remain. */
-    .page-container {
-        padding: 15px;
-    }
-
-    .form-layout {
-        padding: 20px;
-    }
-
-    .form-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-
-    .form-actions {
-        flex-direction: column;
-        gap: 15px;
-    }
-
-    .form-actions-left,
-    .form-actions-right {
-        flex-direction: column;
-        width: 100%;
-    }
-
-    .form-actions .btn {
-        text-align: center;
-    }
-
-    .project-checkboxes {
-        max-height: 150px;
-    }
-}
-</style>
-
-<?php if ($is_editing): ?>
-<script>
-function confirmDelete() {
-    if (confirm('Are you sure you want to delete this contact? This action cannot be undone.')) {
-        window.location.href = 'contact_delete.php?id=<?= $contact_id ?>';
-    }
-}
-</script>
-<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

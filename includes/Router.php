@@ -73,16 +73,28 @@ function pmpRouteTable(): array
         '/tasks/new'          => ['*',     'task_edit.php',                          'taskNew', 'file'],
         '/tasks/<id>'         => ['*',     'task_detail.php',                       'taskDet', 'id'],
         '/tasks/<id>/edit'    => ['*',     'task_edit.php',                          'taskEdit','id'],
+        // issue-047: the task edit page's Delete button used to point at a
+        // task_delete.php that never existed (404 on every task). The v2
+        // Danger-zone modal needs a real POST endpoint that checks the typed
+        // task code and the CSRF token.
+        '/tasks/<id>/delete'  => ['POST',   'task_delete.php',                       'taskDel', 'id'],
         '/tasks/<slug>'       => ['*',     'task_detail.php',                       'taskDet', 'slug'],
         '/tasks/<slug>/edit'  => ['*',     'task_edit.php',                          'taskEdit','slug'],
+        '/tasks/<slug>/delete' => ['POST', 'task_delete.php',                       'taskDel', 'slug'],
 
         // --- authenticated: contacts ---
         '/contacts'           => ['*',     'contacts.php',                          'contList','file'],
         '/contacts/new'       => ['*',     'contact_edit.php',                      'contNew', 'file'],
         '/contacts/<id>'      => ['*',     'contact_detail.php',                    'contDet', 'id'],
         '/contacts/<id>/edit' => ['*',     'contact_edit.php',                      'contEdit','id'],
+        // issue-047: the contact edit page's Delete button used to point at
+        // a contact_delete.php that never existed (404 on every contact).
+        // The v2 Danger-zone modal needs a real POST endpoint that checks
+        // the typed name and CSRF token.
+        '/contacts/<id>/delete' => ['POST','contact_delete.php',                  'contDel', 'id'],
         '/contacts/<slug>'    => ['*',     'contact_detail.php',                    'contDet', 'slug'],
         '/contacts/<slug>/edit' => ['*',   'contact_edit.php',                      'contEdit','slug'],
+        '/contacts/<slug>/delete' => ['POST','contact_delete.php',                'contDel', 'slug'],
 
         // --- authenticated: self ---
         '/profile'            => ['*',     'profile.php',                           'profile', 'file'],
@@ -98,8 +110,8 @@ function pmpRouteSlugTable(): array
 {
     return [
         'projDet' => 'projects', 'projEdit' => 'projects', 'projDel' => 'projects',
-        'taskDet' => 'tasks',    'taskEdit' => 'tasks',
-        'contDet' => 'contacts', 'contEdit' => 'contacts',
+        'taskDet' => 'tasks',    'taskEdit' => 'tasks',    'taskDel' => 'tasks',
+        'contDet' => 'contacts', 'contEdit' => 'contacts', 'contDel' => 'contacts',
     ];
 }
 

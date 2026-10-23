@@ -11,27 +11,8 @@
  * gone; the v2 components carry the styling now.
  */
 
-/* Mockup uses .share-box; not defined in v2-components.css because nothing
-   else needs it. The code is 17 chars of mono, so it must not wrap. */
-.share-box {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-3);
-    padding: var(--sp-3) var(--sp-4);
-    background: var(--gray-50);
-    border: 1px solid var(--gray-200);
-    border-radius: var(--r-md);
-}
-
-.share-box code {
-    font-family: var(--font-mono, monospace);
-    font-size: var(--fs-base);
-    font-weight: var(--fw-semibold);
-    letter-spacing: .06em;
-    color: var(--gray-800);
-    white-space: nowrap;
-}
+/* .share-box moved to assets/css/v2-components.css: the project edit
+   page (Client share card) uses it as well. */
 
 /* Client-view link sits under the share box. Breaks anywhere rather than
    overflowing, since the URL is long and the sidebar is not wide. */

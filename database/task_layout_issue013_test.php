@@ -132,10 +132,18 @@ if (!$hasTopInit) {
 }
 
 // ---------------------------------------------------------------------
-// 3. task_edit.php marks the Dates section with the full-row class.
+// 3. task_edit.php renders the two date fields.
 // ---------------------------------------------------------------------
-if (!preg_match('/<div\s+class="form-section\s+full-row">\s*<h3>Dates<\/h3>/', $edit)) {
-    $failures[] = 'task_edit.php is missing <div class="form-section full-row"> wrapping the Dates <h3>';
+// issue-047: the v2 conversion replaced the v1 <div class="form-section
+// full-row"> + <h3>Dates</h3> block with flat .field rows, matching the
+// v2 mockup (which has no per-section <h3> headings in the task form).
+// The intent of the original assertion — both date fields are on the
+// form — is preserved.
+if (!preg_match('/id="expected_completion_date"/', $edit)) {
+    $failures[] = 'task_edit.php is missing the expected_completion_date field';
+}
+if (!preg_match('/id="completion_date"/', $edit)) {
+    $failures[] = 'task_edit.php is missing the completion_date field';
 }
 
 // ---------------------------------------------------------------------

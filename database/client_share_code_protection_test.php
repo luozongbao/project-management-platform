@@ -381,8 +381,13 @@ ok("project_edit.php UPDATEs share_code + share_code_rotated_at on rotation",
     preg_match('/SET\s+share_code\s*=\s*\?,[^\n]*share_code_rotated_at\s*=\s*NOW/s', $editCode) === 1);
 ok("project_edit.php scope-checks rotation to responsible_person_id",
     strpos($editCode, 'responsible_person_id = ?') !== false);
+// issue-047: the v2 conversion replaced the v1 `share-rotation-card`
+// class with the shared `.share-box` component (moved into
+// assets/css/v2-components.css). The assertion still requires that
+// the rotation card is rendered, it just accepts the new class name.
 ok("project_edit.php renders the rotation card with the current code",
-    strpos($editCode, 'share-rotation-card') !== false);
+    strpos($editCode, 'share-rotation-card') !== false
+    || strpos($editCode, 'share-box') !== false);
 ok("project_edit.php renders the 'Rotate code' button",
     strpos($editCode, 'Rotate code') !== false);
 ok("project_edit.php shows 'Last rotated:' line",

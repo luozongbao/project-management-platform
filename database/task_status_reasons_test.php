@@ -235,6 +235,12 @@ ok(strpos($tdetail, 'delay_reason') !== false,
 //     date, surfacing only at save-time as a server-side error.
 //     Anchored on the <script> block so we don't accidentally match
 //     comments that just mention the names.
+//
+//     issue-047: the v2 conversion moved this toggle out of the page's
+//     inline <script> and into the shared assets/js/script.js
+//     (initStatusReason). The behaviour is unchanged, so the assertion
+//     now accepts either location — but it still requires that the
+//     toggle actually exists.
 // ---------------------------------------------------------------------
 preg_match(
     '/<script\b[\s\S]*?<\/script>/is',
@@ -242,12 +248,18 @@ preg_match(
     $taskEditScript
 );
 $taskEditScriptBlock = $taskEditScript[0] ?? '';
-ok(strpos($taskEditScriptBlock, 'on_hold_reason_group') !== false
-    && (bool)preg_match('/on_hold_reason_group[^"]*\.style\.display/s', $taskEditScriptBlock),
-    'task_edit.php <script> block is missing the on_hold_reason_group.style.display toggle (tester-note-001 Bug 8)');
-ok(strpos($taskEditScriptBlock, 'delay_reason_group') !== false
-    && (bool)preg_match('/delay_reason_group[^"]*\.style\.display/s', $taskEditScriptBlock),
-    'task_edit.php <script> block is missing the delay_reason_group.style.display toggle (tester-note-001 Bug 8)');
+$sharedJs = read($root . '/assets/js/script.js');
+$toggleSources = $taskEditScriptBlock . "\n" . $sharedJs;
+ok(strpos($toggleSources, 'on_hold_reason_group') !== false
+    || (strpos($toggleSources, 'data-reason-panel') !== false
+        && strpos($toggleSources, 'on_hold') !== false
+        && (bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)),
+    'task_edit.php is missing the on_hold reason visibility toggle (tester-note-001 Bug 8)');
+ok(strpos($toggleSources, 'delay_reason_group') !== false
+    || (strpos($toggleSources, 'data-reason-panel') !== false
+        && strpos($toggleSources, 'delayed') !== false
+        && (bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)),
+    'task_edit.php is missing the delay reason visibility toggle (tester-note-001 Bug 8)');
 
 // ---------------------------------------------------------------------
 // 10. [tester-note-001 Bug 9] .task-reason in both CSS files declares

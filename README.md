@@ -6,6 +6,13 @@ portal** that lets stakeholders view read-only progress without logging in.
 
 > **Latest release:** v1.8.0 (2026-10-19) — see [RELEASE.md](RELEASE.md) for the full changelog.
 >
+> **Work in progress — v2.0.** The front-end redesign is landing on the
+> `v.2.0` branch and is **not released yet** (`APP_VERSION` is still
+> `v1.8.0`). Every page has been converted to the v2 design tokens and
+> component layer; the remaining work is stripping the superseded v1 CSS and
+> the version bump. See the **v2.0 migration status** table below and the
+> **Unreleased** section of [RELEASE.md](RELEASE.md).
+>
 > **v1.8.0** is a minor release for
 > [issue-034](docs/issues/issue-034.md) — adds a
 > `on_hold_reason` and a `delay_reason` TEXT column to
@@ -948,6 +955,31 @@ cd docs/design/2.0 && python3 -m http.server 8080
 
 See `docs/issues/issue-035.md` for the full design specification and
 `docs/issues/issue-036.md` for the ops notes.
+
+### v2.0 migration status
+
+The v2.0 visual redesign is in progress on the **`v.2.0`** branch. The live
+app still reports `APP_VERSION = "v1.8.0"` — the version bump and the removal
+of the superseded v1 rules from `assets/css/style.css` are the last two steps
+of Phase 1 and have not been done yet.
+
+| Phase | Scope | Status |
+|---|---|---|
+| Phase 0 | Slug routing — slug columns, front controller, route table, 301 redirects | Done ([issue-035](docs/issues/issue-035.md), [issue-040](docs/issues/issue-040.md)) |
+| Phase 1.1 | Design tokens — `assets/css/v2-tokens.css` | Done ([issue-035](docs/issues/issue-035.md)) |
+| Phase 1.2 | Component layer — `assets/css/v2-components.css` | Done ([issue-035](docs/issues/issue-035.md)) |
+| Phase 1.3 | App shell — `includes/header.php` / `includes/footer.php` | Done ([issue-035](docs/issues/issue-035.md)) |
+| Phase 1.4 | Page conversions | Done — dashboard, projects, tasks, contacts, profile, detail pages, the three New/Edit forms, and the auth pages ([issue-038](docs/issues/issue-038.md) … [issue-047](docs/issues/issue-047.md)) |
+| Phase 1.5 | Client portal — `client/dashboard.php` | Done ([issue-038](docs/issues/issue-038.md)) |
+| Phase 1.6 | Strip the superseded v1 rules from `style.css` | Pending |
+| Phase 1.7 | Bump `APP_VERSION` to `v2.0` in `config.php`, `config.template.php` and `install.php` | Pending |
+
+Converting a page means: rebuild its markup on the v2 component vocabulary,
+move its styles into `assets/css/pages/<page>.css`, delete its inline
+`<style>` and inline `<script>` blocks, and keep the page's `name=` / `id=`
+attributes, form actions and AJAX endpoint shapes untouched.
+
+> The `v.2.0` branch is **not** merged into `dev` yet.
 
 ---
 

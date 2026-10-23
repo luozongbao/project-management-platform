@@ -215,7 +215,11 @@ if (preg_match('/<a\s+class="btn btn--primary"\s+href="([^"]*)"\s*>\s*<i\s+class
 //    input must NOT only live inside the inline delete dialog. See
 //    docs/issues/issue-008/tester-note-001.md bug 4.
 // ---------------------------------------------------------------------------
-$main_form = preg_match('/<form\s+method="POST"\s+data-validate>.*?<input\s+type="hidden"\s+name="csrf_token"\s+value="/s', $project_edit);
+// issue-047: the v2 conversion moved the form's class attribute around
+// (<form method="POST" class="card" data-validate>), so the old regex
+// no longer matched. The assertion itself is unchanged: the MAIN form
+// must contain a hidden csrf_token input.
+$main_form = preg_match('/<form[^>]*method="POST"[^>]*>.*?<input\s+type="hidden"\s+name="csrf_token"\s+value="/s', $project_edit);
 if (!$main_form) {
     $failures[] = "project_edit.php main create/edit form is missing a hidden csrf_token input";
 }

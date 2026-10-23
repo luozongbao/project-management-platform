@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', function() {
     initDateInputs();
     initConfirmDialogs();
     initTooltips();
+    // v2.0 components (ported from docs/design/2.0/v2-mockup.js)
+    initModals();
+    initRangeSync();
+    initStatusReason();
+    initCopy();
+    initToastTriggers();
 });
 
 // Dropdown functionality
@@ -504,3 +510,171 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+
+/* ================================================================== */
+/* v2.0 components                                                     */
+/*                                                                     */
+/* Ported from docs/design/2.0/v2-mockup.js so the New/Edit pages     */
+/* (task_edit.php, project_edit.php, contact_edit.php) can use the     */
+/* v2 markup vocabulary: .modal-backdrop, .range-row, .share-box,    */
+/* data-reason-panel and so on.                                        */
+/* ================================================================== */
+
+/* ------------------------------------------------------------------ */
+/* Modal open/close                                                    */
+/* ------------------------------------------------------------------ */
+function initModals() {
+    document.querySelectorAll('[data-modal-open]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var modal = document.getElementById(btn.getAttribute('data-modal-open'));
+            if (modal) {
+                modal.hidden = false;
+                document.body.style.overflow = 'hidden';
+                // Move focus into the dialog for keyboard users.
+                var focusable = modal.querySelector('input, textarea, select, button');
+                if (focusable) { focusable.focus(); }
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-modal-close]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var backdrop = btn.closest('.modal-backdrop');
+            if (backdrop) {
+                backdrop.hidden = true;
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+        backdrop.addEventListener('click', function(ev) {
+            // Only close when the backdrop itself was clicked, not a child.
+            if (ev.target === backdrop) {
+                backdrop.hidden = true;
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    // Escape closes the top-most open modal.
+    document.addEventListener('keydown', function(ev) {
+        if (ev.key !== 'Escape') return;
+        var open = document.querySelectorAll('.modal-backdrop:not([hidden])');
+        if (!open.length) return;
+        open[open.length - 1].hidden = true;
+        document.body.style.overflow = '';
+    });
+}
+
+/* ------------------------------------------------------------------ */
+/* Range slider <-> number input (task completion %)                   */
+/* ------------------------------------------------------------------ */
+function initRangeSync() {
+    document.querySelectorAll('[data-range-sync]').forEach(function(range) {
+        var target = document.querySelector(range.getAttribute('data-range-sync'));
+        var out = document.querySelector(range.getAttribute('data-range-out') || '#none');
+
+        function push(fromRange) {
+            var v = parseInt(range.value, 10);
+            if (!isNaN(v)) {
+                if (fromRange && target) { target.value = v; }
+                if (out) { out.textContent = v + '%'; }
+            }
+        }
+
+        range.addEventListener('input', function() { push(true); });
+
+        if (target) {
+            target.addEventListener('input', function() {
+                var v = parseInt(target.value, 10);
+                if (!isNaN(v)) {
+                    range.value = v;
+                    if (out) { out.textContent = v + '%'; }
+                }
+            });
+        }
+
+        push(false);
+    });
+}
+
+/* ------------------------------------------------------------------ */
+/* Conditional fields: task status -> reason textarea                  */
+/* ------------------------------------------------------------------ */
+function initStatusReason() {
+    var statusSel = document.querySelector('[data-status-select]');
+    if (!statusSel) return;
+
+    var panels = {
+        on_hold: document.querySelector('[data-reason-panel="on_hold"]'),
+        delayed: document.querySelector('[data-reason-panel="delayed"]')
+    };
+    var delayHint = document.querySelector('[data-delay-hint]');
+
+    function sync() {
+        var v = statusSel.value;
+        Object.keys(panels).forEach(function(key) {
+            if (!panels[key]) return;
+            var show = (key === 'on_hold' && v === 'on_hold') ||
+                       (key === 'delayed' && v !== 'completed' && v !== 'on_hold');
+            panels[key].hidden = !show;
+            var ta = panels[key].querySelector('textarea');
+            var lab = panels[key].querySelector('.req');
+            if (ta) {
+                ta.required = show;
+                if (!show) { ta.disabled = true; } else { ta.disabled = false; }
+            }
+            if (lab) { lab.hidden = !show; }
+        });
+        if (delayHint) { delayHint.hidden = statusSel.value === 'completed'; }
+    }
+
+    statusSel.addEventListener('change', sync);
+    sync();
+}
+
+/* ------------------------------------------------------------------ */
+/* Copy to clipboard (share code, share URL)                           */
+/* ------------------------------------------------------------------ */
+function initCopy() {
+    document.querySelectorAll('[data-copy]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var text = btn.getAttribute('data-copy');
+            var label = btn.innerHTML;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text);
+            }
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+            setTimeout(function() { btn.innerHTML = label; }, 1600);
+        });
+    });
+}
+
+/* ------------------------------------------------------------------ */
+/* Toast notifications                                                 */
+/* ------------------------------------------------------------------ */
+var toastStack = null;
+
+function pmpToast(msg, kind) {
+    if (!toastStack) {
+        toastStack = document.createElement('div');
+        toastStack.className = 'toast-stack';
+        document.body.appendChild(toastStack);
+    }
+    var el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' toast--' + kind : '');
+    el.innerHTML = '<i class="fas fa-circle-check"></i> ' + msg;
+    toastStack.appendChild(el);
+    setTimeout(function() { el.remove(); }, 2600);
+}
+window.pmpToast = pmpToast;
+
+function initToastTriggers() {
+    document.querySelectorAll('[data-toast]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            pmpToast(el.getAttribute('data-toast'), el.getAttribute('data-toast-kind'));
+        });
+    });
+}

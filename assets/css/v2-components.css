@@ -1006,6 +1006,30 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .toast--danger  { background: var(--danger-700); }
 .toast--warning { background: var(--warning-700); }
 
+/* --- Share box ---------------------------------------------------------- */
+/* Used by the project detail page (client share panel) and the project
+   edit page (Client share card). The code is 17 chars of mono, so it
+   must not wrap. */
+.share-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+}
+
+.share-box code {
+    font-family: var(--font-mono, monospace);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .06em;
+    color: var(--gray-800);
+    white-space: nowrap;
+}
+
 /* --- Dropdown ----------------------------------------------------------- */
 .dropdown { position: relative; }
 .dropdown__menu {
