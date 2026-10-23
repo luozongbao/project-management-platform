@@ -22,39 +22,11 @@
     #495057, #6c757d, #adb5bd, #e8f4fd, #d1ecf1, #d4edda, #0dcaf0, #dbe5f1)
    ========================================================================== */
 
-/* --- Identity block (avatar + name/position/company) ---------------------- */
-.cd-identity { display: flex; gap: var(--sp-5); align-items: flex-start; }
-.cd-avatar {
-    width: 64px; height: 64px; flex-shrink: 0;
-    border-radius: var(--r-full);
-    display: grid; place-items: center;
-    font-size: 1.5rem;
-    background: var(--brand-100); color: var(--brand-700);
-}
-.cd-identity__text { min-width: 0; }
-.cd-identity__name {
-    margin: 0 0 var(--sp-1);
-    font-size: var(--fs-lg); font-weight: var(--fw-semibold);
-    color: var(--gray-900);
-}
-.cd-identity__position {
-    margin: 0 0 var(--sp-1);
-    color: var(--gray-600); font-size: var(--fs-sm);
-}
-.cd-identity__company {
-    margin: 0;
-    color: var(--gray-500); font-size: var(--fs-sm);
-    display: flex; align-items: center; gap: var(--sp-2);
-}
-
-/* --- Description --------------------------------------------------------- */
-.cd-description { margin-top: var(--sp-5); }
-.cd-description h4 {
-    margin: 0 0 var(--sp-2);
-    font-size: var(--fs-xs); font-weight: var(--fw-semibold);
-    text-transform: uppercase; letter-spacing: .04em;
-    color: var(--gray-400);
-}
+/* --- Overview description ------------------------------------------------ */
+/* The mockup's Overview card is the free-text description only: the name,
+ * position and company already ride in the page header as the h1 plus badge
+ * chips, so the avatar identity block that used to live here was pure
+ * duplication of the header. */
 .cd-description__body {
     color: var(--gray-700); font-size: var(--fs-sm); line-height: 1.6;
 }
@@ -78,6 +50,5 @@ a.cd-link:hover { color: var(--brand-600); }
 .cd-link i { color: var(--gray-400); flex-shrink: 0; }
 /* --- Narrow screens ------------------------------------------------------- */
 @media (max-width: 640px) {
-    .cd-identity { flex-direction: column; align-items: center; text-align: center; }
-    .cd-identity__company { justify-content: center; }
+    .cd-stats { grid-template-columns: 1fr; }
 }

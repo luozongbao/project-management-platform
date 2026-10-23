@@ -412,31 +412,19 @@ $use_v2_shell = true;
                         <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Overview</h2>
                     </div>
                     <div class="card__body">
-                        <div class="cd-identity">
-                            <div class="cd-avatar">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="cd-identity__text">
-                                <h3 class="cd-identity__name"><?= e($contact['name']) ?></h3>
-                                <?php if ($contact['position']): ?>
-                                    <p class="cd-identity__position"><?= e($contact['position']) ?></p>
-                                <?php endif; ?>
-                                <?php if ($contact['company']): ?>
-                                    <p class="cd-identity__company">
-                                        <i class="fas fa-building"></i>
-                                        <?= e($contact['company']) ?>
-                                    </p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-
-                        <?php if ($contact['description']): ?>
-                            <div class="cd-description">
-                                <h4>Description</h4>
-                                <div class="cd-description__body">
-                                    <?= nl2br(e($contact['description'])) ?>
-                                </div>
-                            </div>
+                        <?php /* The mockup's Overview card carries the free-text
+                             * description only. The name, position and company
+                             * already ride in the page header as the h1 plus
+                             * badge chips, so repeating them here would
+                             * duplicate the header. */ ?>
+                        <?php if (!empty($contact['description'])): ?>
+                            <p class="text-sm text-muted cd-description__body">
+                                <?= nl2br(e($contact['description'])) ?>
+                            </p>
+                        <?php else: ?>
+                            <p class="text-sm text-muted" style="margin:0;">
+                                No description has been added for this contact yet.
+                            </p>
                         <?php endif; ?>
                     </div>
                 </div>

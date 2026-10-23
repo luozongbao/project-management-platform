@@ -23,6 +23,21 @@
 .td-parent-link i { color: var(--brand-500); }
 
 /* ---------------------------------------------------------------------------
+ * Sidebar stat strip (Completion / Subtasks)
+ *
+ * The mockup opens the task sidebar with a two-up stat strip. The shared
+ * .stat-grid default is `repeat(auto-fit, minmax(210px, 1fr))`, which would
+ * stack the two tiles in a 340px sidebar column, so the columns are pinned
+ * and the bottom margin is dropped -- the Time card below supplies the
+ * separation.
+ * ------------------------------------------------------------------------ */
+.td-stats {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------------
  * Subtask list
  *
  * The sub-task tree reuses the shared .task-tree / .task-node vocabulary from

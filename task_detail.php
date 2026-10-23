@@ -596,6 +596,32 @@ $use_v2_shell = true;
 
         <!-- Sidebar -->
         <div>
+            <!-- Completion / Subtasks summary.
+                 The mockup opens the task sidebar with a two-up stat strip
+                 (Completion %, Subtasks count) above the Time card. The
+                 completion figure is the same weighted roll-up the Task
+                 Details card renders as a progress bar, so the two agree. -->
+            <div class="stat-grid td-stats">
+                <div class="stat stat--success">
+                    <div class="stat__icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div>
+                        <div class="stat__value"><?= number_format($calculated_percentage, 0) ?>%</div>
+                        <div class="stat__label">Completion</div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat__icon">
+                        <i class="fas fa-diagram-project"></i>
+                    </div>
+                    <div>
+                        <div class="stat__value"><?= count($subtasks) ?></div>
+                        <div class="stat__label">Subtasks</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Time -->
             <div class="card">
                 <div class="card__header">
