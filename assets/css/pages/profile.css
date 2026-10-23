@@ -27,7 +27,8 @@
 /* --- overview card ------------------------------------------------------- */
 /* .stat-grid supplies its own margin-bottom, but nothing supplies one for the
    card ABOVE it, so without this the Overview card sits flush against the stat
-   row. Same for the stat row above .pf-body -- .pf-body has no top margin. */
+   row. Same for the stat row above .grid-2 -- .grid-2 has no margin of its
+   own, so these two classes supply the vertical rhythm for this page. */
 .pf-overview-card { margin-bottom: var(--sp-5); }
 .pf-stat-row { margin-bottom: var(--sp-5); }
 
@@ -87,16 +88,12 @@
 .pf-overview__since i { color: var(--gray-400); }
 
 /* --- the two forms sit side by side, stats sit above them ---------------- */
-.pf-body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-5);
-  /* NOT `start`: the two form cards have different field counts, and letting
-     them size to content leaves the Change Password card visibly shorter than
-     Profile information with a ragged bottom edge. Stretch matches the mockup,
-     and .card__body grows to push .card__footer to the bottom. */
-  align-items: stretch;
-}
+/* Uses the shared .grid-2 rather than re-declaring the same two-column track,
+   so this page stays in step with the rest of the system. The only thing that
+   needs adding is the equal-height behaviour: the two form cards wrap to
+   different line counts, and without stretch one ends visibly higher than the
+   other with a ragged bottom edge. */
+.pf-body { align-items: stretch; }
 /* A stretched card must distribute its extra height to the body, not leave a
    gap under the footer, so the form card becomes a column flex box. */
 .pf-body > .card { display: flex; flex-direction: column; }
@@ -123,8 +120,11 @@
 .pf-errors li:last-child { margin-bottom: 0; }
 
 /* --- responsive ---------------------------------------------------------- */
+/* The two-column form layout needs no rule here: v2-components.css:1015
+   already collapses .grid-2 to a single column at 768px, and .pf-body rides
+   on that. Only the Account Actions span has to be undone, because a
+   full-width grid item is the default anyway once the grid is one column. */
 @media (max-width: 900px) {
-  .pf-body { grid-template-columns: 1fr; }
   .pf-body > .pf-actions-card { grid-column: auto; }
 }
 @media (max-width: 640px) {

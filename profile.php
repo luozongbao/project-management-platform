@@ -246,7 +246,7 @@ include 'includes/header.php';
     </div>
 </div>
 
-<div class="pf-body">
+<div class="grid-2 pf-body">
     <!-- Edit Profile Form -->
     <form class="card" method="POST" action="">
         <input type="hidden" name="action" value="update_profile">
