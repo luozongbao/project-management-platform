@@ -128,3 +128,28 @@ a.cd-link:hover { color: var(--brand-600); }
     .cd-identity { flex-direction: column; align-items: center; text-align: center; }
     .cd-identity__company { justify-content: center; }
 }
+
+/* --- Projects table inside the sidebar track ------------------------------
+   Same situation as .pd-table on project_detail.php: v2-components.css sizes
+   .table with `min-width: 1280px` and a 300px first-column floor, both sized
+   for a FULL-WIDTH table. Here the table sits in the ~340px sidebar track, so
+   those minimums would force a horizontal scrollbar. Scope the relaxation to
+   this page, as the shared component's comment instructs.
+
+   This table is 3 columns of short values (name / status / %), so wrapping the
+   project name is the right trade -- the opposite of the data-dense tables on
+   tasks.php and dashboard.php, which keep the 1280px floor. */
+.cd-table {
+    min-width: 0;
+}
+
+.cd-table th:first-child,
+.cd-table td:first-child {
+    min-width: 0;
+    width: auto;
+}
+
+.cd-table th,
+.cd-table td {
+    padding: var(--sp-2) var(--sp-3);
+}

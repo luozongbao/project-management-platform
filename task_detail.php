@@ -154,7 +154,7 @@ $use_v2_shell = true;
             <!-- Task Overview -->
             <div class="card">
                 <div class="card__header">
-                    <h2>Task Overview</h2>
+                    <h2 class="card__title-icon"><i class="fas fa-list-check"></i> Task Overview</h2>
                     <div class="card__actions">
                         <span class="status status--<?= $task['status'] ?>">
                             <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
@@ -219,7 +219,7 @@ $use_v2_shell = true;
             <?php if ($task['parent_task_id']): ?>
                 <div class="card">
                     <div class="card__header">
-                        <h2>Parent Task</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-diagram-project"></i> Parent Task</h2>
                     </div>
                     <div class="card__body">
                         <div class="td-parent-link">
@@ -236,7 +236,7 @@ $use_v2_shell = true;
             <?php if (!empty($subtasks)): ?>
                 <div class="card">
                     <div class="card__header">
-                        <h2>Subtasks</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-diagram-project"></i> Subtasks</h2>
                         <div class="card__actions">
                             <span class="badge badge--neutral"><?= count($subtasks) ?></span>
                             <a href="/tasks/new?parent_id=<?= $task_id ?>" class="btn btn--sm btn--primary">
@@ -320,7 +320,7 @@ $use_v2_shell = true;
             <?php elseif (!$task['parent_task_id']): ?>
                 <div class="card">
                     <div class="card__header">
-                        <h2>Subtasks</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-diagram-project"></i> Subtasks</h2>
                         <div class="card__actions">
                             <a href="/tasks/new?parent_id=<?= $task_id ?>" class="btn btn--sm btn--primary">
                                 <i class="fas fa-plus"></i>
@@ -345,7 +345,7 @@ $use_v2_shell = true;
             <!-- Task Details -->
             <div class="card">
                 <div class="card__header">
-                    <h2>Task Details</h2>
+                    <h2 class="card__title-icon"><i class="fas fa-info-circle"></i> Task Details</h2>
                 </div>
                 <div class="card__body">
                     <div class="detail-list">
@@ -470,7 +470,7 @@ $use_v2_shell = true;
                      that guard, so the hook outlives the styling. -->
                 <div class="card task-reason-card">
                     <div class="card__header">
-                        <h2>Status Reason</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Status Reason</h2>
                     </div>
                     <div class="card__body">
                         <?php if ($detail_is_on_hold): ?>
@@ -557,7 +557,7 @@ $use_v2_shell = true;
             <?php if (!empty($activities)): ?>
                 <div class="card">
                     <div class="card__header">
-                        <h2>Recent Activity</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-clock-rotate-left"></i> Recent Activity</h2>
                     </div>
                     <div class="card__body">
                         <ul class="timeline">

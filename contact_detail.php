@@ -37,6 +37,16 @@ $projects = $db->fetchAll(
     [$contact_id, $user_id]
 );
 
+// Per-project completion percentage, from the same source project_detail.php
+// uses. There is no stored percentage column on `projects` -- the figure is
+// derived from that project's tasks -- so it must be computed per project
+// rather than read alongside the row above.
+$projectCompletion = [];
+foreach ($projects as $project) {
+    $projectCompletion[(int)$project['id']]
+        = getProjectTaskCompletionMap($db, (int)$project['id'])['project_completion'];
+}
+
 // Get tasks associated with this contact
 $tasks = $db->fetchAll(
     "SELECT t.id, t.name, t.status, t.completion_percentage, t.created_at, p.name as project_name, p.id as project_id
@@ -116,41 +126,6 @@ $use_v2_shell = true;
 
     <div class="grid-sidebar">
         <div>
-            <!-- Contact overview -->
-            <div class="card">
-                <div class="card__header">
-                    <h2>Contact Overview</h2>
-                </div>
-                <div class="card__body">
-                    <div class="cd-identity">
-                        <div class="cd-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div class="cd-identity__text">
-                            <h3 class="cd-identity__name"><?= e($contact['name']) ?></h3>
-                            <?php if ($contact['position']): ?>
-                                <p class="cd-identity__position"><?= e($contact['position']) ?></p>
-                            <?php endif; ?>
-                            <?php if ($contact['company']): ?>
-                                <p class="cd-identity__company">
-                                    <i class="fas fa-building"></i>
-                                    <?= e($contact['company']) ?>
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <?php if ($contact['description']): ?>
-                        <div class="cd-description">
-                            <h4>Description</h4>
-                            <div class="cd-description__body">
-                                <?= nl2br(e($contact['description'])) ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-
             <!-- Contact statistics -->
             <div class="stat-grid cd-stats">
                 <div class="stat">
@@ -165,7 +140,7 @@ $use_v2_shell = true;
 
                 <div class="stat">
                     <div class="stat__icon">
-                        <i class="fas fa-tasks"></i>
+                        <i class="fas fa-list-check"></i>
                     </div>
                     <div class="stat__text">
                         <div class="stat__value"><?= (int)($contact_stats['task_count'] ?? 0) ?></div>
@@ -175,7 +150,7 @@ $use_v2_shell = true;
 
                 <div class="stat stat--success">
                     <div class="stat__icon">
-                        <i class="fas fa-check-circle"></i>
+                        <i class="fas fa-circle-check"></i>
                     </div>
                     <div class="stat__text">
                         <div class="stat__value"><?= (int)($contact_stats['completed_tasks'] ?? 0) ?></div>
@@ -188,7 +163,7 @@ $use_v2_shell = true;
             <?php if (!empty($tasks)): ?>
                 <div class="card">
                     <div class="card__header">
-                        <h2>Recent Tasks</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-list-check"></i> Recent Tasks</h2>
                     </div>
                     <div class="card__body">
                         <div class="cd-list">
@@ -246,7 +221,7 @@ $use_v2_shell = true;
             <!-- Contact information -->
             <div class="card">
                 <div class="card__header">
-                    <h2>Contact Information</h2>
+                    <h2 class="card__title-icon"><i class="fas fa-address-card"></i> Contact Information</h2>
                 </div>
                 <div class="card__body">
                     <div class="detail-list">
@@ -319,7 +294,7 @@ $use_v2_shell = true;
             <?php if ($contact['wechat'] || $contact['line_id'] || $contact['facebook'] || $contact['linkedin']): ?>
                 <div class="card">
                     <div class="card__header">
-                        <h2>Social Media</h2>
+                        <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Social Media</h2>
                     </div>
                     <div class="card__body">
                         <div class="detail-list">
@@ -378,29 +353,37 @@ $use_v2_shell = true;
             <!-- Associated projects -->
             <div class="card">
                 <div class="card__header">
-                    <h2>Projects (<?= count($projects) ?>)</h2>
+                    <h2 class="card__title-icon"><i class="fas fa-sitemap"></i> Projects (<?= count($projects) ?>)</h2>
                 </div>
-                <div class="card__body">
+                <div class="card__body card__body--flush">
                     <?php if (!empty($projects)): ?>
-                        <div class="cd-list">
-                            <?php foreach ($projects as $project): ?>
-                                <div class="cd-row">
-                                    <div class="cd-row__main">
-                                        <a class="cd-row__title" href="/projects/<?= (int)$project['id'] ?>">
-                                            <?= e($project['name']) ?>
-                                        </a>
-                                        <div class="cd-row__meta">
-                                            <span class="status status--<?= e($project['status']) ?>">
-                                                <?= e(ucfirst(str_replace('_', ' ', $project['status']))) ?>
-                                            </span>
-                                            <span class="cd-meta">
-                                                <i class="fas fa-calendar"></i>
-                                                <?= formatDateTime($project['created_at'], 'M j, Y') ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
+                        <div class="table-wrap">
+                            <table class="table table--compact cd-table">
+                                <thead>
+                                    <tr>
+                                        <th>Project</th>
+                                        <th>Status</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($projects as $project): ?>
+                                        <tr>
+                                            <td>
+                                                <a href="/projects/<?= (int)$project['id'] ?>"><strong><?= e($project['name']) ?></strong></a>
+                                            </td>
+                                            <td>
+                                                <span class="status status--<?= e($project['status']) ?>">
+                                                    <?= e(ucfirst(str_replace('_', ' ', $project['status']))) ?>
+                                                </span>
+                                            </td>
+                                            <td class="text-sm nowrap text-right">
+                                                <?= number_format((float)($projectCompletion[(int)$project['id']] ?? 0), 0) ?>%
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
                     <?php else: ?>
                         <div class="empty-state">
@@ -410,6 +393,41 @@ $use_v2_shell = true;
                     <?php endif; ?>
                 </div>
             </div>
+
+                <!-- Contact overview -->
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Overview</h2>
+                    </div>
+                    <div class="card__body">
+                        <div class="cd-identity">
+                            <div class="cd-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="cd-identity__text">
+                                <h3 class="cd-identity__name"><?= e($contact['name']) ?></h3>
+                                <?php if ($contact['position']): ?>
+                                    <p class="cd-identity__position"><?= e($contact['position']) ?></p>
+                                <?php endif; ?>
+                                <?php if ($contact['company']): ?>
+                                    <p class="cd-identity__company">
+                                        <i class="fas fa-building"></i>
+                                        <?= e($contact['company']) ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <?php if ($contact['description']): ?>
+                            <div class="cd-description">
+                                <h4>Description</h4>
+                                <div class="cd-description__body">
+                                    <?= nl2br(e($contact['description'])) ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
         </div>
     </div>
 </div>
