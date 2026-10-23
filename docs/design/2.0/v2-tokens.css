@@ -927,6 +927,9 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .detail-row--stacked .detail-row__k { min-width: 0; font-size: var(--fs-xs); }
 
 /* --- Modal -------------------------------------------------------------- */
+/* `display: grid` below would otherwise defeat the browser's default
+   `[hidden] { display: none }`, leaving every modal permanently open. */
+.modal-backdrop[hidden] { display: none; }
 .modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(21, 26, 40, .55);

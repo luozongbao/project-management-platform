@@ -162,6 +162,53 @@
             <a class="btn btn--secondary" href="contact-detail.html">Cancel</a>
           </div>
         </form>
+
+        <div class="card" style="border-color:var(--danger-500); margin-top:var(--sp-5);">
+          <div class="card__header" style="background:var(--danger-100);">
+            <h2 class="card__title-icon" style="color:var(--danger-700);"><i class="fas fa-triangle-exclamation"></i> Danger zone</h2>
+          </div>
+          <div class="card__body">
+            <p class="text-sm text-muted">
+              Deleting removes Surasak Wongchai from the 2 projects they are assigned to.
+              Tasks already assigned to them are kept. This cannot be undone.
+            </p>
+            <button class="btn btn--danger btn--block" type="button" style="margin-top:1rem;"
+                    data-modal-open="confirm-delete-contact">
+              <i class="fas fa-trash"></i> Delete Contact
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-backdrop" id="confirm-delete-contact" hidden>
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cdc-title">
+            <div class="modal__header">
+              <div>
+                <h3 id="cdc-title">Confirm contact deletion</h3>
+                <p>Type the contact name exactly as shown to confirm.</p>
+              </div>
+              <button class="modal__close" type="button" data-modal-close aria-label="Close"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="modal__body">
+              <div class="alert alert--danger">
+                <i class="fas fa-triangle-exclamation"></i>
+                <div class="alert__body">
+                  <div class="alert__title">Surasak Wongchai</div>
+                  This contact will be unassigned from 2 projects. Tasks already assigned to them are kept.
+                </div>
+              </div>
+              <div class="field">
+                <label for="delete-contact-confirmation">Contact Name <span class="req" aria-hidden="true">*</span></label>
+                <input class="input" type="text" id="delete-contact-confirmation" placeholder="Surasak Wongchai">
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
+              <button class="btn btn--danger" type="button" data-toast="Demo only &mdash; contact not deleted" data-toast-kind="danger">
+                <i class="fas fa-trash"></i> Delete permanently
+              </button>
+            </div>
+          </div>
+        </div>
       </main>
       <footer class="footer">
         &copy; 2026 Project Management System. All rights reserved.

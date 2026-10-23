@@ -161,7 +161,54 @@ def screen_task_form():
             <button class="btn btn--primary" type="submit"><i class="fas fa-floppy-disk"></i> Save Task</button>
             <a class="btn btn--secondary" href="task-detail.html">Cancel</a>
           </div>
-        </form>"""
+        </form>
+
+        <div class="card" style="border-color:var(--danger-500); margin-top:var(--sp-5);">
+          <div class="card__header" style="background:var(--danger-100);">
+            <h2 class="card__title-icon" style="color:var(--danger-700);"><i class="fas fa-triangle-exclamation"></i> Danger zone</h2>
+          </div>
+          <div class="card__body">
+            <p class="text-sm text-muted">
+              Deleting removes this task, its 4 subtasks and every time entry logged against
+              them. This cannot be undone.
+            </p>
+            <button class="btn btn--danger btn--block" type="button" style="margin-top:1rem;"
+                    data-modal-open="confirm-delete-task">
+              <i class="fas fa-trash"></i> Delete Task
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-backdrop" id="confirm-delete-task" hidden>
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cdt-title">
+            <div class="modal__header">
+              <div>
+                <h3 id="cdt-title">Confirm task deletion</h3>
+                <p>Type the task code exactly as shown to confirm.</p>
+              </div>
+              <button class="modal__close" type="button" data-modal-close aria-label="Close"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="modal__body">
+              <div class="alert alert--danger">
+                <i class="fas fa-triangle-exclamation"></i>
+                <div class="alert__body">
+                  <div class="alert__title">TSK-0417</div>
+                  This task, its 4 subtasks and all logged time entries will be permanently removed.
+                </div>
+              </div>
+              <div class="field">
+                <label for="delete-task-confirmation">Task Code <span class="req" aria-hidden="true">*</span></label>
+                <input class="input text-mono" type="text" id="delete-task-confirmation" placeholder="TSK-0417">
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
+              <button class="btn btn--danger" type="button" data-toast="Demo only &mdash; task not deleted" data-toast-kind="danger">
+                <i class="fas fa-trash"></i> Delete permanently
+              </button>
+            </div>
+          </div>
+        </div>"""
 
     return page("Edit Task", body, active="tasks.html")
 
@@ -492,7 +539,54 @@ def screen_contact_form():
             <button class="btn btn--primary" type="submit"><i class="fas fa-floppy-disk"></i> Save Contact</button>
             <a class="btn btn--secondary" href="contact-detail.html">Cancel</a>
           </div>
-        </form>"""
+        </form>
+
+        <div class="card" style="border-color:var(--danger-500); margin-top:var(--sp-5);">
+          <div class="card__header" style="background:var(--danger-100);">
+            <h2 class="card__title-icon" style="color:var(--danger-700);"><i class="fas fa-triangle-exclamation"></i> Danger zone</h2>
+          </div>
+          <div class="card__body">
+            <p class="text-sm text-muted">
+              Deleting removes Surasak Wongchai from the 2 projects they are assigned to.
+              Tasks already assigned to them are kept. This cannot be undone.
+            </p>
+            <button class="btn btn--danger btn--block" type="button" style="margin-top:1rem;"
+                    data-modal-open="confirm-delete-contact">
+              <i class="fas fa-trash"></i> Delete Contact
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-backdrop" id="confirm-delete-contact" hidden>
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cdc-title">
+            <div class="modal__header">
+              <div>
+                <h3 id="cdc-title">Confirm contact deletion</h3>
+                <p>Type the contact name exactly as shown to confirm.</p>
+              </div>
+              <button class="modal__close" type="button" data-modal-close aria-label="Close"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="modal__body">
+              <div class="alert alert--danger">
+                <i class="fas fa-triangle-exclamation"></i>
+                <div class="alert__body">
+                  <div class="alert__title">Surasak Wongchai</div>
+                  This contact will be unassigned from 2 projects. Tasks already assigned to them are kept.
+                </div>
+              </div>
+              <div class="field">
+                <label for="delete-contact-confirmation">Contact Name <span class="req" aria-hidden="true">*</span></label>
+                <input class="input" type="text" id="delete-contact-confirmation" placeholder="Surasak Wongchai">
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
+              <button class="btn btn--danger" type="button" data-toast="Demo only &mdash; contact not deleted" data-toast-kind="danger">
+                <i class="fas fa-trash"></i> Delete permanently
+              </button>
+            </div>
+          </div>
+        </div>"""
 
     return page("Edit Contact", body, active="contacts.html")
 

@@ -236,8 +236,6 @@ def screen_projects():
           <div class="project-card__foot">
             <a class="btn btn--sm btn--primary" href="project-detail.html"><i class="fas fa-eye"></i> Open</a>
             <a class="btn btn--sm btn--secondary" href="project-form.html"><i class="fas fa-pen"></i> Edit</a>
-            <button class="btn btn--sm btn--ghost btn--icon" type="button" title="Delete project"
-                    data-modal-open="delete-project"><i class="fas fa-trash"></i></button>
           </div>
         </div>""")
 
@@ -274,40 +272,6 @@ def screen_projects():
 
         <div class="project-grid">
 {chr(10).join(cards)}
-        </div>
-
-        <div class="modal-backdrop" id="delete-project" hidden>
-          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="del-title">
-            <div class="modal__header">
-              <div>
-                <h3 id="del-title">Delete project</h3>
-                <p>This permanently removes the project, its tasks, subtasks and project assignments.</p>
-              </div>
-              <button class="modal__close" type="button" data-modal-close aria-label="Close">
-                <i class="fas fa-xmark"></i>
-              </button>
-            </div>
-            <div class="modal__body">
-              <div class="alert alert--danger">
-                <i class="fas fa-triangle-exclamation"></i>
-                <div class="alert__body">
-                  <div class="alert__title">This action cannot be undone</div>
-                  Type the project code <strong>AX498-99ZB2-92C3J</strong> to confirm.
-                </div>
-              </div>
-              <div class="field">
-                <label for="delete-project-confirmation">Project Code <span class="req" aria-hidden="true">*</span></label>
-                <input class="input text-mono" type="text" id="delete-project-confirmation"
-                       name="delete-project-confirmation" placeholder="AX498-99ZB2-92C3J" required>
-              </div>
-            </div>
-            <div class="modal__footer">
-              <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
-              <button class="btn btn--danger" type="button" data-toast="Demo only &mdash; project not deleted" data-toast-kind="danger">
-                <i class="fas fa-trash"></i> Delete Project
-              </button>
-            </div>
-          </div>
         </div>"""
 
     return page("Projects", body, active="projects.html")
