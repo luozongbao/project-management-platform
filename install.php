@@ -234,201 +234,158 @@ $csrf_token = getCsrfToken();
     <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
-    <style>
-        .install-container {
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
-        }
-        .step {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 10px;
-            background: #e9ecef;
-            color: #6c757d;
-        }
-        .step.active {
-            background: #007bff;
-            color: white;
-        }
-        .step.completed {
-            background: #28a745;
-            color: white;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-        .btn {
-            background: #007bff;
-            color: white;
-            padding: 12px 30px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn:hover {
-            background: #0056b3;
-        }
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 5px;
-        }
-        .alert-danger {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-    </style>
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/install.css')) ?>">
 </head>
-<body>
-    <div class="install-container">
-        <h1 style="text-align: center; color: #333; margin-bottom: 30px;">
-            <i class="fas fa-cogs"></i> Project Management System Installation
-        </h1>
+<body class="install-body">
+    <div class="install-shell">
+        <div class="install-card">
+            <div class="install-card__logo"><i class="fas fa-cogs"></i></div>
+            <h1>Project Management System Installation</h1>
+            <p class="install-card__sub">Follow the steps below to configure the database and email server.</p>
 
-        <div class="step-indicator">
-            <div class="step <?= $step >= 1 ? 'active' : '' ?> <?= $step > 1 ? 'completed' : '' ?>">1</div>
-            <div class="step <?= $step >= 2 ? 'active' : '' ?> <?= $step > 2 ? 'completed' : '' ?>">2</div>
-            <div class="step <?= $step >= 3 ? 'active' : '' ?> <?= $step > 3 ? 'completed' : '' ?>">3</div>
-        </div>
+            <ol class="stepper" aria-label="Installation progress">
+                <li class="stepper__step<?= $step >= 1 ? ' is-active' : '' ?><?= $step > 1 ? ' is-completed' : '' ?>">
+                    <span class="stepper__dot"><?= $step > 1 ? '<i class="fas fa-check"></i>' : '1' ?></span>
+                    <span class="stepper__label">Welcome</span>
+                </li>
+                <li class="stepper__step<?= $step >= 2 ? ' is-active' : '' ?><?= $step > 2 ? ' is-completed' : '' ?>">
+                    <span class="stepper__dot"><?= $step > 2 ? '<i class="fas fa-check"></i>' : '2' ?></span>
+                    <span class="stepper__label">Database</span>
+                </li>
+                <li class="stepper__step<?= $step >= 3 ? ' is-active' : '' ?><?= $step > 3 ? ' is-completed' : '' ?>">
+                    <span class="stepper__dot"><?= $step > 3 ? '<i class="fas fa-check"></i>' : '3' ?></span>
+                    <span class="stepper__label">Email</span>
+                </li>
+            </ol>
 
-        <?php if (!empty($errors)): ?>
-            <div class="alert alert-danger">
-                <ul style="margin: 0; padding-left: 20px;">
-                    <?php foreach ($errors as $error): ?>
-                        <li><?= htmlspecialchars($error) ?></li>
-                    <?php endforeach; ?>
+            <?php if (!empty($errors)): ?>
+                <div class="alert alert--danger" role="alert">
+                    <i class="fas fa-circle-exclamation"></i>
+                    <div class="alert__body">
+                        <div class="alert__title">Installation could not continue</div>
+                        <ul class="alert__list">
+                            <?php foreach ($errors as $error): ?>
+                                <li><?= e($error) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($success): ?>
+                <div class="alert alert--success" role="alert">
+                    <i class="fas fa-circle-check"></i>
+                    <div class="alert__body">
+                        <div class="alert__title">Installation Complete!</div>
+                        <p>Your Project Management System has been successfully installed.</p>
+                        <p class="install-next"><strong>Next Steps:</strong></p>
+                        <ol class="install-next-list">
+                            <li>Delete the install.php file for security</li>
+                            <li>Create your first user account</li>
+                            <li>Start managing your projects!</li>
+                        </ol>
+                        <p><a href="index.php" class="btn btn--primary btn--block">Go to Application</a></p>
+                    </div>
+                </div>
+            <?php elseif ($step == 1): ?>
+                <h2 class="install-card__h2">Step 1: Welcome</h2>
+                <p>Welcome to the Project Management System installation wizard. This process will:</p>
+                <ul class="install-list">
+                    <li><i class="fas fa-circle-check"></i> Configure your database connection</li>
+                    <li><i class="fas fa-circle-check"></i> Create the necessary database tables</li>
+                    <li><i class="fas fa-circle-check"></i> Set up your email configuration</li>
+                    <li><i class="fas fa-circle-check"></i> Generate your configuration file</li>
                 </ul>
-            </div>
-        <?php endif; ?>
 
-        <?php if ($success): ?>
-            <div class="alert alert-success">
-                <h3>Installation Complete!</h3>
-                <p>Your Project Management System has been successfully installed.</p>
-                <p><strong>Next Steps:</strong></p>
-                <ol>
-                    <li>Delete the install.php file for security</li>
-                    <li>Create your first user account</li>
-                    <li>Start managing your projects!</li>
-                </ol>
-                <p><a href="index.php" class="btn">Go to Application</a></p>
-            </div>
-        <?php elseif ($step == 1): ?>
-            <h2>Step 1: Welcome</h2>
-            <p>Welcome to the Project Management System installation wizard. This process will:</p>
-            <ul>
-                <li>Configure your database connection</li>
-                <li>Create the necessary database tables</li>
-                <li>Set up your email configuration</li>
-                <li>Generate your configuration file</li>
-            </ul>
-            <p><strong>Requirements:</strong></p>
-            <ul>
-                <li>PHP 8.3 or higher</li>
-                <li>MySQL/MariaDB database</li>
-                <li>SMTP server for email notifications</li>
-                <li>Write permissions on the application directory</li>
-            </ul>
-            <br>
-            <a href="install.php?step=2" class="btn">Start Installation</a>
-
-        <?php elseif ($step == 2): ?>
-            <h2>Step 2: Database Configuration</h2>
-            <form method="POST">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                <div class="form-group">
-                    <label for="db_host">Database Host:</label>
-                    <input type="text" id="db_host" name="db_host" value="<?= htmlspecialchars($_POST['db_host'] ?? 'localhost') ?>" required>
+                <div class="install-panel">
+                    <div class="install-panel__title"><i class="fas fa-list-check"></i> Requirements</div>
+                    <ul class="install-list install-list--compact">
+                        <li><i class="fas fa-circle-check"></i> PHP 8.3 or higher</li>
+                        <li><i class="fas fa-circle-check"></i> MySQL/MariaDB database</li>
+                        <li><i class="fas fa-circle-check"></i> SMTP server for email notifications</li>
+                        <li><i class="fas fa-circle-check"></i> Write permissions on the application directory</li>
+                    </ul>
                 </div>
 
-                <div class="form-group">
-                    <label for="db_name">Database Name:</label>
-                    <input type="text" id="db_name" name="db_name" value="<?= htmlspecialchars($_POST['db_name'] ?? 'project_management') ?>" required>
-                </div>
+                <a href="install.php?step=2" class="btn btn--primary btn--lg btn--block">
+                    <i class="fas fa-arrow-right"></i> Start Installation
+                </a>
 
-                <div class="form-group">
-                    <label for="db_user">Database User:</label>
-                    <input type="text" id="db_user" name="db_user" value="<?= htmlspecialchars($_POST['db_user'] ?? '') ?>" required>
-                </div>
+            <?php elseif ($step == 2): ?>
+                <h2 class="install-card__h2">Step 2: Database Configuration</h2>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
+                    <div class="form-grid form-grid--2">
+                        <div class="field">
+                            <label for="db_host">Database Host <span class="req">*</span></label>
+                            <input class="input" type="text" id="db_host" name="db_host" value="<?= e($_POST['db_host'] ?? 'localhost') ?>" required>
+                        </div>
 
-                <div class="form-group">
-                    <label for="db_pass">Database Password:</label>
-                    <input type="password" id="db_pass" name="db_pass" value="<?= htmlspecialchars($_POST['db_pass'] ?? '') ?>">
-                </div>
+                        <div class="field">
+                            <label for="db_name">Database Name <span class="req">*</span></label>
+                            <input class="input" type="text" id="db_name" name="db_name" value="<?= e($_POST['db_name'] ?? 'project_management') ?>" required>
+                            <span class="hint">Letters, digits, and underscores only.</span>
+                        </div>
 
-                <button type="submit" class="btn">Test Database & Continue</button>
-            </form>
+                        <div class="field">
+                            <label for="db_user">Database User <span class="req">*</span></label>
+                            <input class="input" type="text" id="db_user" name="db_user" value="<?= e($_POST['db_user'] ?? '') ?>" required>
+                        </div>
 
-        <?php elseif ($step == 3): ?>
-            <h2>Step 3: SMTP Configuration</h2>
-            <p>Configure your email server settings for password reset emails and notifications.</p>
+                        <div class="field">
+                            <label for="db_pass">Database Password</label>
+                            <input class="input" type="password" id="db_pass" name="db_pass" value="<?= e($_POST['db_pass'] ?? '') ?>">
+                        </div>
+                    </div>
 
-            <form method="POST">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                <div class="form-group">
-                    <label for="smtp_host">SMTP Host:</label>
-                    <input type="text" id="smtp_host" name="smtp_host" value="<?= htmlspecialchars($_POST['smtp_host'] ?? 'smtp.gmail.com') ?>" required>
-                </div>
+                    <button type="submit" class="btn btn--primary btn--lg btn--block">
+                        <i class="fas fa-database"></i> Test Database &amp; Continue
+                    </button>
+                </form>
 
-                <div class="form-group">
-                    <label for="smtp_port">SMTP Port:</label>
-                    <input type="number" id="smtp_port" name="smtp_port" value="<?= htmlspecialchars($_POST['smtp_port'] ?? '587') ?>" required>
-                </div>
+            <?php elseif ($step == 3): ?>
+                <h2 class="install-card__h2">Step 3: SMTP Configuration</h2>
+                <p>Configure your email server settings for password reset emails and notifications.</p>
 
-                <div class="form-group">
-                    <label for="smtp_protocol">SMTP Protocol:</label>
-                    <select id="smtp_protocol" name="smtp_protocol" required>
-                        <option value="tls" <?= ($_POST['smtp_protocol'] ?? 'tls') == 'tls' ? 'selected' : '' ?>>TLS</option>
-                        <option value="ssl" <?= ($_POST['smtp_protocol'] ?? '') == 'ssl' ? 'selected' : '' ?>>SSL</option>
-                    </select>
-                </div>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
+                    <div class="form-grid form-grid--2">
+                        <div class="field">
+                            <label for="smtp_host">SMTP Host <span class="req">*</span></label>
+                            <input class="input" type="text" id="smtp_host" name="smtp_host" value="<?= e($_POST['smtp_host'] ?? 'smtp.gmail.com') ?>" required>
+                        </div>
 
-                <div class="form-group">
-                    <label for="smtp_user">SMTP Username (Email):</label>
-                    <input type="email" id="smtp_user" name="smtp_user" value="<?= htmlspecialchars($_POST['smtp_user'] ?? '') ?>" required>
-                </div>
+                        <div class="field">
+                            <label for="smtp_port">SMTP Port <span class="req">*</span></label>
+                            <input class="input" type="number" id="smtp_port" name="smtp_port" value="<?= e($_POST['smtp_port'] ?? '587') ?>" required>
+                        </div>
 
-                <div class="form-group">
-                    <label for="smtp_pass">SMTP Password:</label>
-                    <input type="password" id="smtp_pass" name="smtp_pass" value="<?= htmlspecialchars($_POST['smtp_pass'] ?? '') ?>" required>
-                </div>
+                        <div class="field">
+                            <label for="smtp_protocol">SMTP Protocol <span class="req">*</span></label>
+                            <select class="select" id="smtp_protocol" name="smtp_protocol" required>
+                                <option value="tls" <?= ($_POST['smtp_protocol'] ?? 'tls') == 'tls' ? 'selected' : '' ?>>TLS</option>
+                                <option value="ssl" <?= ($_POST['smtp_protocol'] ?? '') == 'ssl' ? 'selected' : '' ?>>SSL</option>
+                            </select>
+                        </div>
 
-                <button type="submit" class="btn">Complete Installation</button>
-            </form>
-        <?php endif; ?>
+                        <div class="field">
+                            <label for="smtp_user">SMTP Username (Email) <span class="req">*</span></label>
+                            <input class="input" type="email" id="smtp_user" name="smtp_user" value="<?= e($_POST['smtp_user'] ?? '') ?>" required>
+                        </div>
+
+                        <div class="field form-section">
+                            <label for="smtp_pass">SMTP Password <span class="req">*</span></label>
+                            <input class="input" type="password" id="smtp_pass" name="smtp_pass" value="<?= e($_POST['smtp_pass'] ?? '') ?>" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn--primary btn--lg btn--block">
+                        <i class="fas fa-circle-check"></i> Complete Installation
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
