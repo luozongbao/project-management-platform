@@ -173,83 +173,77 @@ $__proj_completed = (int)($__proj_row['completed'] ?? 0);
         </div>
     <?php endif; ?>
 <?php else: ?>
-    <div class="proj-grid">
+    <div class="project-grid">
         <?php foreach ($projects as $project): ?>
-            <div class="proj-card">
-                <div class="proj-card__head">
-                    <div>
-                        <h3 class="proj-card__title">
+            <div class="project-card">
+                <div class="project-card__head">
+                    <div class="project-card__id">
+                        <h3 class="project-card__title">
                             <a href="/projects/<?= e($project['slug']) ?>"><?= e($project['name']) ?></a>
                         </h3>
-                        <div class="proj-card__status">
-                            <span class="status status--<?= $project['status'] ?>">
-                                <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+                        <div class="project-card__meta">
+                            <?php if (!empty($project['expected_completion_date'])): ?>
+                                <span>
+                                    <i class="fas fa-calendar"></i>
+                                    Due <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?>
+                                </span>
+                            <?php endif; ?>
+                            <span>
+                                <i class="fas fa-list-check"></i>
+                                <?= (int)$project['total_tasks'] - (int)$project['uncompleted_tasks'] ?> / <?= (int)$project['total_tasks'] ?> tasks
                             </span>
                         </div>
                     </div>
-                    <div class="proj-card__edit">
-                        <a href="/projects/<?= e($project['slug']) ?>/edit" class="btn btn--sm btn--ghost btn--icon" title="Edit" aria-label="Edit project">
-                            <i class="fas fa-pen"></i>
-                        </a>
-                    </div>
+                    <span class="status status--<?= e($project['status']) ?>">
+                        <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+                    </span>
                 </div>
 
-                <div class="proj-card__desc">
+                <p class="project-card__desc">
                     <?php if ($project['description']): ?>
-                        <p><?= e(substr($project['description'], 0, 150)) ?><?= strlen($project['description']) > 150 ? '...' : '' ?></p>
+                        <?= e(substr($project['description'], 0, 150)) ?><?= strlen($project['description']) > 150 ? '...' : '' ?>
                     <?php else: ?>
-                        <p class="proj-card__desc--empty">No description provided</p>
+                        <span class="project-card__desc--empty">No description provided</span>
                     <?php endif; ?>
-                </div>
+                </p>
 
-                <div class="proj-card__stats">
-                    <div class="proj-card__stat">
-                        <i class="fas fa-tasks"></i>
-                        <span><?= $project['total_tasks'] ?> tasks</span>
-                    </div>
-                    <div class="proj-card__stat">
-                        <i class="fas fa-address-book"></i>
-                        <span><?= $project['contact_count'] ?> contacts</span>
-                    </div>
-                    <?php if ($project['uncompleted_tasks'] > 0): ?>
-                        <div class="proj-card__stat proj-card__stat--urgent">
-                            <i class="fas fa-triangle-exclamation"></i>
-                            <span><?= $project['uncompleted_tasks'] ?> pending</span>
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <div class="proj-card__progress-head">
-                    <span class="proj-card__progress-label">Progress</span>
-                    <span class="proj-card__progress-value"><?= number_format($project['avg_completion_percentage'], 1) ?>%</span>
-                </div>
                 <div class="progress">
                     <div class="progress__fill" style="width: <?= $project['avg_completion_percentage'] ?>%"></div>
                 </div>
 
-                <div class="proj-card__foot">
-                    <div class="proj-card__dates">
-                        <?php if (!empty($project['start_date'])): ?>
-                            <div class="proj-card__date">
-                                <i class="fas fa-flag"></i>
-                                <span>Started: <?= formatDateTime($project['start_date'], 'M j, Y') ?></span>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if ($project['expected_completion_date']): ?>
-                            <div class="proj-card__date">
-                                <i class="fas fa-calendar"></i>
-                                <span>Due: <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?></span>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if ($project['completion_date']): ?>
-                            <div class="proj-card__date proj-card__date--done">
-                                <i class="fas fa-circle-check"></i>
-                                <span>Completed: <?= formatDateTime($project['completion_date'], 'M j, Y') ?></span>
-                            </div>
-                        <?php endif; ?>
+                <!-- Mockup stats block: label above value, not the icon row the
+                     real page used. Progress is a percentage here rather than a
+                     separate labelled bar, and Pending keeps the urgent tone. -->
+                <div class="project-card__stats">
+                    <div>
+                        <div class="project-card__stat-label">Progress</div>
+                        <div class="project-card__stat-value"><?= number_format($project['avg_completion_percentage'], 0) ?>%</div>
                     </div>
+                    <div>
+                        <div class="project-card__stat-label">Pending</div>
+                        <?php /* The urgent tone is conditional, as it was on the
+                                 old icon-row stat: a project with nothing pending
+                                 should not render "0 pending" in red. */ ?>
+                        <div class="project-card__stat-value<?= (int)$project['uncompleted_tasks'] > 0 ? ' project-card__stat-value--urgent' : '' ?>">
+                            <?= (int)$project['uncompleted_tasks'] ?> pending
+                        </div>
+                    </div>
+                </div>
+
+                <!-- No delete button: project_delete.php requires POST + CSRF +
+                     the project share_code typed as confirmation, and that flow
+                     lives on project_edit.php. The mockup's trash icon would
+                     imply a one-click delete this app deliberately does not
+                     offer. See the note in assets/css/pages/projects.css. -->
+                <div class="project-card__foot">
+                    <a href="/projects/<?= e($project['slug']) ?>" class="btn btn--sm btn--primary">
+                        <i class="fas fa-eye"></i>
+                        Open
+                    </a>
+                    <a href="/projects/<?= e($project['slug']) ?>/edit" class="btn btn--sm btn--secondary">
+                        <i class="fas fa-pen"></i>
+                        Edit
+                    </a>
                 </div>
             </div>
         <?php endforeach; ?>
