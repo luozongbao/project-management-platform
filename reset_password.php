@@ -149,13 +149,25 @@ if (empty($token)) {
 }
 
 $title = "Reset Password";
-?>
 
+// issue-055 bug 4 (same class as forgot_password.php): these flags MUST
+// be assigned in PHP mode. A stray PHP close tag before them closed
+// PHP early, so the two assignments below were echoed into the HTML as
+// literal text instead of being executed. The v2 component layer
+// (v2-components.css) is only linked when $use_v2_shell is truthy, so
+// the auth page rendered without it: .field lost its column layout
+// (the label sat inline beside a narrow input) and .input lost its
+// full-width rule. Keep this block in PHP mode -- login.php,
+// register.php and forgot_password.php set the same flags correctly.
+//
+// NOTE: never write a literal PHP close tag inside a comment -- it
+// terminates PHP mode and the rest of the comment leaks into the
+// HTML as literal text.
 $use_v2_shell = true;
 $content_bleed = true;
-?>
 
-<?php include 'includes/header.php'; ?>
+include 'includes/header.php';
+?>
 <link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/auth.css')) ?>">
 
 <div class="auth-shell">
@@ -256,11 +268,25 @@ $content_bleed = true;
 
 
 <script>
-// Password confirmation validation
+// Password confirmation validation.
+//
+// The form fields only exist when the token is valid. When the link is
+// invalid or expired the page renders the error branch instead, and
+// that branch has no #password / #confirm_password inputs. The
+// listener must therefore be null-guarded -- otherwise this throws
+// "Cannot read properties of null (reading 'addEventListener')" on
+// every bad link, and the console error is logged on the page the
+// user is actually looking at.
 document.addEventListener('DOMContentLoaded', function() {
     const password = document.getElementById('password');
     const confirmPassword = document.getElementById('confirm_password');
-    
+
+    // No form on this page (bad or expired link, or the post-reset
+    // success block). Nothing to validate.
+    if (!password || !confirmPassword) {
+        return;
+    }
+
     function validatePasswordMatch() {
         if (confirmPassword.value !== '' && password.value !== confirmPassword.value) {
             confirmPassword.setCustomValidity('Passwords do not match');
@@ -268,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmPassword.setCustomValidity('');
         }
     }
-    
+
     password.addEventListener('input', validatePasswordMatch);
     confirmPassword.addEventListener('input', validatePasswordMatch);
 });
