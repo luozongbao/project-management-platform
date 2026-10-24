@@ -143,7 +143,7 @@ $files_to_check = [
 // §6.4). The probe_diag_test.php test asserts that no
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
-    'config.php'              => 'bf4c6b7025ac93ea1d53f7c5a0ed5be1',
+    'config.php'              => 'baab3d16990d21ee05a1a8fc2f22568f',
     'client/dashboard.php'    => '194402c0a56bbe201b27b1b771180b86',
     'client/lang.php'         => '5d83e532b71d6cc1ef6410609aee2e8c',
     'includes/header.php'     => '04947db79160e2c1e3f759990093df65',

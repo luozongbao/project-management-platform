@@ -4,264 +4,140 @@ A PHP-based project management platform for small teams. It pairs an internal
 console (projects, tasks, contacts, users) with a public **client share
 portal** that lets stakeholders view read-only progress without logging in.
 
-> **Latest release:** v1.8.0 (2026-10-19) — see [RELEASE.md](RELEASE.md) for the full changelog.
+> **Latest release:** v2.0 (2026-10-25) — see [RELEASE.md](RELEASE.md) for the
+> full changelog.
 >
-> **Work in progress — v2.0.** The front-end redesign is landing on the
-> `v.2.0` branch and is **not released yet** (`APP_VERSION` is still
-> `v1.8.0`). Every page has been converted to the v2 design tokens and
-> component layer, and the superseded v1 CSS has been stripped; the only
-> remaining work is the version bump. See the **v2.0 migration status** table
-> below and the **Unreleased** section of [RELEASE.md](RELEASE.md).
+> **v2.0 is the front-end redesign.** Every page of the internal console, the
+> install wizard and the public client portal has been rebuilt on a shared v2
+> design system: a **103-token** layer (`assets/css/v2-tokens.css`), a
+> **component library** (`.card`, `.btn`, `.modal`, `.toast`, `.stat-grid`,
+> `.task-tree`, `.form-grid`, … in `assets/css/v2-components.css`) and **14
+> per-page stylesheets** (`assets/css/pages/`). All inline `<style>` and
+> inline `<script>` blocks are gone; shared behaviour now lives in
+> `assets/js/script.js`. The superseded v1 CSS was swept out (90 dead
+> selectors from `style.css`, 11 from the client portal).
 >
-> **v1.8.0** is a minor release for
-> [issue-034](docs/issues/issue-034.md) — adds a
-> `on_hold_reason` and a `delay_reason` TEXT column to
-> `tasks`, with enforced-on-write validation (non-empty
-> trimmed, ≤2000 chars) on every path that can land a row
-> in `on_hold` or `delay` state. The owner app surfaces
-> the reasons as chips on the dashboard and tasks list,
-> with a superscript "reason missing" mark on the
-> status badge and a one-click "fill the missing reason"
-> inline editor on `task_detail.php`. The client portal
-> shows the same chips on the per-task cards and a
-> project-level counter row in the Info panel. New
-> `delayed` filter on `tasks.php` and two new stat-cards
-> on `dashboard.php` ("Delayed Tasks", "On Hold Tasks").
-> One backwards-incompatible schema migration
-> (`database/migrations/20261019_add_task_status_reasons.sql`,
-> idempotent). Re-upload of `config.php` to prod is
-> required (`APP_VERSION` bump). The v1.7.3.2 hotfix is
-> preserved below as historical.
+> v2.0 is also a **routing release**. A front controller
+> (`includes/Router.php`) and a `slug` migration replace the old
+> `.php`-suffixed URLs with clean ones, and the canonical detail URLs use
+> **numeric IDs** (`/projects/1692`, `/tasks/935`, `/contacts/249`) because
+> slugs are mutable — every legacy `.php` and slug URL 301s to the new form.
 >
-> **v1.7.3.2** is a hotfix for
-> [issue-033](docs/issues/issue-033.md) — the
-> "code looks fine, prod is broken" stale-`config.php`
-> 500 regression that the v1.7.3.0 + v1.7.3.1 release
-> introduced. The v1.7.3 + v1.7.3.1 code was correct, but
-> the deploy workflow left the prod `config.php` stale
-> relative to `config.template.php` (a class of regression
-> not caught by any of the existing release-process gates).
-> Fixed with **three layers of guardrails**: (1) a new
-> §3.6 all-pages HTTP probe in `_diag.php` that does a
-> `curl` GET against all 7 public pages and asserts each
-> returns the expected status code (200 / 302 / 403),
-> fail-fast — catches the regression at release time on the
-> prod shell, not after the user hits the page; (2) a 5-line
-> `defined()` guard at the top of `includes/header.php`
-> that detects a stale `config.php` (missing `APP_NAME`,
-> `APP_VERSION`, or `TIMEZONE`) and emits a clear
-> "re-upload your `config.php`" red banner instead of a
-> generic 500 — direct mitigation for the failure mode the
-> user just hit; (3) a new step 5.7 in
-> `docs/RELEASE_PROCESS.md` that requires the all-pages
-> probe to return green before a release is declared
-> "shipped" (hard gate, fail-fast). Two new assertions in
-> `database/probe_diag_test.php` (checks #10 and #11) catch
-> a future dev who removes either guardrail. No schema / no
-> public-API / no CSP change. Re-upload of `config.php` to
-> prod is required (third `APP_VERSION` bump in 3 releases
-> — please remember to re-upload from `config.template.php`).
-> The v1.7.3.1 inline-script externalise and v1.7.3
-> favicon releases are preserved below as historical.
+> Other notable additions: **public registration can be closed** with a single
+> `const APP_ALLOW_REGISTRATION` line in `config.php` (the `register.php`
+> route returns 403 when it is off); two **new delete endpoints**
+> (`contact_delete.php`, `task_delete.php`) that previously 404'd; and four
+> browser-found bug fixes — the **copy button** now works outside a secure
+> context, **task completion dates** no longer lose their time to a `DATE`
+> column, the **client language switcher** matches the mockup, and the
+> **forgot-password** layout is corrected.
 >
-> **v1.7.3.1** is a hotfix for
-> issue-032: the public landing
-> (`/`) was logging
-> `Executing inline script violates the following Content
-> Security Policy directive 'script-src 'self'
-> https://cdnjs.cloudflare.com
-> https://static.cloudflareinsights.com'…` in the browser
-> console because the page shipped with an inline `<script>`
-> block (the share-code auto-format IIFE) but `/` is served
-> with the **client-portal** CSP (no `'unsafe-inline'` in
-> `script-src` — the issue-020 invariant), so the browser
-> blocks it. Fixed by extracting the inline IIFE to the
-> external file `assets/js/share-code-format.js` and loading
-> it via `<script src="…">`. A new check #9 in
-> `database/probe_diag_test.php` asserts `index.php` has no
-> inline `<script>` block and at least one
-> `<script src="assets/js/…">` tag, so a future dev who adds
-> a new inline script to `/` (or reverts the externalise
-> edit) is caught at test time. No schema / no public-API
-> change. No CSP change. v1.7.3.1 is a 1-file
-> externalise + 1 new test check; the v1.7.3 favicon
-> release is preserved below as historical.
->
-> **v1.7.3** adds the project favicon
-> (issue-031). The browser
-> console was logging `GET /favicon.ico 404 (Not Found)`
-> on every page because no `<link rel="icon">` tag was
-> declared in any `<head>`, so browsers fell back to
-> requesting the default `/favicon.ico`. Fixed by:
-> (1) adding the new asset `assets/image/project-favicon.png`
-> (a 41 KB PNG); (2) inserting
-> `<link rel="icon" type="image/png" href="…">` into
-> every `<head>` in the project — `includes/header.php`,
-> `index.php`, `install.php`, and the 3 styled heads of
-> `client/dashboard.php` (which uses a `../assets/…` href
-> because it is served from `/client/`); (3) a 2-section
-> favicon assertion in `database/probe_diag_test.php`
-> that catches a future dev who removes the link tag or
-> the PNG file. No schema / no public-API change.
->
-> **v1.7.2.3** is a prod hotfix for
-> [issue-030](docs/issues/issue-030.md): hitting
-> `https://project.lorwongam.com/` was silently
-> redirecting to `https://project.lorwongam.com/login.php`
-> instead of rendering the public landing form
-> (`index.php`). The cause is **not** in the code or
-> `.htaccess` — it is a cPanel hPanel setting on the
-> `project.lorwongam.com` subdomain (either a Redirects
-> UI rule or an Index Manager override), which has higher
-> precedence than `.htaccess` `DirectoryIndex`. Fixed by:
-> (1) the user (or dev) removing the hPanel Redirects
-> rule and/or adding `index.php` to the Index Manager
-> default list on the prod host's hPanel UI — see the
-> new "step 5.6" in the release process; (2) a 1-line
-> defensive `DirectoryIndex index.php index.html` in
-> `.htaccess` so a future hosting migration does not
-> re-introduce the same bug; (3) a new live-URL probe
-> ("Landing page (`/`)" sub-section) in `_diag.php` that
-> does `curl https://project.lorwongam.com/`, asserts
-> the response is HTTP 200 (not 301/302 to `/login.php`)
-> and the body contains the public landing form
-> (`name="code"`), and prints an actionable hPanel fix
-> message if the assertion fails; (4) 2 new assertions
-> in `database/probe_diag_test.php` that catch a future
-> dev who removes the new probe or weakens its
-> assertion. No schema / no public-API change.
->
-> **v1.7.2.2** is a prod hotfix for
-> [issue-029](docs/issues/issue-029.md): the public client
-> portal was returning 500 on
-> `/client/dashboard.php?code=…&lang=en` after the v1.7.2 ship
-> to `https://project.lorwongam.com` (Cloudflare-fronted
-> shared hosting), and the Cloudflare Web Analytics beacon
-> was producing a CSP violation in the browser console on
-> every page. The 500 is fixed defensively: `client/dashboard.php`
-> now opens an `ob_start()` at the top, guards the empty-code
-> redirect with `headers_sent()`, reorders the `client/lang.php`
-> `require_once` to be above the headers emission, and writes
-> a one-line `[v1.7.2.2 deploy]` marker to the PHP error log
-> so the dev can confirm the new file ran (vs an
-> opcache-served old version). The CSP violation is fixed by
-> adding `https://static.cloudflareinsights.com` to the
-> `script-src` directive in **both** the internal-app and
-> client-portal CSPs (Path B in the spec — Path A
-> "disable Web Analytics on the zone" is a dashboard-only
-> change that does not require a code commit and is left
-> to the dev to flip from the Cloudflare UI). A new
-> read-only prod sanity probe at `_diag.php` (blocked from
-> public HTTP by the new `.htaccess` `<FilesMatch>` rule,
-> runnable from the prod shell) lets the dev compare the
-> md5sum of the files on prod against the v1.7.2.2-shipped
-> versions and confirm the `about.*` lang keys are present
-> in both `en` and `zh` catalogs. A new "step 5.5" in the
-> release process makes the probe a mandatory post-deploy
-> gate. No schema / no public-API change.
->
-> **v1.7.2.1** is a hotfix for the v1.7.2 "?" About popup (tester-note-002):
-> fixes the Close-button click re-toggle, replaces the broken /RELEASE.md
-> link with an inline release summary, and adds regression nets.
->
-> **v1.7.1.1** aligns parent status with parent completion
-> percentage (issue-026): the parent's `status` is now
-> derived from its computed `completion_percentage` (0 →
-> `not_started`, 0 < x < 99.5 → `in_progress`, ≥ 99.5 →
-> `completed`) rather than from the child `status` mix. A
-> new pure helper `deriveParentStatusFromCompletion()` in
-> `includes/functions.php` powers the parent-derivation
-> path in `syncProjectTaskCompletions()`; the strict
-> `all-completed` rule from v1.7.1 is preserved at the
-> leaf level and at the user-driven resume path in
-> `ajax/parent_hold.php`. Closes the UAT2 regression
-> where a parent at 1.6% progress was classified as
-> `not_started`. Pure function-body + 1-line call-site
-> change. No DB / schema / AJAX / JS / CSS / translation
-> change. Pull and reload — no restart required.
->
-> **v1.7.1** tightens the parent-task status rule (issue-025):
-> the parent is now `completed` only when **every** sub-task is
-> `completed` (was: any sub-task `completed`). The three other
-> rules (`on_hold` stickiness, `in_progress` wins, empty
-> children → `not_started`) are unchanged. A parent that was
-> classified as `completed` under the old rule and still has a
-> `not_started` sub-task is automatically demoted to
-> `not_started` on the next sub-task edit, hold, resume,
-> complete, or progress update. No DB / schema / AJAX / CSS /
-> translation change. Pull and reload — no restart required.
->
-> **v1.7.0** is a security + bugfix bundle. It closes the v1.6.0
-> security audit ([issue-015](docs/issues/issue-015.md) — umbrella;
-> split into [issue-016](docs/issues/issue-016.md) through
-> [issue-023](docs/issues/issue-023.md)) and the password-reset
-> redirect loop ([issue-024](docs/issues/issue-024.md)). Highlights:
-> CSRF on every mutating internal endpoint
-> (`contact_edit.php`, `task_edit.php`, `profile.php`); raw PDO
-> error messages no longer echo to the user; `install.php`
-> hardened against `addslashes`-style config injection and
-> `$_SERVER['HTTP_HOST']` header injection; `_smtp_test.php`
-> moved out of the web root; `task_edit.php` POST handler
-> re-validates `responsible_person_id` / `contact_person_id` /
-> `project_id` against the current user's project set (closes
-> the IDOR); new per-IP rate limits on login, registration,
-> password reset, and the public client share portal; response
-> security headers (CSP, `X-Frame-Options: DENY`,
-> `X-Content-Type-Options: nosniff`, `Referrer-Policy`,
-> `Permissions-Policy`); session cookies pinned to
-> `HttpOnly; SameSite=Lax`; `session_regenerate_id(true)` on
-> every successful login and password-reset POST; and the
-> broken rotate-on-render redirect loop in
-> `reset_password.php` is removed. Four additive
-> migrations (`password_reset_attempts`, `login_attempts`,
-> `client_share_code_attempts`, and a `share_code_rotated_at`
-> column on `projects`) ship in this release; all are
-> idempotent and apply on first DB access. No new features.
-> Pull, rebuild the `app` container
-> (`docker compose up -d --build app`), reload. No DB rebuild
-> required.
->
-> **v1.5.1** ships two small UI-layout fixes against the v1.5.0
-> `task_edit.php` / `task_detail.php` surface (issue-013, revised
-> 2026-10-12): the "Put on Hold" button on `task_detail.php` now
-> sits on the same row as "Edit Task" / "+ Add Subtask" (a new
-> `.page-actions` flex rule in `assets/css/style.css`), and the
-> "Use sum of sub-task hours" checkbox on `task_edit.php` now
-> renders on one line with its text label (a new
-> `.checkbox-label` flex rule with an 18x18 touch target).
-> Three earlier structural items from the original spec
-> (`.form-grid` two-column layout, `$effective_inherit`
-> initialisation, Hold / Resume form position) are confirmed
-> already in place. A new mobile breakpoint collapses
-> `.page-header` to a column at <768px. No DB / schema / JS /
-> translation changes. Pull and reload — no restart required.
->
-> **v1.5.0** ships the parent-task model upgrade: a parent task with
-> sub-tasks can now opt into a **sum-of-sub-task-hours** inherit mode for
-> its effort estimate (issue-011), and its **status** is now derived from
-> its sub-tasks' statuses (issue-012). Both changes share the same
-> parent surface (`task_edit.php` / `task_detail.php`) and were released
-> together as a single coordinated change. The status change is the more
-> user-visible of the two: the task detail page now shows an **"Auto"**
-> pill next to a parent's status, the status dropdown is read-only for
-> parents with sub-tasks, and a new **"On Hold"** / **"Resume"** action
-> under *Page actions* is the only legitimate path to change a parent's
-> status. One small additive migration. No breaking API changes.
->
-> **v1.4.1 (issue-010)** ships a purely client-side sub-tasks toggle on the
-> public client dashboard: a one-click control that collapses or expands
-> the nested sub-trees under each top-level workstream. State is persisted
-> per device via `localStorage` under `client_dash.subtasks_visible.<share_code>`.
-> No backend / schema change.
->
-> **Bundled together (release tag: v1.2.1):** The planned v1.3 / v1.3.1 / v1.4
-> work-items were packaged into one release — **v1.2.1** — because they all
-> touch the project + contact surface and the DB shape. Originally planned
-> as v1.3: Project Start Date (issue-008). Originally planned as v1.3.1:
-> dashboard CTA + CSRF hardening on the project create / edit form
-> (tester-note-001). Originally planned as v1.4: missing `company` /
-> `position` / `address` columns on `contacts` (issue-009) plus surfacing
-> underlying PDO errors. All three shipped under the v1.2.1 tag.
+> The v2.0 acceptance suite reports **110 PASS / 0 FAIL**; see
+> [docs/v2.0-test-report.md](docs/v2.0-test-report.md) for the full run and
+> the outstanding operational blocker (the production origin must be rebuilt
+> before v2.0 is deployed there).
+
+---
+
+## What's new in v2.0
+
+### v2.0 — The front-end redesign (issues 035–055)
+
+The complete v2.0 surface. Full detail is in
+[RELEASE.md](RELEASE.md); the highlights:
+
+| Area | What changed |
+|---|---|
+| **Design tokens** | `assets/css/v2-tokens.css` — 103 tokens for colour, spacing, radius, typography, shadow and duration. Semantic tints use `-100` / `-500` / `-700`. |
+| **Components** | `assets/css/v2-components.css` — the shared vocabulary: `.card`, `.btn`, `.status`, `.badge`, `.modal`, `.toast`, `.stat-grid`, `.detail-list`, `.table`, `.task-tree`, `.form-grid`, `.field`, `.alert`. |
+| **Page stylesheets** | `assets/css/pages/` — 14 per-page files. Page styling no longer lives in inline `<style>` blocks. |
+| **Routing** | `includes/Router.php` front controller; clean URLs replace `.php` suffixes; canonical detail URLs use numeric IDs; legacy `.php` and slug URLs 301 to the new form. |
+| **Client-side JS** | `assets/js/script.js` — `initModals()`, `initRangeSync()`, `initStatusReason()`, `initCopy()` and `pmpToast()`, moved out of per-page inline scripts. |
+| **Dead CSS sweep** | 90 selectors removed from `style.css` (984 → 428 lines), 11 from the client portal CSS. |
+| **Registration flag** | `const APP_ALLOW_REGISTRATION` in `config.php` closes public sign-up; `/register` returns 403 when off. |
+| **New endpoints** | `contact_delete.php` and `task_delete.php` — both previously 404'd. |
+
+**Pages converted:** dashboard, projects, tasks, contacts, profile, project /
+task / contact detail, project / contact / task new + edit, login, register,
+forgot password, reset password, the install wizard, the client dashboard and
+the client landing page.
+
+### v2.0 — New delete endpoints
+
+Both delete links previously pointed at files that did not exist and returned
+**HTTP 404**. They are now real, POST-only endpoints that require the CSRF
+token **and** a typed confirmation:
+
+- `POST /contacts/<id>/delete` — confirms with the contact's name.
+- `POST /tasks/<id>/delete` — confirms with the task's name.
+
+Deleting a parent task cascades to its whole subtree. Deleting a contact
+clears its task assignments first (the FK is `RESTRICT`) and keeps the
+tasks themselves.
+
+### v2.0 — Public registration can be closed
+
+One constant in `config.php` controls whether anyone can create an account:
+
+````php
+const APP_ALLOW_REGISTRATION = false;   // true = open, false = closed
+````
+
+When it is `false`, `/register` returns **HTTP 403** for both `GET` and
+`POST` — no user is created and no welcome email is sent — and the "Create an
+account" button on the login page and the "Register" link on the
+forgot-password page are hidden. The check lives **above** the `POST`
+handler, so a direct `POST` cannot bypass the UI.
+
+The flag lives in `config.php` rather than `.env` on purpose: shared hosting
+(Hostinger / cPanel) has no `docker-compose` and nothing reads `.env`, while
+`config.php` is hand-maintained on every deployment. `config.php` is
+bind-mounted into the container, so the change takes effect on the next
+request — **no container restart, no `docker compose`, no `.env` edit**. Set
+it back to `true` to re-open registration.
+
+### v2.0 — Browser-found bug fixes
+
+- **The "Copy link" button did nothing** on a plain-HTTP origin — the Async
+  Clipboard API does not exist outside a secure context, and the handler had
+  no fallback and no error handling. A new shared `pmpCopyText()` helper
+  implements a real fallback chain and reports failure honestly.
+- **Task completion dates silently lost their time** — the form posted
+  `datetime-local` values into `DATE` columns, so `2026-10-22 14:30:00` was
+  stored as `2026-10-22`. The form now uses `type="date"`, the parser
+  actually validates impossible dates, and the AJAX status endpoints were
+  corrected to day precision. No schema change.
+- **The client language switcher never showed its active state** — the CSS
+  rule targeted `button.is-active` while the markup renders links. A scoped
+  rule restores it.
+- **The forgot-password page was mislaid out** — missing required-field
+  marker, no `autocomplete="email"`, no `autofocus`, and the error alert sat
+  below the heading instead of above it.
+
+### v2.0 — Routing and navigation
+
+- Clean URLs replace `.php` suffixes (`/login`, `/projects`, `/dashboard`).
+- Detail URLs use **numeric IDs** — `/projects/<id>`, `/tasks/<id>`,
+  `/contacts/<id>` — because slugs are mutable and renaming an entity used
+  to break its links. The `slug` columns are retained so historical slug URLs
+  still resolve.
+- `GET /reset-password` and `/reset-password/<token>` were declared in the
+  router but returned **404**, so every emailed password-reset link was dead.
+- Unauthenticated deep links now redirect to the login page with a
+  guarded `?redirect=` return path, instead of 404'ing.
+
+### v2.0 — Mockup container (issue-036)
+
+The v2.0 HTML mockup can be browsed locally:
+
+```bash
+docker compose up -d mockup
+# → http://localhost:8080
+```
+
+The service is behind a Compose `profiles` tag, so a plain
+`docker compose up -d` does not start it, and it publishes only the mockup
+and `issue-035.md` — not the rest of `docs/issues/`.
 
 ---
 
@@ -821,12 +697,19 @@ portal** that lets stakeholders view read-only progress without logging in.
   contact autocomplete.
 - **PHPMailer 6.8** for transactional email (invitations, password
   resets).
+- **Configurable public registration** (v2.0) — a single
+  `const APP_ALLOW_REGISTRATION` in `config.php` closes public sign-up;
+  `/register` then returns 403 for both `GET` and `POST`, and the login and
+  forgot-password pages stop offering a registration link. Existing accounts
+  are unaffected.
+- **Delete flows for contacts and tasks** (v2.0) — both are POST-only, CSRF-
+  protected, and require a typed confirmation (the contact / task name).
 
 ### Client portal (public, no login)
 
-- **Root entry point** (`/`) — the domain root now hosts the public
-  share-code form, so clients and project managers have a single shared
-  landing page. An "Owner sign in" link on the form reaches `/login.php`.
+- **Root entry point** (`/`) — the domain root hosts the public share-code
+  form, so clients and project managers have a single shared landing page.
+  An "Owner sign in" link on the form reaches `/login`.
 - **Legacy `/client/` URL** — preserved as a redirect shim that 302-redirects
   to `/` while passing through the original query string (so existing
   bookmarks like `/client/?code=…` still work).
@@ -846,7 +729,10 @@ portal** that lets stakeholders view read-only progress without logging in.
 - **Localization** — English (default) and Simplified Chinese. Set via
   `?lang=zh`, persisted in a 1-year cookie, falling back to
   `Accept-Language`. Switcher is rendered on the landing page and the
-  dashboard header.
+  dashboard header, with a visible active state on both.
+- **v2.0 styling** — the landing page and the client dashboard both load the
+  shared v2 token and component layers, so they match the internal console
+  instead of carrying their own hand-rolled CSS.
 
 ---
 
@@ -956,11 +842,11 @@ cd docs/design/2.0 && python3 -m http.server 8080
 See `docs/issues/issue-035.md` for the full design specification and
 `docs/issues/issue-036.md` for the ops notes.
 
-### v2.0 migration status
+### v2.0 release status
 
-The v2.0 visual redesign is in progress on the **`v.2.0`** branch. The live
-app still reports `APP_VERSION = "v1.8.0"` — the version bump is the only
-remaining step of Phase 1.
+**v2.0 is released** (2026-10-25). `APP_VERSION` is `v2.0` and the v2.0
+acceptance suite reports **110 PASS / 0 FAIL**
+([docs/v2.0-test-report.md](docs/v2.0-test-report.md)).
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -971,14 +857,22 @@ remaining step of Phase 1.
 | Phase 1.4 | Page conversions | Done — dashboard, projects, tasks, contacts, profile, detail pages, the three New/Edit forms, and the auth pages ([issue-038](docs/issues/issue-038.md) … [issue-047](docs/issues/issue-047.md)) |
 | Phase 1.5 | Client portal — `client/dashboard.php` | Done ([issue-038](docs/issues/issue-038.md)) |
 | Phase 1.6 | Strip the superseded v1 rules from `style.css` | Done ([issue-053](docs/issues/issue-053.md)) — 90 dead selectors removed from `assets/css/style.css` and 11 from `client/assets/client.css`; the two remaining v1→v2 inconsistencies (`subtask-manager.js` button classes, `profile.php`'s 2-column grid) fixed |
-| Phase 1.7 | Bump `APP_VERSION` to `v2.0` in `config.php`, `config.template.php` and `install.php` | Pending |
+| Phase 1.7 | Bump `APP_VERSION` to `v2.0` in `config.php`, `config.template.php` and `install.php` | Done |
+| Phase 1.8 | Public registration flag, new delete endpoints, browser-found bug fixes, acceptance-test remediation | Done ([issue-039](docs/issues/issue-039.md), [issue-055](docs/issues/issue-055.md)) |
 
 Converting a page means: rebuild its markup on the v2 component vocabulary,
 move its styles into `assets/css/pages/<page>.css`, delete its inline
 `<style>` and inline `<script>` blocks, and keep the page's `name=` / `id=`
 attributes, form actions and AJAX endpoint shapes untouched.
 
-> The `v.2.0` branch is **not** merged into `dev` yet.
+> ### ⚠️ Before deploying v2.0 to production
+>
+> The production origin `project.lorwongam.com` currently serves a
+> **BSC crypto-miner** instead of the application — a P0 operational incident
+> that no code change can fix. The origin must be **rebuilt** before v2.0 is
+> deployed there. See the deploy note at the top of
+> [RELEASE.md](RELEASE.md) and the incident section of
+> [docs/v2.0-test-report.md](docs/v2.0-test-report.md).
 
 ### Asset cache-busting
 
@@ -1021,11 +915,16 @@ When you add or move a stylesheet or script, link it with:
 .
 ├── ajax/                  AJAX endpoints (progress, status, contact lookup, parent hold, …)
 ├── assets/
-│   ├── css/               Internal stylesheet
-│   ├── js/                Internal JS
-│   └── …
+│   ├── css/
+│   │   ├── v2-tokens.css      Design tokens (colour, spacing, radius, type, …)
+│   │   ├── v2-components.css  Shared component library
+│   │   ├── style.css          Base / layout stylesheet
+│   │   └── pages/             14 per-page stylesheets
+│   ├── js/
+│   │   ├── script.js          Shared client-side behaviour
+│   │   └── subtask-manager.js Sub-task add / delete
+│   └── image/                Favicon
 ├── client/                Public client share portal (no login)
-│   ├── index.php          Code-entry landing page
 │   ├── dashboard.php      Read-only project dashboard
 │   ├── lang.php           ENG / 中文 translation catalog + helpers
 │   └── assets/client.css  Client portal stylesheet
@@ -1035,31 +934,48 @@ When you add or move a stylesheet or script, link it with:
 │   └── migrations/        Numbered, idempotent migration files
 ├── docker/
 │   ├── entrypoint.sh      Container bootstrap
-│   └── nginx.conf         nginx site config
+│   ├── nginx.conf         nginx site config
+│   └── mockup-nginx.conf  Static mockup server (issue-036)
 ├── docs/
 │   ├── requirements.md            v1.0 spec
 │   ├── 20261003 requirements.md    v1.1 spec (client portal + i18n)
+│   ├── design/2.0/                v2.0 HTML mockup + Python generator
+│   ├── v2.0-test-report.md        v2.0 acceptance test report
 │   └── issues/                    Resolved bug reports
 ├── includes/
 │   ├── Database.php       PDO singleton
 │   ├── EmailService.php   PHPMailer wrapper
+│   ├── Router.php         Front controller — route table + dispatch
+│   ├── landing.php        Public share-code landing page
+│   ├── legacy_redirects.php  .php / slug → canonical URL 301s
+│   ├── slug.php           Slug helpers
 │   ├── functions.php      Shared helpers (e, formatMoney, generateShareCode, …)
-│   ├── header.php / footer.php   Internal layout
+│   ├── header.php / footer.php   Internal layout (v2 shell)
 │   └── …
 ├── vendor/                Composer install (PHPMailer)
 ├── config.php             Generated by installer (not committed)
 ├── config.template.php    Template for manual setup
-├── docker-compose.yml     Three-container stack
+├── docker-compose.yml     Three-container stack (+ optional mockup profile)
 ├── Dockerfile             php-fpm 8.3 image
 ├── install.php            First-run installer
 ├── login.php / register.php / forgot_password.php / profile.php / logout.php
+├── reset_password.php     Password reset (consumes the emailed token)
 ├── dashboard.php / projects.php / tasks.php / contacts.php
 ├── project_*.php / task_*.php / contact_*.php   CRUD pages
-├── index.php              Internal landing page (post-login)
+│   ├── project_detail.php / project_edit.php / project_delete.php
+│   ├── task_detail.php / task_edit.php / task_delete.php
+│   └── contact_detail.php / contact_edit.php / contact_delete.php
+├── index.php              Public share-code landing entry
 ├── composer.json
 ├── README.md              ← you are here
 └── RELEASE.md             Per-version release notes
 ```
+
+> **URL shape (v2.0).** The app is served through a front controller, so the
+> clean paths (`/login`, `/projects`, `/projects/1692`) are the canonical
+> form. The legacy `.php` files still exist on disk and are the handlers the
+> router dispatches to — they are not linked directly. Every legacy `.php` URL
+> and every old slug URL 301-redirects to the canonical one.
 
 ---
 
@@ -1196,6 +1112,24 @@ schema additions:
     `information_schema`-guarded; the backfill `UPDATE` is
     idempotent (a re-run is a no-op because the `WHERE share_code
     _rotated_at IS NULL` clause matches nothing on the second pass).
+- v2.0 (routing): `projects.slug VARCHAR(191) NULL`,
+  `tasks.slug VARCHAR(191) NULL`, `contacts.slug VARCHAR(191) NULL` —
+  added by `database/migrations/20261022_add_slugs.sql`. Existing rows
+  receive a slug on first write. The columns are **retained** even though
+  the canonical URLs now use numeric IDs, so that historical slug URLs can
+  still resolve and 301 to the current canonical URL.
+
+Individual schema changes ship as **numbered, idempotent** files in
+`database/migrations/`. Apply them in date order; each one is safe to run
+more than once.
+
+| Migration | What it does |
+|---|---|
+| `20261003_add_client_share.sql` | Adds the client share-code columns. |
+| `20261003_add_contacts_phone.sql` | Adds the contact phone column. |
+| `20261005_add_task_estimated_hours.sql` | Adds the task estimated-hours column. |
+| `20261005_weight_project_completion.sql` | Weights project completion by task effort. |
+| `20261022_add_slugs.sql` | **v2.0** — adds the `slug` column to `projects`, `tasks` and `contacts`. |
 
 ---
 
@@ -1204,6 +1138,12 @@ schema additions:
 The app is procedural PHP — one file per route, no framework. Pages
 require `config.php` (auto-generated) plus `includes/Database.php` and
 `includes/functions.php`, then output HTML directly.
+
+Since v2.0 a **front controller** (`includes/Router.php`) owns the public URL
+space and dispatches to those same page files. The route table lives in one
+place; `includes/legacy_redirects.php` resolves historical `.php` and slug
+URLs and 301s them to the canonical form. New pages should be added to the
+route table, not linked directly as `.php` URLs.
 
 Helpers worth knowing (see `includes/functions.php`):
 
@@ -1214,6 +1154,13 @@ Helpers worth knowing (see `includes/functions.php`):
   symbol.
 - `generateShareCode()` — produce a fresh 5-5-5 share code.
 - `buildClientShareUrl($code)` — build the absolute client URL.
+- `asset_url($path)` — append the file's mtime to a local asset URL so
+  browsers pick up a corrected stylesheet or script immediately, despite the
+  30-day `Cache-Control` header (v2.0).
+- `isRegistrationAllowed()` — resolve `APP_ALLOW_REGISTRATION`; permissive
+  when the constant is absent (v2.0).
+- `slugify()` / `generateUniqueSlug()` — build the entity slugs used by the
+  legacy-redirect layer (v2.0).
 
 Database access goes through the PDO singleton:
 
@@ -1261,6 +1208,10 @@ for resolved bug reports.
 ---
 
 ## About this build
+
+**Current version:** `v2.0` (2026-10-25) — the v2.0 front-end redesign.
+See [RELEASE.md](RELEASE.md) for the full per-version changelog and
+[docs/issues/](docs/issues/) for the individual issue write-ups.
 
 The application version shown in the in-app About popup, the README banner,
 and the top entry of [RELEASE.md](RELEASE.md) is sourced from the
