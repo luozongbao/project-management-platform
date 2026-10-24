@@ -247,6 +247,44 @@ function element_around(string $src, string $marker, int $lookBack = 400): strin
     return substr($src, $start + $tagPos, $pos - $start - $tagPos + strlen($marker));
 }
 
+/**
+ * Return true when the PHP statement $needle is executed as PHP code.
+ *
+ * A source grep cannot answer this question reliably: the statement may
+ * live after a PHP close tag, in which case PHP treats it as literal
+ * HTML and never executes it. token_get_all() tells the truth — the
+ * tokenizer emits T_INLINE_HTML for the text between a close tag and the
+ * next open tag, so a statement that appears there is inert.
+ *
+ * The needle must be a unique PHP statement (e.g.
+ * '$use_v2_shell = true'), matched against the reconstructed source of
+ * the PHP code tokens only.
+ */
+function php_statement_is_executed(string $src, string $needle): bool
+{
+    $tokens = @token_get_all($src);
+    if (!is_array($tokens)) {
+        return false;
+    }
+    $code = '';
+    foreach ($tokens as $token) {
+        if (is_array($token)) {
+            // Skip inline HTML entirely — that is the bug we are detecting.
+            if ($token[0] === T_INLINE_HTML) {
+                continue;
+            }
+            // Skip comments too; prose must never satisfy the check.
+            if ($token[0] === T_COMMENT || $token[0] === T_DOC_COMMENT) {
+                continue;
+            }
+            $code .= $token[1];
+        } else {
+            $code .= $token;
+        }
+    }
+    return strpos($code, $needle) !== false;
+}
+
 // =====================================================================
 // Bug 1 — copy button
 // =====================================================================
@@ -570,6 +608,93 @@ if ($taskDetail !== '') {
     }
 }
 
+// ---------------------------------------------------------------------
+// 2j. project_edit.php must use type="date" for ALL THREE date fields.
+//      The project form was the second half of the "no date picker"
+//      report: switching it to type="date" is what exposes the browser
+//      to its native calendar picker at all, so the regression net has
+//      to pin it the same way it pins task_edit.php.
+// ---------------------------------------------------------------------
+$projectEditPath = $root . '/project_edit.php';
+$projectEdit = read_source($projectEditPath);
+if ($projectEdit === '') {
+    $failures[] = 'project_edit.php is missing or unreadable';
+} else {
+    foreach (['start_date', 'expected_completion_date', 'completion_date'] as $field) {
+        $tag = element_around($projectEdit, 'id="' . $field . '"');
+        if ($tag === '') {
+            $failures[] = "project_edit.php is missing the $field input";
+            continue;
+        }
+        if (strpos($tag, 'type="date"') === false) {
+            $failures[] = "project_edit.php: the $field input must be type=\"date\"";
+        }
+        if (strpos($tag, 'datetime-local') !== false) {
+            $failures[] = "project_edit.php: the $field input is still datetime-local";
+        }
+    }
+}
+
+// ---------------------------------------------------------------------
+// 2k. The native calendar-picker indicator must be VISIBLE.
+//      Regression for the "the date picker disappeared" report.
+//
+//      Chromium paints its own calendar glyph with a hard-coded dark
+//      fill and ignores the inherited text colour, so on the dark v2
+//      surface (--gray-0) the indicator rendered as a near-black square
+//      and was effectively invisible. The `color` property cannot fix
+//      it -- the component layer must paint the glyph itself with an
+//      explicit SVG background-image, and the dark theme needs its own
+//      lighter glyph.
+//
+//      These checks are the source-level guard for that rule; the
+//      visual result is what the browser actually paints.
+// ---------------------------------------------------------------------
+$componentsCss = read_source($root . '/assets/css/v2-components.css');
+if ($componentsCss === '') {
+    $failures[] = 'assets/css/v2-components.css is missing or unreadable';
+} else {
+    // A rule must target the picker indicator pseudo-element for date inputs.
+    if (strpos($componentsCss, '::-webkit-calendar-picker-indicator') === false) {
+        $failures[] = 'assets/css/v2-components.css has no ::-webkit-calendar-picker-indicator rule — '
+                    . 'the native date picker renders invisible on the dark v2 surface';
+    } else {
+        // The indicator must be painted with an explicit SVG, otherwise it
+        // inherits Chromium's hard-coded dark glyph.
+        if (!preg_match(
+            '~input\[type="date"\][^{}]*::-webkit-calendar-picker-indicator[^{}]*\{[^}]*background-image\s*:\s*url\(\s*"data:image/svg\+xml~s',
+            $componentsCss
+        )) {
+            $failures[] = 'assets/css/v2-components.css does not paint the date picker indicator with an SVG background-image';
+        }
+        // The indicator must not be hidden.
+        if (preg_match(
+            '~input\[type="date"\][^{}]*::-webkit-calendar-picker-indicator[^{}]*\{[^}]*opacity\s*:\s*0~s',
+            $componentsCss
+        )) {
+            $failures[] = 'assets/css/v2-components.css hides the date picker indicator (opacity: 0)';
+        }
+        // The dark theme needs its own, lighter glyph -- a dark SVG on the
+        // dark --gray-0 surface is just as invisible as Chromium's own.
+        $darkBlock = '';
+        if (preg_match('~@media\s*\(prefers-color-scheme:\s*dark\)\s*\{(.*)$~s', $componentsCss, $m)) {
+            $darkBlock = $m[1];
+        }
+        if ($darkBlock === '') {
+            $failures[] = 'assets/css/v2-components.css has no prefers-color-scheme: dark block';
+        } else {
+            if (strpos($darkBlock, '::-webkit-calendar-picker-indicator') === false) {
+                $failures[] = 'assets/css/v2-components.css has no dark-theme override for the date picker indicator';
+            } elseif (!preg_match(
+                '~::-webkit-calendar-picker-indicator[^{}]*\{[^}]*background-image\s*:\s*url\(\s*"data:image/svg\+xml~s',
+                $darkBlock
+            )) {
+                $failures[] = 'assets/css/v2-components.css does not repaint the date picker indicator in the dark theme';
+            }
+        }
+    }
+}
+
 // =====================================================================
 // Bug 3 — client dashboard language switcher
 // =====================================================================
@@ -693,6 +818,42 @@ if ($forgot === '') {
     if (strpos($forgot, '$use_v2_shell') === false || strpos($forgot, '$content_bleed') === false) {
         $failures[] = 'forgot_password.php: the $use_v2_shell / $content_bleed toggle must remain';
     }
+
+    // -----------------------------------------------------------------
+    // The toggle must be ASSIGNED IN PHP MODE.
+    //
+    // A stray PHP close tag between the page title and the
+    // `$use_v2_shell = true;` assignment closed PHP early, so both
+    // assignments were echoed into the HTML as literal text instead of
+    // being executed. Because includes/header.php only links the v2
+    // component layer (v2-components.css) when $use_v2_shell is truthy,
+    // the page rendered without it: .field lost its column layout (the
+    // label sat inline beside a narrow input) and .input lost its
+    // full-width rule.
+    //
+    // The tokenizer is the ground truth here: a statement that sits
+    // after a close tag is T_INLINE_HTML, i.e. inert text.
+    // -----------------------------------------------------------------
+    if (!php_statement_is_executed($forgot, '$use_v2_shell = true')) {
+        $failures[] = 'forgot_password.php: $use_v2_shell = true must be executed as PHP code — '
+                    . 'a PHP close tag before it turns the assignment into literal text and '
+                    . 'v2-components.css is never linked';
+    }
+    if (!php_statement_is_executed($forgot, '$content_bleed = true')) {
+        $failures[] = 'forgot_password.php: $content_bleed = true must be executed as PHP code';
+    }
+    // The flag must be set BEFORE the header is included, otherwise the
+    // v2 component layer is linked too late.
+    $flagPos = strpos($forgot, '$use_v2_shell = true');
+    $includePos = strpos($forgot, "include 'includes/header.php'");
+    if ($flagPos === false) {
+        $failures[] = 'forgot_password.php: $use_v2_shell must be set to true so the v2 component layer is loaded';
+    } elseif ($includePos === false) {
+        $failures[] = 'forgot_password.php: the header include is missing';
+    } elseif ($flagPos > $includePos) {
+        $failures[] = 'forgot_password.php: $use_v2_shell is set AFTER the header include — '
+                    . 'the v2 component layer would never be linked';
+    }
 }
 
 // register.php must place its error alert in the same position.
@@ -784,6 +945,7 @@ $lintTargets = [
     $functionsPath,
     $taskEditPath,
     $root . '/task_detail.php',
+    $root . '/project_edit.php',
     $root . '/forgot_password.php',
     $root . '/register.php',
     $root . '/client/dashboard.php',
@@ -816,9 +978,11 @@ if ($failures) {
 
 echo "PASS: issue-055 browser-found bugs regression test\n";
 echo "  - Bug 1: pmpCopyText() owns the Clipboard API -> execCommand fallback; initCopy() and copyShareUrl() both delegate and report failure honestly\n";
-echo "  - Bug 2: task dates are day precision end to end (parseFormDate(), type=\"date\", day-precision AJAX writers, CURDATE() in SQL, mockup regenerated)\n";
+echo "  - Bug 2: task and project dates are day precision end to end (parseFormDate(), type=\"date\", day-precision AJAX writers, CURDATE() in SQL, mockup regenerated)\n";
+echo "  - Bug 2: the native calendar-picker indicator is painted with an explicit SVG, with a lighter glyph in the dark theme\n";
 echo "  - Bug 3: the client language switcher's active chip uses the brand fill with role=\"group\", aria-current and a visible focus state\n";
 echo "  - Bug 4: forgot_password.php / register.php render the alert above the heading, with the .req marker, autocomplete and autofocus\n";
+echo "  - Bug 4: forgot_password.php assigns \$use_v2_shell in PHP mode, so the v2 component layer is actually linked\n";
 echo "  - parseFormDate() rejects impossible calendar dates (2026-02-31) and malformed values\n";
 echo "  - task_edit.php initialises the \$errors bag before the first parseFormDate() call (no TypeError)\n";
 echo "  - All modified PHP files lint cleanly\n";

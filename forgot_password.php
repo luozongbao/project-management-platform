@@ -88,13 +88,20 @@ if ($_POST) {
 }
 
 $title = "Forgot Password";
-?>
 
+// issue-055 bug 4: these flags MUST be assigned in PHP mode. A stray
+// PHP close tag before them closed PHP early, so the two assignments
+// below were echoed into the HTML as literal text instead of being
+// executed. The v2 component layer (v2-components.css) is only linked
+// when $use_v2_shell is truthy, so the auth page rendered without it:
+// .field lost its column layout (the label sat inline beside a narrow
+// input) and .input lost its full-width rule. Keep this block in PHP
+// mode -- login.php and register.php set the same flags correctly.
 $use_v2_shell = true;
 $content_bleed = true;
-?>
 
-<?php include 'includes/header.php'; ?>
+include 'includes/header.php';
+?>
 <link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/auth.css')) ?>">
 
 <div class="auth-shell">

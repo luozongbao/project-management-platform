@@ -627,6 +627,54 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .input-group .input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .input-group .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 
+/* --- Date / datetime picker indicator ----------------------------------
+   issue-055 bug 2: the native Chromium calendar-picker indicator is drawn
+   with a hard-coded dark fill, so on the dark v2 surface (--gray-0) it
+   rendered as a near-black square and was effectively invisible -- the
+   "date picker is gone" symptom. The `color` property cannot fix it:
+   Chromium paints its own glyph and ignores the inherited text colour.
+
+   So we paint the indicator ourselves with an explicit SVG. The native
+   widget is still what opens on click (the pseudo-element IS the native
+   button, so pointer handling and showPicker() keep working).
+   ---------------------------------------------------------------------- */
+.input[type="date"]::-webkit-calendar-picker-indicator,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.input[type="month"]::-webkit-calendar-picker-indicator,
+.input[type="week"]::-webkit-calendar-picker-indicator,
+.input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%234d5771' d='M5 1v2H3v12h10V3h-2V1h-1v2H6V1H5zm-1 6v6h8V7H4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+    background-position: center;
+    border-radius: var(--r-sm);
+    transition: background-color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+.input[type="month"]::-webkit-calendar-picker-indicator:hover,
+.input[type="week"]::-webkit-calendar-picker-indicator:hover,
+.input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    background-color: var(--gray-100);
+}
+.input[type="date"]::-webkit-calendar-picker-indicator:active,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator:active,
+.input[type="month"]::-webkit-calendar-picker-indicator:active,
+.input[type="week"]::-webkit-calendar-picker-indicator:active,
+.input[type="time"]::-webkit-calendar-picker-indicator:active {
+    background-color: var(--gray-200);
+}
+.input[type="date"]::-webkit-calendar-picker-indicator:focus-visible,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 1px;
+}
+/* Keep the calendar glyph from colliding with the typed date text. */
+.input[type="date"], .input[type="datetime-local"], .input[type="month"],
+.input[type="week"], .input[type="time"] { padding-right: var(--sp-8); }
+
 .checkbox, .radio {
     display: flex; align-items: flex-start; gap: var(--sp-2);
     font-size: var(--fs-sm); cursor: pointer;
@@ -1200,4 +1248,20 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     .table th, .card__header, .card__footer, .modal__footer { background: var(--gray-25); }
     .table tbody tr:hover, .table--compact tbody tr:hover { background: var(--gray-100); }
     .input:focus, .select:focus, .textarea:focus { box-shadow: 0 0 0 3px rgba(51,102,255,.25); }
+    /* issue-055 bug 2: the calendar glyph is baked into a data: URL, so the
+     * dark theme needs its own, lighter icon to stay legible on --gray-0. */
+    .input[type="date"]::-webkit-calendar-picker-indicator,
+    .input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+    .input[type="month"]::-webkit-calendar-picker-indicator,
+    .input[type="week"]::-webkit-calendar-picker-indicator,
+    .input[type="time"]::-webkit-calendar-picker-indicator {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23a9b3c6' d='M5 1v2H3v12h10V3h-2V1h-1v2H6V1H5zm-1 6v6h8V7H4z'/%3E%3C/svg%3E");
+    }
+    .input[type="date"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="month"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="week"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="time"]::-webkit-calendar-picker-indicator:hover {
+        background-color: var(--gray-100);
+    }
 }
