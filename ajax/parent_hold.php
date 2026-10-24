@@ -144,7 +144,10 @@ if ($action === 'hold') {
     $set_completion_date = '';
     $params = [$new_status, $task_id];
     if ($new_status === 'completed') {
-        $set_completion_date = ', completion_date = COALESCE(completion_date, NOW())';
+        // Issue-055: completion_date is a SQL DATE column — NOW() would be
+        // silently truncated by MariaDB, so use CURDATE() for day precision
+        // to match task_edit.php.
+        $set_completion_date = ', completion_date = COALESCE(completion_date, CURDATE())';
     } elseif ($task['status'] === 'completed') {
         $set_completion_date = ', completion_date = NULL';
     }

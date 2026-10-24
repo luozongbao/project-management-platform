@@ -118,9 +118,6 @@ $content_bleed = true;
     <main class="auth-main">
         <div class="auth-card">
             <?php if ($success): ?>
-                <h1>Reset Email Sent</h1>
-                <p class="auth-card__sub">If an account with that email exists, a reset link is on its way.</p>
-
                 <div class="alert alert--success" role="alert">
                     <i class="fas fa-circle-check"></i>
                     <div class="alert__body">
@@ -129,10 +126,10 @@ $content_bleed = true;
                         <p>The reset link will expire in 1 hour.</p>
                     </div>
                 </div>
-            <?php else: ?>
-                <h1>Forgot password</h1>
-                <p class="auth-card__sub">We will email you a password reset link.</p>
 
+                <h1>Reset Email Sent</h1>
+                <p class="auth-card__sub">If an account with that email exists, a reset link is on its way.</p>
+            <?php else: ?>
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert--danger" role="alert">
                         <i class="fas fa-circle-exclamation"></i>
@@ -144,15 +141,18 @@ $content_bleed = true;
                     </div>
                 <?php endif; ?>
 
+                <h1>Forgot password</h1>
+                <p class="auth-card__sub">We will email you a password reset link.</p>
+
                 <form method="POST" action="">
                     <div class="field">
-                        <label for="email">Email Address</label>
+                        <label for="email">Email Address <span class="req" aria-hidden="true">*</span></label>
                         <input class="input" type="email" id="email" name="email"
                                value="<?= e($_POST['email'] ?? '') ?>"
-                               placeholder="you@example.com" required>
+                               placeholder="you@example.com" autocomplete="email" required autofocus>
                     </div>
 
-                    <button type="submit" class="btn btn--primary btn--lg btn--block">
+                    <button type="submit" class="btn btn--primary btn--lg btn--block" style="margin-top:.5rem;">
                         <i class="fas fa-paper-plane"></i>
                         Send Reset Link
                     </button>

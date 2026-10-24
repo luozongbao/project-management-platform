@@ -1038,6 +1038,30 @@ code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
     white-space: nowrap;
 }
 
+/* Copy-button feedback states (issue-055). The copy buttons swap their
+   label/icon to "Copied" or "Copy failed"; these classes tint the button
+   so the outcome is legible at a glance and not only via the icon. */
+.btn.is-copied {
+    background: var(--success-500);
+    border-color: var(--success-500);
+    color: #fff;
+}
+.btn.is-copied:hover {
+    background: var(--success-700);
+    border-color: var(--success-700);
+    color: #fff;
+}
+.btn.is-copy-failed {
+    background: var(--danger-500);
+    border-color: var(--danger-500);
+    color: #fff;
+}
+.btn.is-copy-failed:hover {
+    background: var(--danger-700);
+    border-color: var(--danger-700);
+    color: #fff;
+}
+
 /* --- Dropdown ----------------------------------------------------------- */
 .dropdown { position: relative; }
 .dropdown__menu {

@@ -119,9 +119,6 @@ $content_bleed = true;
     <main class="auth-main">
         <div class="auth-card">
             <?php if ($success): ?>
-                <h1>Registration Successful!</h1>
-                <p class="auth-card__sub">Your account has been created.</p>
-
                 <div class="alert alert--success" role="alert">
                     <i class="fas fa-circle-check"></i>
                     <div class="alert__body">
@@ -131,10 +128,10 @@ $content_bleed = true;
                         <p><a href="/login">Return to Login</a></p>
                     </div>
                 </div>
-            <?php else: ?>
-                <h1>Create your account</h1>
-                <p class="auth-card__sub">Already have an account? <a href="/login">Sign in</a>.</p>
 
+                <h1>Registration Successful!</h1>
+                <p class="auth-card__sub">Your account has been created.</p>
+            <?php else: ?>
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert--danger" role="alert">
                         <i class="fas fa-circle-exclamation"></i>
@@ -145,6 +142,9 @@ $content_bleed = true;
                         </div>
                     </div>
                 <?php endif; ?>
+
+                <h1>Create your account</h1>
+                <p class="auth-card__sub">Already have an account? <a href="/login">Sign in</a>.</p>
 
                 <form method="POST" action="">
                     <div class="field">

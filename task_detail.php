@@ -450,7 +450,7 @@ $use_v2_shell = true;
                     <?php if ($task['completion_date']): ?>
                         <div class="detail-row">
                             <span class="detail-row__k">Completed</span>
-                            <span class="detail-row__v td-completed"><?= formatDateTime($task['completion_date']) ?></span>
+                            <span class="detail-row__v td-completed"><?= formatDateTime($task['completion_date'], 'M j, Y') ?></span>
                         </div>
                     <?php endif; ?>
 

@@ -153,7 +153,7 @@ def screen_task_form():
               </div>
               <div class="field">
                 <label for="completion_date">Completion Date</label>
-                <input class="input" type="datetime-local" id="completion_date" name="completion_date" value="">
+                <input class="input" type="date" id="completion_date" name="completion_date" value="">
               </div>
             </div>
           </div>

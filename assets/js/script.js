@@ -638,16 +638,68 @@ function initStatusReason() {
 /* ------------------------------------------------------------------ */
 /* Copy to clipboard (share code, share URL)                           */
 /* ------------------------------------------------------------------ */
+/**
+ * Copy text to the clipboard with a real fallback chain.
+ *
+ * The Async Clipboard API (navigator.clipboard) is only exposed in a secure
+ * context (HTTPS or localhost). On a plain-HTTP origin the property is
+ * undefined, so a naive `navigator.clipboard.writeText()` throws and the
+ * button silently does nothing. document.execCommand('copy') is deprecated
+ * but remains the only option on plain HTTP and inside some WebViews.
+ *
+ * @param {string} text
+ * @returns {Promise<void>} Resolves when the clipboard was written, rejects
+ *                           when every mechanism failed.
+ */
+function pmpCopyText(text) {
+    // Preferred: Clipboard API (HTTPS / localhost only).
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+
+    // Fallback: execCommand. Deprecated but still the only option on
+    // plain-HTTP origins and inside older WebViews.
+    return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        var ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (e) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error('Copy command was rejected.'));
+    });
+}
+window.pmpCopyText = pmpCopyText;
+
 function initCopy() {
     document.querySelectorAll('[data-copy]').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var text = btn.getAttribute('data-copy');
             var label = btn.innerHTML;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text);
-            }
-            btn.innerHTML = '<i class="fas fa-check"></i> Copied';
-            setTimeout(function() { btn.innerHTML = label; }, 1600);
+
+            pmpCopyText(text).then(function () {
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+                btn.classList.add('is-copied');
+            }).catch(function () {
+                // Do not claim success when the clipboard was not written.
+                btn.innerHTML = '<i class="fas fa-circle-exclamation"></i> Copy failed';
+                btn.classList.add('is-copy-failed');
+            }).then(function () {
+                setTimeout(function () {
+                    btn.innerHTML = label;
+                    btn.classList.remove('is-copied', 'is-copy-failed');
+                }, 1600);
+            });
         });
     });
 }

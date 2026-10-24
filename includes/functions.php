@@ -395,12 +395,15 @@ function syncProjectTaskCompletions($db, $projectId) {
         $newStatus = deriveParentStatusFromCompletion($currentStatus, (float)$storedCompletion);
 
         // Issue-012: align completion_date with the derived status.
-        // - new status 'completed' and no prior completion_date: set to NOW.
+        // - new status 'completed' and no prior completion_date: set to today.
         // - new status != 'completed' and a prior completion_date exists: clear it.
+        // Issue-055: completion_date is a SQL DATE column — CURDATE() gives
+        // day precision, matching task_edit.php and the AJAX endpoints.
+        // NOW() would be silently truncated by MariaDB.
         $setCompletionDate = '';
         $params = [$storedCompletion, $newStatus, $parentId, $storedCompletion, $newStatus];
         if ($newStatus === 'completed') {
-            $setCompletionDate = ', completion_date = COALESCE(completion_date, NOW())';
+            $setCompletionDate = ', completion_date = COALESCE(completion_date, CURDATE())';
         } elseif ($currentStatus === 'completed' && $newStatus !== 'completed') {
             $setCompletionDate = ', completion_date = NULL';
         }
@@ -529,6 +532,51 @@ function parseCalendarDate($value) {
     }
 
     return $date;
+}
+
+/**
+ * Parse a form date field into a canonical Y-m-d string.
+ *
+ * Strict: rejects anything that is not exactly Y-m-d, and rejects impossible
+ * calendar dates (2026-02-31). Returns null for an empty value; pushes a
+ * validation error and returns null for an invalid one.
+ *
+ * DateTime::createFromFormat() is deliberately NOT used here: it returns a
+ * DateTime carrying *warnings* (not false) for impossible dates such as
+ * 2026-02-31, so a plain `if (!$date)` guard never fires. checkdate() is the
+ * only reliable calendar validator.
+ *
+ * The return value is the value that must be stored, so validation and
+ * normalisation are the same step and cannot drift apart.
+ *
+ * @param mixed  $value  Raw $_POST value.
+ * @param string $label  Human-readable field label for the error message.
+ * @param array  $errors Error bag, by reference.
+ * @return string|null Canonical Y-m-d, or null when empty/invalid.
+ */
+function parseFormDate($value, string $label, array &$errors): ?string {
+    if (!is_string($value)) {
+        $errors[] = "$label must be a valid date.";
+        return null;
+    }
+
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        $errors[] = "$label must be a valid date.";
+        return null;
+    }
+
+    [$year, $month, $day] = array_map('intval', explode('-', $value));
+    if (!checkdate($month, $day, $year)) {
+        $errors[] = "$label must be a valid date.";
+        return null;
+    }
+
+    return $value;
 }
 
 function parseUtcDateTime($value) {

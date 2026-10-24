@@ -482,28 +482,34 @@ $use_v2_shell = true;
 // Copy the client share URL. Kept as a named function because the button calls
 // it inline; nothing else on this page needs JS. The v1.8.0 progress-circle
 // script is gone — the bar's width and tone are plain CSS now.
+//
+// Issue-055: the copy now goes through the shared pmpCopyText() helper in
+// assets/js/script.js, which owns the Clipboard API -> execCommand fallback
+// chain. The previous inline version reported "Copied" unconditionally, even
+// when both mechanisms failed — the button lied to the user. It is also the
+// only copy implementation in the codebase now.
 function copyShareUrl(btn) {
     var code = document.getElementById('shareCode');
     if (!code) return;
     // The URL is no longer rendered in an <input>, so it lives on the code
     // element as data-share-url. One source of truth, nothing to keep in sync.
-    var text = code.getAttribute('data-share-url') || code.textContent.trim();
-    if (!text) return;
-
-    var done = false;
-    try { done = document.execCommand('copy'); } catch (e) {}
-    if (navigator.clipboard && !done) {
-        navigator.clipboard.writeText(text).catch(function(){});
-    }
-
-    // Feedback must not depend on focus: the old version read
-    // document.activeElement, which is not the button after a click on some
-    // browsers, so the "Copied" confirmation silently never appeared.
+    var url = code.getAttribute('data-share-url') || code.textContent.trim();
+    if (!url) return;
     if (!btn) return;
+
     var original = btn.innerHTML;
-    btn.innerHTML = '<i class="far fa-check"></i> Copied';
-    btn.disabled = true;
-    setTimeout(function() { btn.innerHTML = original; btn.disabled = false; }, 1500);
+    pmpCopyText(url).then(function () {
+        btn.innerHTML = '<i class="far fa-check"></i> Copied';
+        btn.disabled = true;
+    }).catch(function () {
+        btn.innerHTML = '<i class="fas fa-circle-exclamation"></i> Copy failed';
+        btn.disabled = true;
+    }).then(function () {
+        setTimeout(function () {
+            btn.innerHTML = original;
+            btn.disabled = false;
+        }, 1500);
+    });
 }
 </script>
 

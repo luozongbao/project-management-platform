@@ -427,7 +427,7 @@ function render_task_tree($tasks, $by_parent, $level = 0) {
                     <p class="text-muted"><small><?= e(t('about.foot_note')) ?></small></p>
                 </div>
             </details>
-            <div class="lang-switch inline" aria-label="<?= e(t('landing.lang_label')) ?>">
+            <div class="lang-switch inline" role="group" aria-label="<?= e(t('landing.lang_label')) ?>">
                 <?php foreach (client_all_langs() as $code2 => $label): ?>
                     <a href="<?= e(client_lang_url($code2)) ?>"
                        class="lang-switch-link<?= ($code2 === client_current_lang()) ? ' is-active' : '' ?>"

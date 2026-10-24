@@ -846,13 +846,42 @@
     color: #fff;
 }
 
-/* Issue-051: the client dashboard's language switcher sits inside the dark
-   .client-header__tools bar, so its active chip needs a header-appropriate
-   treatment (a light chip on the dark bar) rather than the light-page
-   brand-600 fill used on the landing page. */
-.client-header__tools .lang-switch-link.is-active {
-    background: #fff;
-    color: var(--gray-900);
+/* Issue-051 introduced a header-appropriate active chip (white on dark).
+   Issue-055 supersedes it: the v2 mockup (docs/design/2.0/client-dashboard.html)
+   renders the same switcher on the same dark .client-header bar, and its
+   shared token rule marks the active locale with the brand fill —
+   `.lang-switch button.is-active { background: var(--brand-600); color: #fff; }`.
+   Production renders <a class="lang-switch-link"> rather than <button>, so
+   the token rule never matched and the active state came from the rule
+   below instead. The mockup is the source of truth, so the active chip now
+   uses the brand fill to match it.
+
+   The selector keeps three classes so it outranks the two-class
+   `.client-header__tools` rule that used to carry this treatment. */
+.client-body .lang-switch.inline .lang-switch-link.is-active {
+    background: var(--brand-600);
+    color: #fff;
+}
+.client-body .lang-switch.inline .lang-switch-link.is-active:hover {
+    background: var(--brand-700);
+    color: #fff;
+}
+
+/* Issue-055: the segmented control had a :hover state but no visible
+   keyboard-focus state, so keyboard users only got the browser default
+   outline on a low-contrast control.
+
+   The inactive link sits on the dark header, so it takes the brand ring.
+   The active link is already filled with brand-600, so a brand-600 ring
+   would be invisible against it — it uses a white ring instead, which
+   reads clearly on the brand fill and on the dark bar alike. */
+.client-body .lang-switch.inline .lang-switch-link:focus-visible {
+    outline: 2px solid var(--brand-600);
+    outline-offset: -2px;
+}
+.client-body .lang-switch.inline .lang-switch-link.is-active:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
 }
 
 /* The landing page is a bare full-bleed canvas — the client-portal footer

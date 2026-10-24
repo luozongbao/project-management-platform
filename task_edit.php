@@ -115,6 +115,12 @@ if ($is_editing) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // The error bag must exist before anything can append to it — the
+    // CSRF branch below and the parseFormDate() calls further down both
+    // write into it, and appending to an undefined variable silently
+    // creates a non-array.
+    $errors = [];
+
     // Issue-016 (CSRF): reject any request that does not carry a valid
     // CSRF token. The check sits BEFORE any input read so a missing /
     // invalid token cannot leak DB error messages or partial state.
@@ -128,6 +134,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $completion_percentage = floatval($_POST['completion_percentage'] ?? 0);
     $expected_completion_date = $_POST['expected_completion_date'] ?? null;
     $completion_date = $_POST['completion_date'] ?? null;
+    // Issue-055: task dates are calendar dates (SQL DATE), matching the
+    // schema and the project form. parseFormDate() validates AND
+    // normalises in one step, and the return value is what gets stored —
+    // the old DateTime::createFromFormat() blocks validated a value they
+    // then threw away, so the raw POST string reached the DB unchecked
+    // (and an impossible date such as 2026-02-31 was never caught).
+    //
+    // This runs early on purpose: the delay-reason checks below compare the
+    // expected date against today, and an unparsed value (e.g. "2026-13-01")
+    // would make strtotime() return false and manufacture a bogus
+    // "delay reason required" error on top of the real date error.
+    //
+    // $errors must exist BEFORE the first parseFormDate() call: the
+    // helper appends to it by reference, and passing an undefined
+    // (null) variable to an `array &$errors` parameter is a TypeError.
+    // (It is initialised at the top of this POST block.)
+    $expected_completion_date = parseFormDate(
+        $_POST['expected_completion_date'] ?? '',
+        'Expected completion date',
+        $errors
+    );
+    $completion_date = parseFormDate(
+        $_POST['completion_date'] ?? '',
+        'Completion date',
+        $errors
+    );
     $total_time = $_POST['total_time'] ?? '';
     $total_time_unit = $_POST['total_time_unit'] ?? 'hours';
     $responsible_person_id = $_POST['responsible_person_id'] ?? ($task['responsible_person_id'] ?? $user_id);
@@ -158,7 +190,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posted_inherit = $_POST['inherit_subtask_hours'] ?? null;
     $inherit_from_post = ($posted_inherit === '1') ? 1 : 0;
 
-    $errors = [];
     $estimated_hours = null;
     
     // Validation
@@ -314,25 +345,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Completion percentage must be between 0 and 100.";
     }
     
-    if (!empty($expected_completion_date)) {
-        $expected_date = DateTime::createFromFormat('Y-m-d', $expected_completion_date);
-        if (!$expected_date) {
-            $errors[] = "Invalid expected completion date format.";
-        }
-    }
-    
-    if (!empty($completion_date)) {
-        $comp_date = DateTime::createFromFormat('Y-m-d\TH:i', $completion_date);
-        if (!$comp_date) {
-            $errors[] = "Invalid completion date format.";
-        }
-    }
+    // Issue-055: task dates are parsed and normalised up-front (see the
+    // assignment block near the top of the POST handler), so $expected_date
+    // and $completion_date already hold the canonical Y-m-d values that are
+    // written to the database below.
     
     // If status is completed, ensure completion percentage is 100 and completion date is set
     if ($status === 'completed') {
         $completion_percentage = 100;
         if (empty($completion_date)) {
-            $completion_date = date('Y-m-d H:i:s');
+            // Day precision — the column is DATE; a timestamp here would be
+            // silently truncated by MariaDB (issue-055).
+            $completion_date = date('Y-m-d');
         }
     } elseif ($status !== 'completed') {
         $completion_date = null; // Clear completion date if not completed
@@ -737,8 +761,8 @@ $use_v2_shell = true;
 
                 <div class="field">
                     <label for="completion_date">Completion Date</label>
-                    <input class="input" type="datetime-local" id="completion_date" name="completion_date"
-                           value="<?= e($_POST['completion_date'] ?? (isset($task['completion_date']) && $task['completion_date'] ? date('Y-m-d\TH:i', strtotime($task['completion_date'])) : '')) ?>">
+                    <input class="input" type="date" id="completion_date" name="completion_date"
+                           value="<?= e($_POST['completion_date'] ?? (isset($task['completion_date']) && $task['completion_date'] ? date('Y-m-d', strtotime($task['completion_date'])) : '')) ?>">
                     <span class="hint">Set when the task is actually finished.</span>
                 </div>
 
