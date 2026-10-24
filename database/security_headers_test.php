@@ -377,7 +377,7 @@ if (isset($r['error'])) {
 //     Pick user #1 (the seed admin), reset password to a known value,
 //     drive a full GET → POST login through the live stack, and assert:
 //       - 302 status
-//       - Location: dashboard.php
+//       - Location: /dashboard
 //       - Set-Cookie has HttpOnly AND SameSite=Lax
 //       - PHPSESSID changed (rotation)
 //

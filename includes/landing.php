@@ -33,8 +33,10 @@ $lang = client_current_lang();
 
 // Logged-in owners go straight to their dashboard — they don't need to
 // re-enter a code here. This preserves the prior behaviour for owners.
+// Absolute path so it resolves the same way no matter which URL the
+// user landed on.
 if (function_exists('isLoggedIn') && isLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: /dashboard');
     exit();
 }
 
@@ -90,7 +92,7 @@ if ($code !== '') {
                 // does the heavy lifting (and will record the actual
                 // success/failure against the project row).
                 recordShareCodeAttempt($clientIp, $code, null, true);
-                header('Location: client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
+                header('Location: /client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
                 exit();
             }
             // Format passed but no project — record as failure.
@@ -133,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // does the heavy lifting (and will record the actual
             // success/failure against the project row).
             recordShareCodeAttempt($clientIp, $code, null, true);
-            header('Location: client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
+            header('Location: /client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
             exit();
         }
     }

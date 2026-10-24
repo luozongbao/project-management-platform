@@ -6,9 +6,13 @@ require_once 'includes/EmailService.php';
 
 startSession();
 
-// Redirect if already logged in
+// Redirect if already logged in.
+// The Location header uses an absolute path so it resolves the same way
+// no matter which URL the user landed on (a relative "dashboard.php"
+// would resolve against the current directory).
+// A ?redirect= return target is honoured when it is a safe in-app path.
 if (isLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: ' . safe_return_target('/dashboard'));
     exit();
 }
 
@@ -60,7 +64,11 @@ if ($_POST) {
                 $_SESSION['timezone'] = $_SESSION['timezone'] ?? TIMEZONE;
 
                 recordLoginAttempt($clientIp, $username, true);
-                redirect('/dashboard', 'Login successful!', 'success');
+                // Land the user back on the deep link they originally
+                // requested. safe_return_target() rejects anything that
+                // is not a same-origin in-app path, so this cannot become
+                // an open redirect.
+                redirect(safe_return_target('/dashboard'), 'Login successful!', 'success');
             } else {
                 $errors[] = "Invalid username or password";
                 recordLoginAttempt($clientIp, $username, false);

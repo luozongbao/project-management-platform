@@ -998,9 +998,37 @@ $fnSrc2 = src('includes/functions.php');
 preg_match('/function\s+requireLogin\s*\(\s*\)\s*\{(.*?)\n\}/s', $fnSrc2, $rm);
 $reqBody = $rm[1] ?? '';
 $reqLoc = '';
-if (preg_match('/header\s*\(\s*[\'"]Location:\s*([^\'"]*)[\'"]/i', $reqBody, $lm2)) $reqLoc = $lm2[1];
+if (preg_match('/header\s*\(\s*[\'"]Location:\s*([^\'"]*)[\'"]/i', $reqBody, $lm2)) {
+    $reqLoc = $lm2[1];
+}
+// The target may be a literal ("/login") or a concatenated/computed
+// one ("header('Location: ' . $target)"). The literal regex above
+// captures an EMPTY string for the concatenated form, so detect that
+// case explicitly and resolve the variable's assignments.
+$reqLocIsAbsolute = false;
+if ($reqLoc !== '' && strpos($reqLoc, '/') === 0) {
+    $reqLocIsAbsolute = true;
+} elseif (preg_match('/header\s*\(\s*[\'"]Location:\s*[\'"]\s*\.\s*\$([A-Za-z_][A-Za-z0-9_]*)/i', $reqBody, $vm)) {
+    // The target is a variable: find where it is assigned and check
+    // that every literal assigned to it starts with a slash.
+    $varName = $vm[1];
+    if (preg_match_all(
+        '/\$' . preg_quote($varName, '/') . '\s*=\s*[\'"]([^\'"]*)[\'"]/',
+        $reqBody,
+        $assigns
+    )) {
+        $reqLocIsAbsolute = true;
+        foreach ($assigns[1] as $lit) {
+            if ($lit === '' || $lit[0] !== '/') {
+                $reqLocIsAbsolute = false;
+                break;
+            }
+        }
+        $reqLoc = 'computed: $' . $varName;
+    }
+}
 check('REG-02b', 'requireLogin() redirects to an absolute path (/login), not a relative one',
-    $reqLoc !== '' && strpos($reqLoc, '/') === 0,
+    $reqLocIsAbsolute,
     'requireLogin() sends: Location: ' . ($reqLoc === '' ? '(not found)' : $reqLoc));
 
 /* ================================================================== */

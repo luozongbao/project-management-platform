@@ -40,7 +40,7 @@ startSession();
 // implementable without a separate marker file, which is out of
 // scope for this issue.)
 if (file_exists(__DIR__ . '/config.php')) {
-    header('Location: index.php');
+    header('Location: /index.php');
     exit();
 }
 // -------------------------------------------------------------------------
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (int)$step === 2) {
                 'pass' => $db_pass
             ];
 
-            header('Location: install.php?step=3');
+            header('Location: /install.php?step=3');
             exit();
 
         } catch (PDOException $e) {

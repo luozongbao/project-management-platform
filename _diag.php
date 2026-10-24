@@ -133,17 +133,21 @@ $files_to_check = [
 // of the 5 files: config.php (the new APP_ALLOW_REGISTRATION constant)
 // and includes/functions.php (the new isRegistrationAllowed()
 // resolver). Both md5s are re-bumped in the same commit as the source
-// change. The placeholder FILL_IN_AT_RELEASE_TIME is
+// change. The v2.0 test-report remediation (BUG-4) re-bumps
+// config.php (the APP_ALLOW_REGISTRATION constant landed in
+// f54fabc without a pin update), client/dashboard.php and
+// includes/functions.php (the requireLogin() absolute-redirect fix
+// for BUG-1). The placeholder FILL_IN_AT_RELEASE_TIME is
 // replaced by the actual md5sum at release time (see
 // docs/RELEASE_PROCESS.md step 5.5 and docs/issues/issue-029.md
 // §6.4). The probe_diag_test.php test asserts that no
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
-    'config.php'              => 'f3557473444bed610dcc97d7e1dac1eb',
-    'client/dashboard.php'    => '7cac151647b6524a0aaea7424452b11f',
+    'config.php'              => 'bf4c6b7025ac93ea1d53f7c5a0ed5be1',
+    'client/dashboard.php'    => '194402c0a56bbe201b27b1b771180b86',
     'client/lang.php'         => '5d83e532b71d6cc1ef6410609aee2e8c',
     'includes/header.php'     => '04947db79160e2c1e3f759990093df65',
-    'includes/functions.php'  => '37644e9a7122dd35852f4e8c7cc59411',
+    'includes/functions.php'  => 'b450e696bef724f38d5ebe77ab4daee5',
 ];
 
 // --- CSP probe -------------------------------------------------------

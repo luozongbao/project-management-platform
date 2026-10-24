@@ -98,10 +98,12 @@ services:
       - "${MOCKUP_PORT:-8080}:80"
     volumes:
       # The mockup's index.html links to ../../issues/issue-035.md.
-      # Mounting the two directories at matching depth keeps that relative
-      # link valid while exposing nothing else from docs/.
+      # Mount ONLY that single file: the whole docs/issues/ tree must
+      # never be published. The remaining 50 issue documents contain
+      # internal defect write-ups, schema notes and SQL migrations
+      # (issue-036 constraint: "expose only issue-035.md").
       - ./docs/design/2.0:/usr/share/nginx/html/design/2.0:ro
-      - ./docs/issues:/usr/share/nginx/html/issues:ro
+      - ./docs/issues/issue-035.md:/usr/share/nginx/html/issues/issue-035.md:ro
       - ./docker/mockup-nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]

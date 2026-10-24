@@ -53,11 +53,73 @@ function isLoggedIn() {
 }
 
 // Require login - redirect to login if not authenticated
+//
+// The Location header MUST be an absolute path (leading slash). A
+// relative "login.php" is resolved against the CURRENT directory, so a
+// deep link such as /projects/1692/edit would send the browser to
+// /projects/1692/login.php - which does not exist and returns 404.
+//
+// The original URL is carried along in a ?redirect= parameter so the
+// user lands back on the page they asked for after logging in.
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: login.php');
+        $target = '/login';
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        // Only carry a same-origin path, never an absolute URL or a
+        // protocol-relative one ("//evil.example") - those would turn
+        // the login page into an open redirect.
+        if ($uri !== '' && is_safe_return_path($uri)) {
+            $target .= '?redirect=' . rawurlencode($uri);
+        }
+        header('Location: ' . $target);
         exit();
     }
+}
+
+/**
+ * Whether a string is safe to use as an in-app "return to" target.
+ *
+ * The rule is deliberately strict: the value MUST start with a single
+ * slash and MUST NOT start with "//" (protocol-relative) and MUST NOT
+ * contain a scheme or a backslash. That rules out every way an
+ * attacker could turn the login page into an open redirect:
+ *
+ *   https://evil.example/   (absolute URL)
+ *   //evil.example/         (protocol-relative)
+ *   javascript:alert(1)     (scheme)
+ *   /\evil.example          (backslash normalisation)
+ *
+ * @param string $path
+ * @return bool
+ */
+function is_safe_return_path($path) {
+    if (!is_string($path) || $path === '') {
+        return false;
+    }
+    // Must start with exactly one slash.
+    if ($path[0] !== '/' || (isset($path[1]) && $path[1] === '/')) {
+        return false;
+    }
+    // No scheme, no backslash, no control characters.
+    if (preg_match('#^/[A-Za-z0-9/_.\-~%?&=+:@]*$#', $path) !== 1) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Read the ?redirect= parameter of the current request and return it if
+ * it is safe to redirect to, otherwise the default dashboard path.
+ *
+ * @param string $default
+ * @return string
+ */
+function safe_return_target($default = '/dashboard') {
+    $candidate = $_GET['redirect'] ?? '';
+    if (is_safe_return_path($candidate)) {
+        return $candidate;
+    }
+    return $default;
 }
 
 /**
@@ -513,6 +575,14 @@ function toUTC($datetime, $user_timezone = null) {
 
 // Redirect with message
 function redirect($url, $message = null, $type = 'info') {
+    // Guard against a relative target: "login.php" would resolve against
+    // the CURRENT directory, so a deep link like /projects/1692 would end
+    // up at /projects/login.php -> 404. Every caller in the codebase
+    // already passes an absolute path; this makes it impossible to
+    // regress.
+    if (!is_string($url) || $url === '' || $url[0] !== '/') {
+        $url = '/dashboard';
+    }
     if ($message) {
         startSession();
         $_SESSION['message'] = $message;

@@ -71,7 +71,7 @@ if ($code === '') {
     // headers_sent() guard here is a belt-and-braces safety net so a
     // future regression cannot 500 the page.
     if (!headers_sent()) {
-        header('Location: index.php');
+        header('Location: /');
     } else {
         // Fall back to a meta-refresh redirect so a stray echo or
         // whitespace before this point cannot turn the page into a

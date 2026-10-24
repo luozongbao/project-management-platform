@@ -60,17 +60,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $csrf_token = $_POST['csrf_token'] ?? '';
 if (!validateCsrfToken($csrf_token)) {
     send_error($is_ajax, 400, 'Invalid form token. Please reload the page and try again.',
-        'tasks.php');
+        '/tasks');
 }
 
 $task_id = isset($_POST['task_id']) ? (int)$_POST['task_id'] : 0;
 $action = $_POST['action'] ?? '';
 
 if ($task_id <= 0) {
-    send_error($is_ajax, 400, 'Task ID is required.', 'tasks.php');
+    send_error($is_ajax, 400, 'Task ID is required.', '/tasks');
 }
 if (!in_array($action, ['hold', 'resume'], true)) {
-    send_error($is_ajax, 400, 'Invalid action.', 'tasks.php');
+    send_error($is_ajax, 400, 'Invalid action.', '/tasks');
 }
 
 $db = Database::getInstance();

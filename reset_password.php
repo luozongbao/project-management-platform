@@ -5,9 +5,11 @@ require_once 'includes/functions.php';
 
 startSession();
 
-// Redirect if already logged in
+// Redirect if already logged in.
+// Absolute path so it resolves the same way no matter which URL the
+// user landed on.
 if (isLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: /dashboard');
     exit();
 }
 

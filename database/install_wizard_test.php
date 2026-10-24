@@ -124,7 +124,8 @@ ok(
 );
 ok(
     'install.php redirects to index.php when config.php exists',
-    substr_count($install_code, "header('Location: index.php')") >= 1
+    substr_count($install_code, "header('Location: /index.php')") >= 1
+        || substr_count($install_code, "header('Location: index.php')") >= 1
 );
 
 // As of v1.7.0 the gate is single-stage. The "stage 2" DB probe
@@ -183,11 +184,24 @@ ok(
     strpos($cli_src, 'CLI-ONLY') !== false || strpos($cli_src, 'CLI-only') !== false
 );
 
-echo "\n## 7b. docker/nginx.conf no longer references _smtp_test.php\n";
+echo "\n## 7b. docker/nginx.conf explicitly denies _smtp_test.php\n";
 $nginx_src = file_get_contents($repo_root . '/docker/nginx.conf');
+// The original assertion here was "nginx.conf must not reference
+// _smtp_test.php at all" - a proxy for "the file must not be
+// reachable". The v2.0 remediation (BUG-3) replaced that proxy with
+// an explicit deny rule, which is STRONGER: it protects the route even
+// if the file is ever deployed into the webroot by mistake.
+//
+// The intent of the check is preserved: the endpoint must never be
+// servable. What changed is HOW that is guaranteed.
 ok(
-    'docker/nginx.conf deny regex no longer contains _smtp_test.php',
-    strpos($nginx_src, '_smtp_test') === false
+    'docker/nginx.conf denies _smtp_test.php (and _diag.php) before the PHP handler',
+    preg_match('#location\s+~\*\s.*_diag\|_smtp_test.*\.php.*\{[^}]*return\s+404;#s', $nginx_src) === 1
+);
+ok(
+    'the deny rule sits BEFORE the generic .php$ handler',
+    strpos($nginx_src, '_diag|_smtp_test') !== false
+        && strpos($nginx_src, '_diag|_smtp_test') < strpos($nginx_src, 'location ~ \.php$')
 );
 
 // ---------------------------------------------------------------------------
