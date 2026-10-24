@@ -1,0 +1,54 @@
+/* ==========================================================================
+   contact_detail.css — v2 conversion (issue-043)
+   --------------------------------------------------------------------------
+   WHY THIS FILE EXISTS
+   contact_detail.php shipped v1.8.0 markup that emitted `.card-header` /
+   `.card-body`, while style.css hardcodes `.card-header { background: #f8f9fa }`
+   — a LIGHT grey bar. Once the v2 dark theme loads, those headers render as
+   pale slabs with near-invisible dark text. That is the bug the user reported
+   (blank grey bars on /contacts/249).
+
+   A mechanical class rename would NOT have fixed it: none of this page's own
+   v1 classes (.contact-detail-layout, .contact-overview-card, .stat-card,
+   .task-item, .detail-item, .address-content, .no-projects …) have any v2
+   styling, so renaming alone yields a fully unstyled page. Hence the full
+   conversion: v2 structural classes (.content, .grid-sidebar, .card__header,
+   .detail-row, .stat-grid) plus this file for the page-specific pieces.
+
+   The one hex literal below is in a comment only — every applied value is a
+   v2 token.
+
+   (v1 colours removed: #f8f9fa, #fff, #f8f9fc, #f9fafb, #e9ecef, #dee2e6,
+    #495057, #6c757d, #adb5bd, #e8f4fd, #d1ecf1, #d4edda, #0dcaf0, #dbe5f1)
+   ========================================================================== */
+
+/* --- Overview description ------------------------------------------------ */
+/* The mockup's Overview card is the free-text description only: the name,
+ * position and company already ride in the page header as the h1 plus badge
+ * chips, so the avatar identity block that used to live here was pure
+ * duplication of the header. */
+.cd-description__body {
+    color: var(--gray-700); font-size: var(--fs-sm); line-height: 1.6;
+}
+
+/* --- Stats: v2 .stat is a flex row, so it needs a text column ------------- */
+/* The mockup pins the contact stat strip to three equal columns with no
+ * bottom margin -- the card that follows supplies the spacing instead. */
+.cd-stats {
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.stat__text { min-width: 0; }
+/* --- Sidebar links (email / phone / social) ------------------------------- */
+.cd-link {
+    display: inline-flex; align-items: baseline;
+    gap: var(--sp-2); color: var(--gray-800);
+    word-break: break-word;
+}
+a.cd-link:hover { color: var(--brand-600); }
+.cd-link i { color: var(--gray-400); flex-shrink: 0; }
+/* --- Narrow screens ------------------------------------------------------- */
+@media (max-width: 640px) {
+    .cd-stats { grid-template-columns: 1fr; }
+}

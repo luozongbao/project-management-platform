@@ -8,15 +8,50 @@ requireLogin();
 $db = Database::getInstance();
 $user_id = getCurrentUserId();
 
+// v2.0: search + status filter. New functionality, matching the filter bar
+// in docs/design/2.0/projects.html and mirroring the server-side GET
+// approach tasks.php already uses, so both list pages behave identically.
+// projects.status is a plain ENUM('not_started','in_progress','completed',
+// 'on_hold'), so unlike tasks there is no computed pseudo-status to
+// special-case and the filter is a simple equality.
+$search = trim($_GET['search'] ?? '');
+$status_filter = $_GET['status'] ?? 'all';
+
+$where_conditions = ["p.responsible_person_id = ?"];
+$params = [$user_id];
+
+if ($search !== '') {
+    $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ?)";
+    $search_param = '%' . $search . '%';
+    $params[] = $search_param;
+    $params[] = $search_param;
+}
+
+// Guard against an arbitrary ?status= being used as a probe: only the four
+// enum values are accepted, anything else falls back to showing all.
+$valid_statuses = ['not_started', 'in_progress', 'completed', 'on_hold'];
+if ($status_filter !== 'all' && in_array($status_filter, $valid_statuses, true)) {
+    $where_conditions[] = "p.status = ?";
+    $params[] = $status_filter;
+} else {
+    $status_filter = 'all';
+}
+
+$where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+
+// True when a filter is narrowing the list, which selects between the two
+// distinct empty states below.
+$filters_active = ($search !== '' || $status_filter !== 'all');
+
 // Get projects with statistics
 $projects = $db->fetchAll(
-    "SELECT ps.*, p.description, p.created_at, p.start_date, u.name as responsible_person_name
+    "SELECT ps.*, p.name, p.status, p.description, p.created_at, p.start_date, u.name as responsible_person_name
      FROM project_stats ps
      JOIN projects p ON ps.id = p.id
      JOIN users u ON p.responsible_person_id = u.id
-     WHERE p.responsible_person_id = ?
+     $where_clause
      ORDER BY p.created_at DESC",
-    [$user_id]
+    $params
 );
 
 foreach ($projects as &$project) {
@@ -27,443 +62,205 @@ unset($project);
 
 $title = "Projects";
 $show_nav = true;
+// v2.0: opt into the v2 shell (Phase 1.3) before the header include.
+$use_v2_shell = true;
+// Counts for the page-header subtitle, mirroring the mockup's
+// "4 projects · 1 completed" line. This must describe the user's projects
+// as a whole, not the current result set: filtering down to one project
+// would otherwise make the header claim the account owns one project.
+// Counted with one cheap query rather than derived from $projects.
+$__proj_row = $db->fetchOne(
+    "SELECT COUNT(*) AS total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+     FROM projects
+     WHERE responsible_person_id = ?",
+    [$user_id]
+);
+$__proj_total = (int)($__proj_row['total'] ?? 0);
+$__proj_completed = (int)($__proj_row['completed'] ?? 0);
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/projects.css')) ?>">
 
-<div class="page-container">
-    <div class="page-header">
-        <div class="page-title">
-            <h1>
-                <i class="fas fa-folder-open"></i>
-                Projects
-            </h1>
-            <p>Manage your projects and track their progress</p>
+<div class="page-header">
+    <div class="page-header__text">
+        <h1><i class="fas fa-folder-open"></i> Projects</h1>
+        <p class="page-header__sub">
+            <?php if ($__proj_total > 0): ?>
+                <?= $__proj_total ?> project<?= $__proj_total === 1 ? '' : 's' ?>
+                &middot; <?= $__proj_completed ?> completed
+                <?php if ($filters_active): ?>
+                    &middot; <?= count($projects) ?> matching
+                <?php endif; ?>
+            <?php else: ?>
+                Manage your projects and track their progress
+            <?php endif; ?>
+        </p>
+    </div>
+    <div class="page-actions">
+        <a href="/projects/new" class="btn btn--primary">
+            <i class="fas fa-plus"></i>
+            New Project
+        </a>
+    </div>
+</div>
+
+<!-- Filter bar: shared .filter-bar component, matching tasks.php and the
+     mockup's projects.html. Plain GET form, so it works with JS disabled
+     and the query string stays bookmarkable. Hidden when the account owns
+     no projects at all -- a filter over nothing is just noise. -->
+<?php if ($__proj_total > 0): ?>
+    <form method="GET" class="filter-bar" data-filter-form>
+        <div class="field">
+            <label for="search">Search</label>
+            <input class="input" type="search" id="search" name="search"
+                   value="<?= e($search) ?>"
+                   placeholder="Project name or description...">
         </div>
-        <div class="page-actions">
-            <a href="project_edit.php" class="btn btn-primary">
-                <i class="fas fa-plus"></i>
-                New Project
+
+        <div class="field">
+            <label for="status_filter">Status</label>
+            <select class="select" id="status_filter" name="status">
+                <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Status</option>
+                <option value="not_started" <?= $status_filter === 'not_started' ? 'selected' : '' ?>>Not Started</option>
+                <option value="in_progress" <?= $status_filter === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                <option value="completed" <?= $status_filter === 'completed' ? 'selected' : '' ?>>Completed</option>
+                <option value="on_hold" <?= $status_filter === 'on_hold' ? 'selected' : '' ?>>On Hold</option>
+            </select>
+        </div>
+
+        <div class="filter-bar__actions">
+            <button type="submit" class="btn btn--primary">
+                <i class="fas fa-filter"></i>
+                Apply
+            </button>
+            <a href="/projects" class="btn btn--secondary">
+                <i class="fas fa-rotate-left"></i>
+                Reset
             </a>
         </div>
-    </div>
+    </form>
+<?php endif; ?>
 
-    <?php if (empty($projects)): ?>
-        <div class="empty-state">
-            <div class="empty-icon">
+<?php if (empty($projects)): ?>
+    <?php if ($filters_active): ?>
+        <!-- No results, but the account does own projects: this is a filter
+             miss, so it must not reuse the "No Projects Yet" state below,
+             which would wrongly suggest there is nothing to track. -->
+        <div class="empty-state proj-empty">
+            <div class="empty-state__icon">
+                <i class="fas fa-filter-circle-xmark"></i>
+            </div>
+            <h3>No Matching Projects</h3>
+            <p>No projects match the current search or status filter.</p>
+            <a href="/projects" class="btn btn--secondary">
+                <i class="fas fa-rotate-left"></i>
+                Clear Filters
+            </a>
+        </div>
+    <?php else: ?>
+        <div class="empty-state proj-empty">
+            <div class="empty-state__icon">
                 <i class="fas fa-folder-plus"></i>
             </div>
             <h3>No Projects Yet</h3>
             <p>Create your first project to get started with managing your work.</p>
-            <a href="project_edit.php" class="btn btn-primary">
+            <a href="/projects/new" class="btn btn--primary">
                 <i class="fas fa-plus"></i>
                 Create First Project
             </a>
         </div>
-    <?php else: ?>
-        <div class="projects-grid">
-            <?php foreach ($projects as $project): ?>
-                <div class="project-card">
-                    <div class="project-header">
-                        <h3>
-                            <a href="project_detail.php?id=<?= $project['id'] ?>">
-                                <?= e($project['name']) ?>
-                            </a>
+    <?php endif; ?>
+<?php else: ?>
+    <div class="project-grid">
+        <?php foreach ($projects as $project): ?>
+            <div class="project-card">
+                <div class="project-card__head">
+                    <div class="project-card__id">
+                        <h3 class="project-card__title">
+                            <a href="/projects/<?= (int)$project['id'] ?>"><?= e($project['name']) ?></a>
                         </h3>
-                        <div class="project-actions">
-                            <a href="project_edit.php?id=<?= $project['id'] ?>" class="btn btn-sm btn-outline" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="project-description">
-                        <?php if ($project['description']): ?>
-                            <p><?= e(substr($project['description'], 0, 150)) ?><?= strlen($project['description']) > 150 ? '...' : '' ?></p>
-                        <?php else: ?>
-                            <p class="no-description">No description provided</p>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="project-stats">
-                        <div class="stat-item">
-                            <i class="fas fa-tasks"></i>
-                            <span><?= $project['total_tasks'] ?> tasks</span>
-                        </div>
-                        <div class="stat-item">
-                            <i class="fas fa-address-book"></i>
-                            <span><?= $project['contact_count'] ?> contacts</span>
-                        </div>
-                        <?php if ($project['uncompleted_tasks'] > 0): ?>
-                            <div class="stat-item urgent">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span><?= $project['uncompleted_tasks'] ?> pending</span>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="project-progress">
-                        <div class="progress-info">
-                            <span class="progress-label">Progress</span>
-                            <span class="progress-percentage"><?= number_format($project['avg_completion_percentage'], 1) ?>%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: <?= $project['avg_completion_percentage'] ?>%"></div>
-                        </div>
-                    </div>
-
-                    <div class="project-meta">
-                        <div class="project-status">
-                            <span class="status status-<?= $project['status'] ?>">
-                                <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+                        <div class="project-card__meta">
+                            <?php if (!empty($project['expected_completion_date'])): ?>
+                                <span>
+                                    <i class="fas fa-calendar"></i>
+                                    Due <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?>
+                                </span>
+                            <?php endif; ?>
+                            <span>
+                                <i class="fas fa-list-check"></i>
+                                <?= (int)$project['total_tasks'] - (int)$project['uncompleted_tasks'] ?> / <?= (int)$project['total_tasks'] ?> tasks
                             </span>
                         </div>
+                    </div>
+                    <span class="status status--<?= e($project['status']) ?>">
+                        <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+                    </span>
+                </div>
 
-                        <div class="project-dates">
-                            <?php if (!empty($project['start_date'])): ?>
-                                <div class="date-item started">
-                                    <i class="fas fa-flag"></i>
-                                    <span>Started: <?= formatDateTime($project['start_date'], 'M j, Y') ?></span>
-                                </div>
-                            <?php endif; ?>
+                <p class="project-card__desc">
+                    <?php if ($project['description']): ?>
+                        <?= e(substr($project['description'], 0, 150)) ?><?= strlen($project['description']) > 150 ? '...' : '' ?>
+                    <?php else: ?>
+                        <span class="project-card__desc--empty">No description provided</span>
+                    <?php endif; ?>
+                </p>
 
-                            <?php if ($project['expected_completion_date']): ?>
-                                <div class="date-item">
-                                    <i class="fas fa-calendar"></i>
-                                    <span>Due: <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?></span>
-                                </div>
-                            <?php endif; ?>
+                <div class="progress">
+                    <div class="progress__fill" style="width: <?= $project['avg_completion_percentage'] ?>%"></div>
+                </div>
 
-                            <?php if ($project['completion_date']): ?>
-                                <div class="date-item completed">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>Completed: <?= formatDateTime($project['completion_date'], 'M j, Y') ?></span>
-                                </div>
-                            <?php endif; ?>
+                <!-- Mockup stats block: label above value, not the icon row the
+                     real page used. Progress is a percentage here rather than a
+                     separate labelled bar, and Pending keeps the urgent tone.
+
+                     Contacts is NOT in the mockup, which shows only Progress and
+                     Pending. It was reinstated here by request: the count is
+                     already selected via project_stats.* so it costs no extra
+                     query. Rendered unconditionally, including at zero, so the
+                     card shape does not change between projects. -->
+                <div class="project-card__stats">
+                    <div>
+                        <div class="project-card__stat-label">Progress</div>
+                        <div class="project-card__stat-value"><?= number_format($project['avg_completion_percentage'], 0) ?>%</div>
+                    </div>
+                    <div>
+                        <div class="project-card__stat-label">Pending</div>
+                        <?php /* The urgent tone is conditional, as it was on the
+                                 old icon-row stat: a project with nothing pending
+                                 should not render "0 pending" in red. */ ?>
+                        <div class="project-card__stat-value<?= (int)$project['uncompleted_tasks'] > 0 ? ' project-card__stat-value--urgent' : '' ?>">
+                            <?= (int)$project['uncompleted_tasks'] ?> pending
+                        </div>
+                    </div>
+                    <div>
+                        <div class="project-card__stat-label">Contacts</div>
+                        <div class="project-card__stat-value">
+                            <?= (int)$project['contact_count'] ?>
                         </div>
                     </div>
                 </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-</div>
 
-<style>
-.page-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
+                <!-- No delete button: project_delete.php requires POST + CSRF +
+                     the project share_code typed as confirmation, and that flow
+                     lives on project_edit.php. The mockup's trash icon would
+                     imply a one-click delete this app deliberately does not
+                     offer. See the note in assets/css/pages/projects.css. -->
+                <div class="project-card__foot">
+                    <a href="/projects/<?= (int)$project['id'] ?>" class="btn btn--sm btn--primary">
+                        <i class="fas fa-eye"></i>
+                        Open
+                    </a>
+                    <a href="/projects/<?= (int)$project['id'] ?>/edit" class="btn btn--sm btn--secondary">
+                        <i class="fas fa-pen"></i>
+                        Edit
+                    </a>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid #f1f3f4;
-}
-
-.page-title h1 {
-    margin: 0 0 8px 0;
-    color: #333;
-    font-size: 2rem;
-}
-
-.page-title p {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
-}
-
-.projects-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 25px;
-}
-
-.project-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    padding: 25px;
-    transition: all 0.3s ease;
-    border: 1px solid #f1f3f4;
-}
-
-.project-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-}
-
-.project-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px;
-}
-
-.project-header h3 {
-    margin: 0;
-    font-size: 1.25rem;
-    line-height: 1.4;
-}
-
-.project-header h3 a {
-    color: #333;
-    text-decoration: none;
-}
-
-.project-header h3 a:hover {
-    color: #007bff;
-}
-
-.project-actions .btn {
-    padding: 8px 12px;
-    font-size: 14px;
-}
-
-.project-description {
-    margin-bottom: 20px;
-}
-
-.project-description p {
-    margin: 0;
-    color: #666;
-    line-height: 1.5;
-}
-
-.project-description .no-description {
-    font-style: italic;
-    color: #999;
-}
-
-.project-stats {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-}
-
-.stat-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.875rem;
-    color: #666;
-}
-
-.stat-item.urgent {
-    color: #dc3545;
-}
-
-.stat-item i {
-    width: 16px;
-    text-align: center;
-}
-
-.project-progress {
-    margin-bottom: 20px;
-}
-
-.progress-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.progress-label {
-    font-weight: 500;
-    color: #333;
-}
-
-.progress-percentage {
-    font-weight: 600;
-    color: #007bff;
-}
-
-.progress-bar {
-    height: 8px;
-    background: #e9ecef;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #007bff, #0056b3);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-}
-
-.project-meta {
-    padding-top: 20px;
-    border-top: 1px solid #f1f3f4;
-}
-
-.project-status {
-    margin-bottom: 15px;
-}
-
-.status {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.status-not_started { 
-    background: #f8f9fa; 
-    color: #495057;
-    border: 1px solid #dee2e6;
-}
-
-.status-in_progress { 
-    background: #fff3cd; 
-    color: #856404;
-    border: 1px solid #ffeaa7;
-}
-
-.status-completed { 
-    background: #d4edda; 
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.status-on_hold { 
-    background: #f8d7da; 
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.project-dates {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.date-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.875rem;
-    color: #666;
-}
-
-.date-item.completed {
-    color: #28a745;
-}
-
-.date-item i {
-    width: 14px;
-    text-align: center;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 80px 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-}
-
-.empty-icon {
-    margin-bottom: 25px;
-}
-
-.empty-icon i {
-    font-size: 4rem;
-    color: #dee2e6;
-}
-
-.empty-state h3 {
-    margin: 0 0 15px 0;
-    color: #333;
-    font-size: 1.5rem;
-}
-
-.empty-state p {
-    margin: 0 0 25px 0;
-    color: #666;
-    font-size: 1rem;
-}
-
-.btn {
-    display: inline-block;
-    padding: 12px 24px;
-    background: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s;
-    text-align: center;
-}
-
-.btn:hover {
-    background: #0056b3;
-    transform: translateY(-1px);
-}
-
-.btn-primary {
-    background: #007bff;
-}
-
-.btn-primary:hover {
-    background: #0056b3;
-}
-
-.btn-outline {
-    background: transparent;
-    color: #6c757d;
-    border: 1px solid #dee2e6;
-}
-
-.btn-outline:hover {
-    background: #f8f9fa;
-    color: #495057;
-}
-
-.btn-sm {
-    padding: 6px 12px;
-    font-size: 12px;
-}
-
-@media (max-width: 768px) {
-    .page-container {
-        padding: 15px;
-    }
-    
-    .page-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 15px;
-    }
-    
-    .projects-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    
-    .project-stats {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .project-header {
-        flex-direction: column;
-        gap: 10px;
-        align-items: stretch;
-    }
-}
-</style>
 
 <?php include 'includes/footer.php'; ?>

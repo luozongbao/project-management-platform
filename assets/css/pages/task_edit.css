@@ -1,0 +1,63 @@
+/* ==========================================================================
+   task_edit.css — per-page rules for the task New/Edit surface
+   --------------------------------------------------------------------------
+   The shared v2 form vocabulary lives in assets/css/pages/forms.css and
+   assets/css/v2-components.css. Only the rules that are specific to the
+   task form live here.
+
+   Before issue-047 this file's rules were an inline <style> block inside
+   task_edit.php, full of v1 hardcoded hex colours (#ddd, #f8f9fa, #007bff,
+   #333 …). Those are gone; only the genuinely page-unique rules remain.
+
+   Loaded AFTER v2-components.css, together with forms.css.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Total Task Time group
+   --------------------------------------------------------------------------
+   The total-time number box and unit select sit on one line, followed by
+   the "use the sum of sub-task hours" checkbox and its hint. The hint has
+   to drop to its own line so it reads as a note about the checkbox. */
+.te-time-hint {
+    display: block;
+    margin-top: var(--sp-1);
+}
+
+/* The inherit hint carries two numbers (sum + count) that the page script
+ * rewrites when the checkbox is toggled. They must not wrap mid-value. */
+#inherit-sum,
+#inherit-count {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+}
+
+/* The "Current Status" read-only box and the "Status" select sit side by
+ * side in the two-column grid. On a narrow screen they must stack so the
+ * select does not get squeezed. */
+@media (max-width: 900px) {
+    #status_display,
+    #status,
+    #project_display {
+        width: 100%;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Narrow screens
+   --------------------------------------------------------------------------
+   The range row (slider + number + readout) is a flex line. On a phone the
+ * slider keeps the full width and the number box drops below it. */
+@media (max-width: 640px) {
+    .range-row {
+        flex-wrap: wrap;
+    }
+    .range-row input[type=range] {
+        flex: 1 1 100%;
+    }
+    .range-row .input[type=number] {
+        width: 100% !important;
+    }
+    .range-row .select {
+        width: 100% !important;
+    }
+}

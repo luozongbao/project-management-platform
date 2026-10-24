@@ -30,12 +30,16 @@
  *        still emitted (i.e. the markup is intact, not re-rendered
  *        server-side based on state).
  *      - The page loads the external controller file via
- *        <script src="assets/js/subtask-toggle.js" defer></script>
+ *        <script src="/client/assets/js/subtask-toggle.js" defer></script>
  *        and does NOT contain an inline <script>(function () { ... })
  *        block (issue-027: the issue-020 CSP tightening on the public
  *        client portal drops 'unsafe-inline' from script-src, so any
  *        inline script body in the page will be refused by the
  *        browser).
+ *        (issue-049: the path used to be "/assets/js/subtask-toggle.js",
+ *        which 404s — the file lives under client/assets/js/. The
+ *        root-absolute "/client/assets/js/subtask-toggle.js" is the
+ *        form issue-035 mandates for every asset reference.)
  *   2. Project WITHOUT sub-tasks (and project with NO tasks):
  *      - Does NOT render the toggle button.
  *      - Does NOT include the <script src=…> tag.
@@ -116,9 +120,9 @@ foreach ([
 ] as $key => $name) {
     $code = generateShareCode();
     $db->execute(
-        "INSERT INTO projects (name, share_code, responsible_person_id, status, created_at)
-         VALUES (?, ?, ?, 'in_progress', NOW())",
-        [$name, $code, $user_id]
+        "INSERT INTO projects (name, slug, share_code, responsible_person_id, status, created_at)
+         VALUES (?, ?, ?, ?, 'in_progress', NOW())",
+        [$name, generateUniqueSlug($name, 'projects'), $code, $user_id]
     );
     $pid = (int)$db->lastInsertId();
     $created[$key] = $code;
@@ -126,27 +130,27 @@ foreach ([
     if ($key === 'with-subs') {
         // top-level task
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, NULL, 'Workstream A', 'in_progress', 50, ?, NOW())",
-            [$pid, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, NULL, 'Workstream A', ?, 'in_progress', 50, ?, NOW())",
+            [$pid, generateUniqueSlug('Workstream A', 'tasks'), $user_id]
         );
         $top_id = (int)$db->lastInsertId();
         // two sub-tasks
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, ?, 'Sub 1', 'completed', 100, ?, NOW())",
-            [$pid, $top_id, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, ?, 'Sub 1', ?, 'completed', 100, ?, NOW())",
+            [$pid, $top_id, generateUniqueSlug('Sub 1', 'tasks'), $user_id]
         );
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, ?, 'Sub 2', 'in_progress', 30, ?, NOW())",
-            [$pid, $top_id, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, ?, 'Sub 2', ?, 'in_progress', 30, ?, NOW())",
+            [$pid, $top_id, generateUniqueSlug('Sub 2', 'tasks'), $user_id]
         );
     } elseif ($key === 'no-subs') {
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, status, completion_percentage, responsible_person_id, created_at)
-             VALUES (?, NULL, 'Solo workstream', 'in_progress', 20, ?, NOW())",
-            [$pid, $user_id]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, status, completion_percentage, responsible_person_id, created_at)
+             VALUES (?, NULL, 'Solo workstream', ?, 'in_progress', 20, ?, NOW())",
+            [$pid, generateUniqueSlug('Solo workstream', 'tasks'), $user_id]
         );
     }
     // 'no-tasks' stays empty.
@@ -221,9 +225,20 @@ if (!is_file($js_path)) {
     $failures[] = "with-subs dashboard requires client/assets/js/subtask-toggle.js, but the file is missing";
 }
 $js_src = is_file($js_path) ? file_get_contents($js_path) : '';
-$expected_script_tag = 'src="assets/js/subtask-toggle.js" defer';
+// Issue-049: the tag must be the root-absolute "/client/assets/js/subtask-toggle.js",
+// matching where the file actually lives and the root-absolute asset contract
+// that issue-035 §"The fix — every asset reference becomes root-absolute"
+// mandates for this file. The old "/assets/js/subtask-toggle.js" 404s — the
+// controller never loaded and the sub-task toggle was dead in the browser.
+$expected_script_tag = 'src="/client/assets/js/subtask-toggle.js" defer';
 if (strpos($with_subs_html, $expected_script_tag) === false) {
     $failures[] = "with-subs dashboard is missing the <script {$expected_script_tag}></script> tag for the external controller";
+}
+// Issue-049: guard against the broken path coming back. It resolves to
+// /assets/js/subtask-toggle.js, which does not exist — the file is under
+// client/assets/js/. A regression here is silent in the test output otherwise.
+if (strpos($with_subs_html, 'src="/assets/js/subtask-toggle.js"') !== false) {
+    $failures[] = 'with-subs dashboard references /assets/js/subtask-toggle.js — that path 404s; the file lives at client/assets/js/subtask-toggle.js and must be referenced as "/client/assets/js/subtask-toggle.js"';
 }
 // No inline <script>(function () { ... })() block in the page.
 if (preg_match('#<script>\s*\(function\s*\(\s*\)\s*\{#i', $with_subs_html)) {
@@ -296,8 +311,16 @@ if (strpos($js_src, 'ul.task-tree:not(.root)') === false) {
 }
 
 // The Tasks & Progress count and the root task-tree are still rendered.
-if (!preg_match('/\(3 total\)/', $with_subs_html)) {
-    $failures[] = "with-subs dashboard should still print '(3 total)' next to the heading (1 top-level + 2 subs = 3 flat tasks)";
+// Issue-050: the count moved from the v1 inline "(3 total)" text into a
+// v2 .badge--neutral chip inside .card__actions. The assertion follows the
+// markup change but keeps its intent: the flat task count (1 top-level +
+// 2 subs = 3) must still be printed next to the heading.
+if (strpos($with_subs_html, 'badge--neutral') === false) {
+    $failures[] = "with-subs dashboard should render the task count as a .badge--neutral chip in .card__actions";
+}
+if (!preg_match('/badge--neutral[^>]*>\s*3\s*total/', $with_subs_html)
+    && !preg_match('/>\s*3\s*total\s*</', $with_subs_html)) {
+    $failures[] = "with-subs dashboard should still print the flat task count '3 total' next to the heading (1 top-level + 2 subs = 3 flat tasks)";
 }
 if (strpos($with_subs_html, '<ul class="task-tree root">') === false) {
     $failures[] = 'with-subs dashboard should still render the root <ul class="task-tree root">';
@@ -310,12 +333,12 @@ if (substr_count($with_subs_html, '<ul class="task-tree">') < 1) {
 // ---------------------------------------------------------------------------
 // 2. Project WITHOUT sub-tasks: NO toggle, NO script tag.
 // ---------------------------------------------------------------------------
-foreach (['id="subtasks-toggle"', 'src="assets/js/subtask-toggle.js"'] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="/client/assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_subs_html, $needle) !== false) {
         $failures[] = "no-subs dashboard should not contain '$needle'";
     }
 }
-foreach (['id="subtasks-toggle"', 'src="assets/js/subtask-toggle.js"'] as $needle) {
+foreach (['id="subtasks-toggle"', 'src="/client/assets/js/subtask-toggle.js"'] as $needle) {
     if (strpos($no_tasks_html, $needle) !== false) {
         $failures[] = "no-tasks dashboard should not contain '$needle'";
     }

@@ -6,9 +6,11 @@ require_once 'includes/EmailService.php';
 
 startSession();
 
-// Redirect if already logged in
+// Redirect if already logged in.
+// Absolute path so it resolves the same way no matter which URL the
+// user landed on.
 if (isLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: /dashboard');
     exit();
 }
 
@@ -88,204 +90,93 @@ if ($_POST) {
 }
 
 $title = "Forgot Password";
+
+// issue-055 bug 4: these flags MUST be assigned in PHP mode. A stray
+// PHP close tag before them closed PHP early, so the two assignments
+// below were echoed into the HTML as literal text instead of being
+// executed. The v2 component layer (v2-components.css) is only linked
+// when $use_v2_shell is truthy, so the auth page rendered without it:
+// .field lost its column layout (the label sat inline beside a narrow
+// input) and .input lost its full-width rule. Keep this block in PHP
+// mode -- login.php and register.php set the same flags correctly.
+$use_v2_shell = true;
+$content_bleed = true;
+
+include 'includes/header.php';
 ?>
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/auth.css')) ?>">
 
-<?php include 'includes/header.php'; ?>
-
-<div class="auth-container">
-    <div class="auth-form">
-        <div class="auth-header">
-            <i class="fas fa-key"></i>
-            <h1>Forgot Password</h1>
-            <p>Enter your email to reset your password</p>
+<div class="auth-shell">
+    <aside class="auth-aside">
+        <div class="auth-aside__brand">
+            <span class="auth-aside__brand-icon"><i class="fas fa-project-diagram"></i></span>
+            <?= APP_NAME ?>
         </div>
-        
-        <?php if ($success): ?>
-            <div class="alert alert-success">
-                <h4>Reset Email Sent</h4>
-                <p>If an account with that email exists, we've sent a password reset link to your email address.</p>
-                <p>Please check your email and follow the instructions to reset your password.</p>
-                <p>The reset link will expire in 1 hour.</p>
-            </div>
-        <?php else: ?>
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger">
-                    <?php foreach ($errors as $error): ?>
-                        <div><?= e($error) ?></div>
-                    <?php endforeach; ?>
+        <div>
+            <h2 class="auth-aside__headline">Locked out?<br>We'll get you<br>back in.</h2>
+            <p class="auth-aside__sub">Enter the email on your account and we'll send a link to set a new password.</p>
+            <ul class="auth-aside__points">
+                <li><i class="fas fa-circle-check"></i><span>Reset links expire after one hour</span></li>
+                <li><i class="fas fa-circle-check"></i><span>Requests are rate-limited per account</span></li>
+                <li><i class="fas fa-circle-check"></i><span>We never reveal whether an email is registered</span></li>
+            </ul>
+        </div>
+        <div class="auth-aside__foot"><?= APP_VERSION ?> &middot; <?= APP_NAME ?></div>
+    </aside>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            <?php if ($success): ?>
+                <div class="alert alert--success" role="alert">
+                    <i class="fas fa-circle-check"></i>
+                    <div class="alert__body">
+                        <div class="alert__title">Check your email</div>
+                        <p>Please check your email and follow the instructions to reset your password.</p>
+                        <p>The reset link will expire in 1 hour.</p>
+                    </div>
                 </div>
+
+                <h1>Reset Email Sent</h1>
+                <p class="auth-card__sub">If an account with that email exists, a reset link is on its way.</p>
+            <?php else: ?>
+                <?php if (!empty($errors)): ?>
+                    <div class="alert alert--danger" role="alert">
+                        <i class="fas fa-circle-exclamation"></i>
+                        <div class="alert__body">
+                            <?php foreach ($errors as $error): ?>
+                                <div><?= e($error) ?></div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <h1>Forgot password</h1>
+                <p class="auth-card__sub">We will email you a password reset link.</p>
+
+                <form method="POST" action="">
+                    <div class="field">
+                        <label for="email">Email Address <span class="req" aria-hidden="true">*</span></label>
+                        <input class="input" type="email" id="email" name="email"
+                               value="<?= e($_POST['email'] ?? '') ?>"
+                               placeholder="you@example.com" autocomplete="email" required autofocus>
+                    </div>
+
+                    <button type="submit" class="btn btn--primary btn--lg btn--block" style="margin-top:.5rem;">
+                        <i class="fas fa-paper-plane"></i>
+                        Send Reset Link
+                    </button>
+                </form>
             <?php endif; ?>
-            
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label for="email">
-                        <i class="fas fa-envelope"></i>
-                        Email Address
-                    </label>
-                    <input type="email" id="email" name="email" 
-                           value="<?= e($_POST['email'] ?? '') ?>" 
-                           placeholder="Enter your email address" required>
-                </div>
-                
-                <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fas fa-paper-plane"></i>
-                    Send Reset Link
-                </button>
-            </form>
-        <?php endif; ?>
-        
-        <div class="auth-links">
-            <a href="login.php">
-                <i class="fas fa-arrow-left"></i>
-                Back to Login
-            </a>
-            <a href="register.php">Don't have an account? Register</a>
+
+            <div class="auth-links" style="margin-top: var(--sp-5);">
+                <a href="/login"><i class="fas fa-arrow-left"></i> Back to Login</a>
+                <?php if (isRegistrationAllowed()): ?>
+                    <a href="/register">Don't have an account? Register</a>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
+    </main>
 </div>
 
-<style>
-.main-content.no-nav {
-    padding: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.auth-container {
-    width: 100%;
-    max-width: 400px;
-    padding: 20px;
-}
-
-.auth-form {
-    background: white;
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.auth-header {
-    text-align: center;
-    margin-bottom: 30px;
-}
-
-.auth-header i {
-    font-size: 48px;
-    color: #ffc107;
-    margin-bottom: 10px;
-}
-
-.auth-header h1 {
-    margin: 10px 0;
-    color: #333;
-    font-size: 24px;
-}
-
-.auth-header p {
-    color: #666;
-    margin: 0;
-}
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #333;
-}
-
-.form-group label i {
-    margin-right: 8px;
-    color: #666;
-    width: 16px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-    box-sizing: border-box;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #ffc107;
-    box-shadow: 0 0 0 2px rgba(255,193,7,0.25);
-}
-
-.btn {
-    display: inline-block;
-    padding: 12px 24px;
-    text-decoration: none;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.3s;
-    text-align: center;
-}
-
-.btn-primary {
-    background: #007bff;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #0056b3;
-}
-
-.btn-block {
-    width: 100%;
-}
-
-.auth-links {
-    text-align: center;
-    margin-top: 30px;
-}
-
-.auth-links a {
-    display: block;
-    margin: 10px 0;
-    color: #007bff;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.auth-links a:hover {
-    text-decoration: underline;
-}
-
-.alert {
-    padding: 12px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-}
-
-.alert-danger {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.alert-success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.alert h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-}
-</style>
 
 <?php include 'includes/footer.php'; ?>

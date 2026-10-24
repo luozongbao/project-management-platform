@@ -24,6 +24,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/slug.php';
 
 $db = Database::getInstance();
 $failures = [];
@@ -78,9 +79,9 @@ $db->execute(
 $user_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, share_code, responsible_person_id, created_at)
-     VALUES (?, ?, ?, NOW())",
-    [$test_project_name, generateShareCode(), $user_id]
+    "INSERT INTO projects (name, slug, share_code, responsible_person_id, created_at)
+     VALUES (?, ?, ?, ?, NOW())",
+    [$test_project_name, generateUniqueSlug($test_project_name, 'projects'), generateShareCode(), $user_id]
 );
 $project_id = (int)$db->lastInsertId();
 
@@ -91,11 +92,12 @@ $contact_wechat = 'YADEPAN18';
 try {
     $db->execute(
         "INSERT INTO contacts (
-            name, description, email, phone, mobile, company, position, address,
+            name, slug, description, email, phone, mobile, company, position, address,
             wechat, line_id, facebook, linkedin, created_at, updated_at
-         ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
         [
-            $contact_name, null, null, null, null, null, null,
+            $contact_name, generateUniqueSlug($contact_name, 'contacts'),
+            '', null, null, null, null, null, null,
             $contact_wechat, null, null, null
         ]
     );
@@ -163,7 +165,7 @@ if ($contact_id) {
     // The wrapper's "Database execute failed: …" prefix must surface the
     // underlying PDO message so future schema-drift bugs are obvious.
     try {
-        $db->execute('INSERT INTO contacts (name, definitely_does_not_exist) VALUES (?, ?)', ['x', 'y']);
+        $db->execute('INSERT INTO contacts (name, slug, definitely_does_not_exist) VALUES (?, ?, ?)', ['x', 'x', 'y']);
         $failures[] = 'expected Database::execute() to throw on missing column';
     } catch (Exception $e) {
         $msg = $e->getMessage();

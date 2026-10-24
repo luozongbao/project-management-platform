@@ -57,7 +57,7 @@ if (($_POST['action'] ?? '') === 'rotate_share_code') {
                         );
                     }
                     redirect(
-                        'project_edit.php?id=' . $rotateId,
+                        '/projects/' . $rotateId . '/edit',
                         'Share code rotated. The previous URL is now invalid.',
                         'success'
                     );
@@ -169,35 +169,46 @@ if ($_POST && ($_POST['action'] ?? '') !== 'rotate_share_code') {
                      $expected_completion_date, $start_date, $completion_date, $status,
                      $project_id, $user_id]
                 );
-                redirect('project_detail.php?id=' . $project_id, 'Project updated successfully!', 'success');
+                redirect('/projects/' . $project_id, 'Project updated successfully!', 'success');
             } else {
                 // Create new project — auto-generate share_code (with one retry on
                 // the astronomically-unlikely collision).
                 $share_code = generateShareCode();
+                // v2.0 (issue-035 C.2): assign the slug once, at creation. The
+                // UPDATE branch above deliberately does not touch it.
+                //
+                // issue-040: the slug is no longer the public URL - the id is.
+                // It is still written, because the column is NOT NULL and
+                // because legacy_redirects resolves an old slug URL to its id
+                // through it. New records keep a slug so their pre-issue-040
+                // URL shape would have worked, but nothing links to it.
+                $slug = generateUniqueSlug($name, 'projects');
                 try {
                     $db->execute(
-                        "INSERT INTO projects (name, description, scope, budget_amount, currency,
+                        "INSERT INTO projects (name, slug, description, scope, budget_amount, currency,
                          share_code, responsible_person_id, expected_completion_date,
                          start_date, completion_date, status, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
-                        [$name, $description, $scope, $budget_amount, $currency,
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                        [$name, $slug, $description, $scope, $budget_amount, $currency,
                          $share_code, $user_id, $expected_completion_date, $start_date,
                          $completion_date, $status]
                     );
                 } catch (Exception $e) {
                     $share_code = generateShareCode();
                     $db->execute(
-                        "INSERT INTO projects (name, description, scope, budget_amount, currency,
+                        "INSERT INTO projects (name, slug, description, scope, budget_amount, currency,
                          share_code, responsible_person_id, expected_completion_date,
                          start_date, completion_date, status, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
-                        [$name, $description, $scope, $budget_amount, $currency,
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                        [$name, $slug, $description, $scope, $budget_amount, $currency,
                          $share_code, $user_id, $expected_completion_date, $start_date,
                          $completion_date, $status]
                     );
                 }
                 $new_project_id = $db->lastInsertId();
-                redirect('project_detail.php?id=' . $new_project_id, 'Project created successfully!', 'success');
+                // Redirect to the canonical id URL. lastInsertId() is the
+                // authoritative id, so there is nothing to look up.
+                redirect('/projects/' . $new_project_id, 'Project created successfully!', 'success');
             }
         } catch (Exception $e) {
             $errors[] = "Failed to save project. Please try again.";
@@ -215,8 +226,23 @@ if ($project_id) {
     );
     
     if (!$project) {
-        redirect('projects.php', 'Project not found.', 'danger');
+        redirect('/projects', 'Project not found.', 'danger');
     }
+}
+
+// Counts for the Danger zone copy on the edit page. These are only used to
+// tell the manager what a deletion will remove.
+$project_task_count = [];
+$project_contact_count = [];
+if ($project) {
+    $project_task_count = $db->fetchAll(
+        "SELECT id FROM tasks WHERE project_id = ?",
+        [$project['id']]
+    );
+    $project_contact_count = $db->fetchAll(
+        "SELECT DISTINCT contact_id FROM project_contacts WHERE project_id = ?",
+        [$project['id']]
+    );
 }
 
 $title = $project ? "Edit Project" : "New Project";
@@ -224,470 +250,337 @@ $show_nav = true;
 // CSRF token is required for both create and edit, and is also reused
 // by the inline delete dialog further down the page.
 $csrf_token = getCsrfToken();
+// v2.0: this page was missing $use_v2_shell, so header.php skipped the
+// .app-shell/.sidebar wrapper and the page rendered unstyled and
+// full-bleed. Every other v2 page sets this. See header.php line ~94.
+$use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/forms.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/project_edit.css')) ?>">
 
-<div class="page-container">
+<div class="content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/dashboard">Dashboard</a>
+        <span aria-hidden="true">/</span>
+        <a href="/projects">Projects</a>
+        <span aria-hidden="true">/</span>
+        <span><?= $project ? 'Edit Project' : 'New Project' ?></span>
+    </nav>
+
     <div class="page-header">
-        <div class="page-title">
+        <div class="page-header__text">
             <h1>
-                <i class="fas fa-<?= $project ? 'edit' : 'plus' ?>"></i>
+                <i class="fas fa-pen-to-square"></i>
                 <?= $project ? 'Edit Project' : 'New Project' ?>
             </h1>
-            <p><?= $project ? 'Update your project details' : 'Create a new project to get started' ?></p>
+            <?php if ($project): ?>
+                <p class="page-header__sub">
+                    <?= e($project['name']) ?>
+                    &middot; Project ID <?= (int)$project['id'] ?>
+                    <?php if (!empty($project['share_code'])): ?>
+                        &middot; Code <?= e($project['share_code']) ?>
+                    <?php else: ?>
+                        &middot; <span class="text-muted">No Code</span>
+                    <?php endif; ?>
+                </p>
+            <?php else: ?>
+                <p class="page-header__sub">Create a new project to get started.</p>
+            <?php endif; ?>
         </div>
         <div class="page-actions">
-            <a href="<?= $project ? 'project_detail.php?id=' . $project['id'] : 'projects.php' ?>" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i>
-                <?= $project ? 'Back to Project' : 'Back to Projects' ?>
+            <a class="btn btn--secondary"
+               href="<?= $project ? '/projects/' . (int)$project['id'] : '/projects' ?>">
+                Cancel
             </a>
         </div>
     </div>
 
-    <div class="form-container">
-        <div class="card">
-            <div class="card-body">
-                <?php if (!empty($errors)): ?>
-                    <div class="alert alert-danger">
-                        <?php foreach ($errors as $error): ?>
-                            <div><?= e($error) ?></div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+    <?php if (!empty($errors)): ?>
+        <div class="alert alert--danger">
+            <i class="fas fa-circle-exclamation"></i>
+            <div class="alert__body">
+                <div class="alert__title">Please fix the following before saving</div>
+                <ul style="margin:.35rem 0 0; padding-left:1.1rem;">
+                    <?php foreach ($errors as $error): ?>
+                        <li><?= e($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+    <?php endif; ?>
 
-                <form method="POST" data-validate>
-                    <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="name">
-                                <i class="fas fa-project-diagram"></i>
-                                Project Name *
-                            </label>
-                            <input type="text" id="name" name="name" 
-                                   value="<?= e($project['name'] ?? $_POST['name'] ?? '') ?>" 
-                                   required maxlength="255">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="status">
-                                <i class="fas fa-flag"></i>
-                                Status
-                            </label>
-                            <select id="status" name="status" required>
-                                <option value="not_started" <?= ($project['status'] ?? $_POST['status'] ?? 'not_started') == 'not_started' ? 'selected' : '' ?>>
-                                    Not Started
+    <div class="grid-sidebar">
+        <form method="POST" class="card" data-validate>
+            <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Project information</h2>
+            </div>
+            <div class="card__body">
+                <div class="form-grid form-grid--2">
+                    <div class="field form-section">
+                        <label for="name">Project Name <span class="req" aria-hidden="true">*</span></label>
+                        <input class="input" type="text" id="name" name="name"
+                               value="<?= e($project['name'] ?? $_POST['name'] ?? '') ?>"
+                               required maxlength="255">
+                    </div>
+
+                    <div class="field">
+                        <label for="status">Status <span class="req" aria-hidden="true">*</span></label>
+                        <select class="select" id="status" name="status" required>
+                            <?php
+                            $sel_status = $project['status'] ?? $_POST['status'] ?? 'not_started';
+                            $status_options = [
+                                'not_started' => 'Not Started',
+                                'in_progress' => 'In Progress',
+                                'completed'   => 'Completed',
+                                'on_hold'     => 'On Hold',
+                            ];
+                            foreach ($status_options as $value => $label): ?>
+                                <option value="<?= $value ?>" <?= $sel_status === $value ? 'selected' : '' ?>>
+                                    <?= $label ?>
                                 </option>
-                                <option value="in_progress" <?= ($project['status'] ?? $_POST['status'] ?? '') == 'in_progress' ? 'selected' : '' ?>>
-                                    In Progress
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="field form-section">
+                        <label for="description">Description</label>
+                        <textarea class="textarea" id="description" name="description" rows="4"
+                                  placeholder="Describe the project goals, scope, and requirements..."><?= e($project['description'] ?? $_POST['description'] ?? '') ?></textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="scope">Scope of Work</label>
+                        <textarea class="textarea" id="scope" name="scope" rows="5"
+                                  placeholder="One requirement per line."><?= e($project['scope'] ?? $_POST['scope'] ?? '') ?></textarea>
+                        <span class="hint">Each line is shown as a separate item on the client dashboard.</span>
+                    </div>
+
+                    <div class="field">
+                        <label for="budget_amount">Budget Amount</label>
+                        <input class="input" type="number" step="0.01" min="0" id="budget_amount" name="budget_amount"
+                               value="<?= e($project['budget_amount'] ?? $_POST['budget_amount'] ?? '') ?>"
+                               placeholder="0.00">
+                        <span class="hint">Leave empty for no budget.</span>
+                    </div>
+
+                    <div class="field">
+                        <label for="currency">Currency</label>
+                        <select class="select" id="currency" name="currency">
+                            <?php $sel = $project['currency'] ?? $_POST['currency'] ?? ''; ?>
+                            <option value="" <?= $sel === '' ? 'selected' : '' ?>>&mdash; No budget &mdash;</option>
+                            <?php foreach (allowedCurrencies() as $code): ?>
+                                <option value="<?= $code ?>" <?= strtoupper((string)$sel) === $code ? 'selected' : '' ?>>
+                                    <?= $code ?>
                                 </option>
-                                <option value="completed" <?= ($project['status'] ?? $_POST['status'] ?? '') == 'completed' ? 'selected' : '' ?>>
-                                    Completed
-                                </option>
-                                <option value="on_hold" <?= ($project['status'] ?? $_POST['status'] ?? '') == 'on_hold' ? 'selected' : '' ?>>
-                                    On Hold
-                                </option>
-                            </select>
-                        </div>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
-                    <div class="form-group">
-                        <label for="description">
-                            <i class="fas fa-align-left"></i>
-                            Project Description
-                        </label>
-                        <textarea id="description" name="description" rows="4"
-                                      placeholder="Describe the project goals, scope, and requirements..."><?= e($project['description'] ?? $_POST['description'] ?? '') ?></textarea>
+                    <div class="field">
+                        <label for="start_date">Start Date</label>
+                        <input class="input" type="date" id="start_date" name="start_date"
+                               value="<?= e($project['start_date'] ?? $_POST['start_date'] ?? '') ?>">
+                        <span class="hint">Optional. The day work on this project actually began.</span>
                     </div>
 
-                    <div class="form-group">
-                        <label for="scope">
-                            <i class="fas fa-list-check"></i>
-                            Project Scope (Requirements)
-                        </label>
-                        <textarea id="scope" name="scope" rows="5"
-                                  placeholder="One requirement per line. e.g.&#10;Design landing page&#10;Build checkout flow&#10;Deploy to production"><?= e($project['scope'] ?? $_POST['scope'] ?? '') ?></textarea>
-                        <small>Each line is shown as a separate item on the client dashboard.</small>
+                    <div class="field">
+                        <label for="expected_completion_date">Expected Completion Date</label>
+                        <input class="input" type="date" id="expected_completion_date" name="expected_completion_date"
+                               value="<?= e($project['expected_completion_date'] ?? $_POST['expected_completion_date'] ?? '') ?>">
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="budget_amount">
-                                <i class="fas fa-coins"></i>
-                                Project Budget
-                            </label>
-                            <input type="number" step="0.01" min="0" id="budget_amount" name="budget_amount"
-                                   value="<?= e($project['budget_amount'] ?? $_POST['budget_amount'] ?? '') ?>"
-                                   placeholder="0.00">
-                            <small>Leave blank for no budget.</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="currency">
-                                <i class="fas fa-money-bill"></i>
-                                Currency
-                            </label>
-                            <select id="currency" name="currency">
-                                <?php $sel = $project['currency'] ?? $_POST['currency'] ?? ''; ?>
-                                <option value="" <?= $sel === '' ? 'selected' : '' ?>>— No budget —</option>
-                                <?php foreach (allowedCurrencies() as $code): ?>
-                                    <option value="<?= $code ?>" <?= strtoupper((string)$sel) === $code ? 'selected' : '' ?>>
-                                        <?= $code ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                    <div class="field">
+                        <label for="completion_date">Completion Date</label>
+                        <input class="input" type="date" id="completion_date" name="completion_date"
+                               value="<?= e($project['completion_date'] ?? $_POST['completion_date'] ?? '') ?>">
+                        <span class="hint">Set when the project is actually finished.</span>
                     </div>
+                </div>
+            </div>
+            <div class="card__footer">
+                <button class="btn btn--primary" type="submit">
+                    <i class="fas fa-floppy-disk"></i>
+                    <?= $project ? 'Save Changes' : 'Create Project' ?>
+                </button>
+                <a class="btn btn--secondary"
+                   href="<?= $project ? '/projects/' . (int)$project['id'] : '/projects' ?>">
+                    Cancel
+                </a>
+            </div>
+        </form>
 
-                    <div class="form-row form-row-3">
-                        <div class="form-group">
-                            <label for="start_date">
-                                <i class="fas fa-flag"></i>
-                                Project Start Date
-                            </label>
-                            <input type="date" id="start_date" name="start_date"
-                                   value="<?= e($project['start_date'] ?? $_POST['start_date'] ?? '') ?>">
-                            <small>Optional. The day work on this project actually began.</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="expected_completion_date">
-                                <i class="fas fa-calendar"></i>
-                                Expected Completion Date
-                            </label>
-                            <input type="date" id="expected_completion_date" name="expected_completion_date"
-                                   value="<?= e($project['expected_completion_date'] ?? $_POST['expected_completion_date'] ?? '') ?>">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="completion_date">
-                                <i class="fas fa-calendar-check"></i>
-                                Actual Completion Date
-                            </label>
-                            <input type="date" id="completion_date" name="completion_date"
-                                   value="<?= e($project['completion_date'] ?? $_POST['completion_date'] ?? '') ?>">
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i>
-                            <?= $project ? 'Update Project' : 'Create Project' ?>
-                        </button>
-
-                        <a href="<?= $project ? 'project_detail.php?id=' . $project['id'] : 'projects.php' ?>" class="btn btn-secondary">
-                            <i class="fas fa-times"></i>
-                            Cancel
-                        </a>
-
-                        <?php if ($project): ?>
-                            <button type="button" class="btn btn-danger" onclick="openDeleteProjectDialog()" style="margin-left: auto;">
-                                <i class="fas fa-trash"></i>
-                                Delete Project
-                            </button>
-                        <?php endif; ?>
-                    </div>
-                </form>
-
-                <?php if ($project && !empty($project['share_code'])): ?>
+        <div>
+            <?php if ($project): ?>
                 <!-- Issue-023: client share-code rotation nudge. The
                      "Rotate code" button is a separate POST that
                      invalidates the previous share code and sets
-                     share_code_rotated_at = NOW(). A confirmation
-                     dialog warns the manager that the previous URL
-                     will stop working. -->
-                <div class="card share-rotation-card">
-                    <div class="card-body">
-                        <h3 class="info-heading"><i class="fas fa-share-nodes"></i> Client Share Code</h3>
-                        <p>
-                            <code class="share-code-display"><?= e($project['share_code']) ?></code>
-                        </p>
+                     share_code_rotated_at = NOW().
+
+                     Issue-048: a project created outside the normal flow
+                     can end up with share_code = NULL. Previously the whole
+                     card was skipped in that case, which left the manager
+                     with no way to obtain a code — and the delete flow needs
+                     a code (the project code is the delete confirmation
+                     secret). The card is now always rendered; when there is
+                     no code yet the button becomes "Generate share code"
+                     and the same handler creates one. -->
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Client share</h2>
+                    </div>
+                    <div class="card__body">
+                        <?php if (!empty($project['share_code'])): ?>
+                            <div class="share-box">
+                                <code><?= e($project['share_code']) ?></code>
+                                <button class="btn btn--sm btn--secondary" type="button"
+                                        data-copy="<?= e($project['share_code']) ?>"
+                                        aria-label="Copy share code">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert--info">
+                                <i class="fas fa-circle-info"></i>
+                                <div class="alert__body">
+                                    This project has no Project Code yet. Generate one to share it
+                                    with a client, and to enable the delete confirmation below.
+                                </div>
+                            </div>
+                        <?php endif; ?>
                         <?php if (!empty($project['share_code_rotated_at'])): ?>
-                            <p class="text-muted share-rotation-meta">
-                                Last rotated: <?= e($project['share_code_rotated_at']) ?>
-                                <?php
-                                    $rotatedTs = strtotime((string)$project['share_code_rotated_at']);
-                                    $daysAgo = $rotatedTs ? (int)floor((time() - $rotatedTs) / 86400) : null;
-                                    if ($daysAgo !== null) {
-                                        echo '(' . $daysAgo . ' day' . ($daysAgo === 1 ? '' : 's') . ' ago)';
-                                    }
-                                ?>
+                            <?php
+                            $rotatedTs = strtotime((string)$project['share_code_rotated_at']);
+                            $daysAgo = $rotatedTs ? (int)floor((time() - $rotatedTs) / 86400) : null;
+                            ?>
+                            <p class="text-xs text-muted pe-meta">
+                                Last rotated: <?= e(formatDateTime($project['share_code_rotated_at'])) ?>
+                                <?php if ($daysAgo !== null): ?>
+                                    (<?= $daysAgo ?> day<?= $daysAgo === 1 ? '' : 's' ?> ago)
+                                <?php endif; ?>
                             </p>
                             <?php if ($daysAgo !== null && $daysAgo > 90): ?>
-                                <p class="alert alert-warning share-rotation-warning">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    This share code has not been rotated in over 90 days.
-                                    Consider rotating it to invalidate any previously-shared URLs.
-                                </p>
+                                <div class="alert alert--warning">
+                                    <i class="fas fa-triangle-exclamation"></i>
+                                    <div class="alert__body">
+                                        This share code has not been rotated in over 90 days.
+                                        Consider rotating it to invalidate any previously-shared URLs.
+                                    </div>
+                                </div>
                             <?php endif; ?>
                         <?php endif; ?>
-                        <form method="POST" action="project_edit.php?id=<?= (int)$project['id'] ?>" class="share-rotation-form"
-                              onsubmit="return confirm('Rotating the share code will invalidate the previous URL. Any client who has bookmarked the old link will see a 404. Continue?');">
+                        <form method="POST" action="/projects/<?= (int)$project['id'] ?>/edit" class="pe-rotate-form">
                             <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
                             <input type="hidden" name="action" value="rotate_share_code">
                             <input type="hidden" name="project_id" value="<?= (int)$project['id'] ?>">
-                            <button type="submit" class="btn btn-secondary">
-                                <i class="fas fa-rotate"></i> Rotate code
-                            </button>
-                            <small class="text-muted share-rotation-hint">
-                                Generates a new share code and invalidates the previous URL.
-                            </small>
+                            <?php if (empty($project['share_code'])): ?>
+                                <button class="btn btn--secondary btn--sm btn--block" type="submit">
+                                    <i class="fas fa-key"></i> Generate share code
+                                </button>
+                                <span class="hint">Creates a Project Code so the project can be shared and deleted.</span>
+                            <?php else: ?>
+                                <button class="btn btn--secondary btn--sm btn--block" type="submit"
+                                        onclick="return confirm('Rotating the share code will invalidate the previous URL. Any client who has bookmarked the old link will see a 404. Continue?');">
+                                    <i class="fas fa-rotate"></i> Rotate share code
+                                </button>
+                                <span class="hint">Generates a new share code and invalidates the previous URL.</span>
+                            <?php endif; ?>
                         </form>
                     </div>
                 </div>
-                <?php endif; ?>
-            </div>
+            <?php endif; ?>
+
+            <?php if ($project): ?>
+                <div class="card danger-zone">
+                    <div class="card__header">
+                        <h2 class="card__title-icon"><i class="fas fa-triangle-exclamation"></i> Danger zone</h2>
+                    </div>
+                    <div class="card__body">
+                        <p class="text-sm text-muted">
+                            Deleting removes the project, all <?= count($project_task_count) ?>
+                            task(s), their subtasks and every project assignment for
+                            <?= count($project_contact_count) ?> contact(s). This cannot be undone.
+                        </p>
+                        <?php if (!empty($project['share_code'])): ?>
+                            <div class="field pe-danger-field">
+                                <label for="delete-project-confirmation">
+                                    Type the project code to confirm <span class="req" aria-hidden="true">*</span>
+                                </label>
+                                <input class="input text-mono" type="text" id="delete-project-confirmation"
+                                       name="confirmation_code"
+                                       value="<?= e($_POST['confirmation_code'] ?? '') ?>"
+                                       placeholder="<?= e($project['share_code']) ?>"
+                                       autocomplete="off">
+                                <span class="hint">Must exactly match <strong><?= e($project['share_code']) ?></strong>.</span>
+                            </div>
+                        <?php else: ?>
+                            <div class="field pe-danger-field">
+                                <p class="text-sm text-muted">
+                                    This project has no Project Code yet, and the code is the
+                                    delete confirmation secret. Generate one in
+                                    <strong>Client share</strong> above, then delete it here.
+                                </p>
+                            </div>
+                        <?php endif; ?>
+                        <button class="btn btn--danger btn--block" type="button"
+                                style="margin-top:1rem;"
+                                <?= empty($project['share_code']) ? 'disabled title="Generate a Project Code first."' : '' ?>
+                                data-modal-open="confirm-delete-project">
+                            <i class="fas fa-trash"></i> Delete Project
+                        </button>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
-</div>
 
-<?php if ($project): ?>
-<dialog id="delete-project-dialog" class="delete-project-dialog" aria-labelledby="delete-project-title" aria-describedby="delete-project-warning">
-    <form method="POST" action="project_delete.php" class="delete-project-form">
-        <h2 id="delete-project-title">Delete project?</h2>
-        <p id="delete-project-warning">
-            This permanently deletes this project and may also delete its associated tasks and contacts.
-            This action cannot be undone.
-        </p>
-        <p>
-            To confirm, type Project Code
-            <?php if (!empty($project['share_code'])): ?>
-                <strong><?= e($project['share_code']) ?></strong>.
-            <?php else: ?>
-                <strong>unavailable</strong>. This project has no Project Code, so it cannot be deleted from here.
-            <?php endif; ?>
-        </p>
-        <?php if (!empty($project['share_code'])): ?>
-        <label for="delete-project-confirmation">Project Code</label>
-        <input
-            type="text"
-            id="delete-project-confirmation"
-            name="confirmation_code"
-            autocapitalize="characters"
-            autocomplete="off"
-            required
-            aria-describedby="delete-project-warning"
-            data-project-code="<?= e($project['share_code']) ?>">
-        <?php endif; ?>
-        <input type="hidden" name="project_id" value="<?= e($project['id']) ?>">
-        <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
-        <div class="delete-project-actions">
-            <button type="button" class="btn btn-secondary" onclick="closeDeleteProjectDialog()">Cancel</button>
-            <button type="submit" class="btn btn-danger" id="confirm-delete-project" disabled <?= empty($project['share_code']) ? 'title="This project has no Project Code."' : '' ?>>Delete Project</button>
+    <?php if ($project && !empty($project['share_code'])): ?>
+        <div class="modal-backdrop" id="confirm-delete-project" hidden>
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cdp-title">
+                <div class="modal__header">
+                    <div>
+                        <h3 id="cdp-title">Confirm project deletion</h3>
+                        <p>Type the project code exactly as shown to confirm.</p>
+                    </div>
+                    <button class="modal__close" type="button" data-modal-close aria-label="Close">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal__body">
+                    <div class="alert alert--danger">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <div class="alert__body">
+                            <div class="alert__title"><?= e($project['share_code']) ?></div>
+                            All <?= count($project_task_count) ?> task(s), their subtasks and
+                            <?= count($project_contact_count) ?> contact assignment(s) will be
+                            permanently removed.
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="delete-project-confirmation-modal">
+                            Project Code <span class="req" aria-hidden="true">*</span>
+                        </label>
+                        <input class="input text-mono" type="text" id="delete-project-confirmation-modal"
+                               name="confirmation_code"
+                               value="<?= e($_POST['confirmation_code'] ?? '') ?>"
+                               placeholder="<?= e($project['share_code']) ?>"
+                               autocomplete="off">
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
+                    <form method="POST" action="/projects/<?= (int)$project_id ?>/delete" class="inline-form">
+                        <input type="hidden" name="project_id" value="<?= e($project['id']) ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e($csrf_token) ?>">
+                        <button class="btn btn--danger" type="submit">
+                            <i class="fas fa-trash"></i> Delete permanently
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
-    </form>
-</dialog>
-<?php endif; ?>
-
-<style>
-/* Per-page CSS for project_edit.php.
- *
- * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
- * provide the baseline (page-container, breadcrumb, form-grid,
- * form-group, btn, alert, and the @media (max-width: 768px) collapse).
- * All rules below are EITHER page-unique to the project edit surface
- * (delete-project modal + project-form variant of .form-actions) OR
- * explicit per-page overrides of a global rule (the divergence is
- * intentional; comments tag them).
- */
-
-/* Per-page override of .page-container in style.css: this edit form is
- * narrower (800px) than the global default (1000px) because the project
- * surface has fewer fields. */
-.page-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.form-container {
-    margin-top: 0;
-}
-
-/* Per-page override of .form-actions in style.css: the project form
- * uses a left-aligned flex row (gap: 15px, no justify-between) instead
- * of the global split-left/right two-cluster row. The global
- * .form-actions-left / .form-actions-right helpers are not used here. */
-.form-actions {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid #dee2e6;
-}
-
-.form-actions .btn {
-    min-width: 140px;
-}
-
-.form-group label i {
-    margin-right: 8px;
-    color: #666;
-    width: 16px;
-}
-
-.delete-project-dialog {
-    width: min(32rem, calc(100% - 2rem));
-    max-width: none;
-    max-height: calc(100% - 2rem);
-    margin: auto;
-    padding: 1.5rem;
-    border: 0;
-    border-radius: 8px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-}
-
-.delete-project-dialog::backdrop {
-    background: rgba(0, 0, 0, 0.6);
-}
-
-.delete-project-form h2 {
-    margin-bottom: 1rem;
-}
-
-.delete-project-form p,
-.delete-project-form label {
-    display: block;
-    margin-bottom: 0.75rem;
-}
-
-.delete-project-form input[type="text"] {
-    width: 100%;
-    min-height: 44px;
-    margin-bottom: 1.25rem;
-    padding: 0.5rem;
-}
-
-.delete-project-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-}
-
-.delete-project-actions .btn {
-    min-height: 44px;
-}
-
-/* Issue-023: client share-code rotation card. Sits below the main
- * project form on project_edit.php. The card uses the standard
- * `.card` / `.card-body` classes from style.css; only the
- * share-rotation-specific rules live here. */
-.share-rotation-card {
-    margin-top: 1.5rem;
-}
-
-.share-code-display {
-    display: inline-block;
-    padding: 0.35rem 0.6rem;
-    background: #f1f3f5;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 1.05rem;
-    letter-spacing: 0.1em;
-}
-
-.share-rotation-meta {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-}
-
-.share-rotation-warning {
-    margin-top: 0.75rem;
-    padding: 0.6rem 0.9rem;
-}
-
-.share-rotation-form {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.share-rotation-hint {
-    font-size: 0.85rem;
-}
-
-@media (max-width: 768px) {
-    .form-actions {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .form-actions .btn {
-        width: 100%;
-        margin-left: 0 !important;
-    }
-
-    .delete-project-actions {
-        flex-direction: column-reverse;
-    }
-
-    .delete-project-actions .btn {
-        width: 100%;
-    }
-
-    .share-rotation-form {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .share-rotation-form .btn {
-        width: 100%;
-    }
-}
-</style>
-
-<script>
-document.getElementById('status').addEventListener('change', function() {
-    const completionDateField = document.getElementById('completion_date');
-
-    if (this.value === 'completed' && !completionDateField.value) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        completionDateField.value = `${year}-${month}-${day}`;
-    } else if (this.value !== 'completed') {
-        completionDateField.value = '';
-    }
-});
-</script>
-
-<?php if ($project): ?>
-<script>
-const deleteProjectDialog = document.getElementById('delete-project-dialog');
-const deleteProjectInput = document.getElementById('delete-project-confirmation');
-const deleteProjectSubmit = document.getElementById('confirm-delete-project');
-
-function openDeleteProjectDialog() {
-    deleteProjectDialog.showModal();
-    if (deleteProjectInput) {
-        deleteProjectInput.focus();
-    } else {
-        deleteProjectSubmit.focus();
-    }
-}
-
-function closeDeleteProjectDialog() {
-    deleteProjectDialog.close();
-}
-
-if (deleteProjectInput) {
-    deleteProjectInput.addEventListener('input', function() {
-        deleteProjectSubmit.disabled = this.value === ''
-            || this.value !== this.dataset.projectCode;
-    });
-}
-
-deleteProjectDialog.addEventListener('close', function() {
-    if (deleteProjectInput) {
-        deleteProjectInput.value = '';
-    }
-    deleteProjectSubmit.disabled = true;
-});
-</script>
-<?php endif; ?>
-
+    <?php endif; ?>
+</div>
 <?php include 'includes/footer.php'; ?>

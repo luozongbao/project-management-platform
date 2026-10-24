@@ -1,0 +1,141 @@
+/* Per-page CSS for task_detail.php.
+ *
+ * v2.0 (issue-043): this page previously carried its own v1.8.0 <style> block
+ * with ~350 lines of hardcoded hex colours (#f8f9fa, #007bff, #333). Those
+ * rules cannot survive the dark theme — .card-header in style.css paints a
+ * LIGHT bar (#f8f9fa), so on a v2 dark page the card headers rendered as pale
+ * slabs with near-invisible text. See docs/issues/issue-043.md.
+ *
+ * Everything below uses v2 tokens only. The BEM element names are prefixed
+ * `td-` so they cannot collide with the `card`/`btn`/`status` vocabulary that
+ * v2-components.css already owns.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Parent task link
+ * ------------------------------------------------------------------------ */
+.td-parent-link {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+}
+.td-parent-link i { color: var(--brand-500); }
+
+/* ---------------------------------------------------------------------------
+ * Sidebar stat strip (Completion / Subtasks)
+ *
+ * The mockup opens the task sidebar with a two-up stat strip. The shared
+ * .stat-grid default is `repeat(auto-fit, minmax(210px, 1fr))`, which would
+ * stack the two tiles in a 340px sidebar column, so the columns are pinned
+ * and the bottom margin is dropped -- the Time card below supplies the
+ * separation.
+ * ------------------------------------------------------------------------ */
+.td-stats {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Subtask list
+ *
+ * The sub-task tree reuses the shared .task-tree / .task-node vocabulary from
+ * v2-components.css (the same components the project_detail tree uses), so the
+ * bespoke td-subtask* block that used to live here was removed in v2.0.
+ * Only the per-node action row remains page-specific.
+ * ------------------------------------------------------------------------ */
+.task-node__name a {
+    color: inherit;
+    text-decoration: none;
+}
+.task-node__name a:hover { color: var(--brand-500); }
+.task-node__actions {
+    display: flex;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+    margin-top: var(--sp-3);
+}
+
+/* ---------------------------------------------------------------------------
+ * Sidebar detail values
+ * ------------------------------------------------------------------------ */
+.td-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+.td-overdue  { color: var(--danger-500); font-weight: var(--fw-medium); }
+.td-completed { color: var(--success-500); }
+.td-inherit { color: var(--brand-500); font-size: var(--fs-xs); }
+
+/* ---------------------------------------------------------------------------
+ * Status Reason card (issue-034)
+ * ------------------------------------------------------------------------ */
+.td-reason + .td-reason {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--gray-100);
+}
+.td-reason__label {
+    display: block;
+    color: var(--gray-500);
+    font-size: var(--fs-xs);
+    margin-bottom: var(--sp-1);
+}
+.td-reason__text {
+    margin: 0 0 var(--sp-2) 0;
+    padding: var(--sp-3);
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    border-left: 3px solid transparent;
+}
+.td-reason__text--hold {
+    background: var(--warning-100);
+    border-left-color: var(--warning-500);
+    color: var(--gray-800);
+}
+.td-reason__text--delay {
+    background: var(--danger-100);
+    border-left-color: var(--danger-500);
+    color: var(--gray-800);
+}
+.td-reason-required {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin: 0 0 var(--sp-2) 0;
+    color: var(--danger-500);
+    font-size: var(--fs-sm);
+}
+/* The superscript marker rendered INSIDE the status badge in the Task Overview
+   card header. Kept separate from .td-reason-required above: that rule is a
+   flex block meant for the <p> in the Status Reason card, and applying it to an
+   inline <i> inside a badge would give the badge the wrong internal layout. */
+.td-reason-flag {
+    margin-left: var(--sp-1);
+    color: var(--danger-500);
+    font-size: var(--fs-xs);
+}
+
+/* ---------------------------------------------------------------------------
+ * On-hold / resume inline form (issue-012, issue-034)
+ * ------------------------------------------------------------------------ */
+.inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.parent-hold-reason-input {
+    min-width: 240px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsive
+ * ------------------------------------------------------------------------ */
+@media (max-width: 768px) {
+    .parent-hold-reason-input { min-width: 0; width: 100%; }
+    .inline-form { flex-wrap: wrap; width: 100%; }
+}

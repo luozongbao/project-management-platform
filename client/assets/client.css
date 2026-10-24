@@ -4,17 +4,26 @@
  */
 
 /* Sub-tasks toggle (issue-010) — scoped to #tasks-progress so other uses
-   of .task-tree elsewhere in the app are not affected. */
+   of .task-tree elsewhere in the app are not affected.
+
+   Issue-050: the button is now rendered as `.btn .btn--secondary .btn--sm
+   .subtasks-toggle` inside `.card__actions`, so the v2 component layer
+   supplies the padding / font-size / radius. Only the client-specific
+   deltas are kept here, expressed in v2 tokens. The icon and the label
+   span get explicit rules so the toggle stays legible at every density. */
 .subtasks-toggle {
-    margin-left: 8px;
-    vertical-align: middle;
-    font-size: 0.8rem;
-    padding: 4px 10px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
+    vertical-align: middle;
 }
-.subtasks-toggle i { font-size: 0.85rem; }
+.subtasks-toggle i { font-size: var(--fs-xs); }
+.subtasks-toggle-label {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    line-height: 1;
+    white-space: nowrap;
+}
 #tasks-progress[data-subtasks="hidden"] ul.task-tree:not(.root) {
     /* Hide the nested sub-trees. The root <ul class="task-tree root"> is
        the direct child of #tasks-progress and represents top-level work
@@ -25,76 +34,22 @@
 }
 
 /* Make the main app's .footer + .navbar invisible — public pages don't have them
-   rendered into the DOM, but in case shared classes ever collide, we keep things tidy. */
+   rendered into the DOM, but in case shared classes ever collide, we keep things tidy.
 
-.client-body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    color: #2b2f33;
-}
+   Issue-051: the legacy landing-page rules that used to live here
+   (.client-shell / .client-card / .client-brand / .client-tagline /
+   .client-card h2 / .client-intro / .client-form / .client-foot) have been
+   retired. The landing page now uses the v2.0 mockup vocabulary
+   (.landing / .landing__card / .landing__logo / .landing__code-input /
+   .landing__foot) — see the "Landing page (v2)" section at the end of this
+   file.
 
-.client-shell {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 30px 16px 60px;
-}
-
-.client-card {
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 18px 50px rgba(0,0,0,0.15);
-    padding: 40px 32px;
-    max-width: 460px;
-    margin: 60px auto;
-}
-
-.client-brand {
-    text-align: center;
-    margin-bottom: 24px;
-}
-.client-brand i {
-    font-size: 38px;
-    color: #007bff;
-    display: block;
-    margin-bottom: 8px;
-}
-.client-brand h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    color: #222;
-}
-.client-tagline {
-    color: #777;
-    margin: 4px 0 0;
-    font-size: 0.95rem;
-}
-
-.client-card h2 {
-    margin: 0 0 14px;
-    font-size: 1.1rem;
-    color: #333;
-}
-.client-card h2 i {
-    color: #007bff;
-    margin-right: 8px;
-}
-
-.client-intro {
-    color: #555;
-    margin-bottom: 22px;
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-
-.client-form .form-group { margin-bottom: 18px; }
-.client-form label { font-weight: 600; margin-bottom: 6px; display:block; color:#333; }
-.client-form small { color: #777; }
-.client-foot {
-    text-align: center;
-    color: #777;
-    font-size: 0.85rem;
-    margin-top: 24px;
-}
+   Rules that the client dashboard still needs are NOT removed:
+     - .client-body / .client-shell  -> re-declared in the v2 section below.
+     - .client-brand                 -> re-declared as .client-body .client-brand
+                                        for the two dashboard error paths.
+     - .client-header*               -> dashboard header.
+*/
 
 /* Header (dashboard page) */
 .client-header {
@@ -205,55 +160,6 @@
 /* Tasks */
 .task-tree, .task-tree ul { list-style: none; margin: 0; padding: 0; }
 .task-tree.root { padding-left: 0; }
-.task-item {
-    border: 1px solid #eef0f2;
-    border-radius: 10px;
-    margin: 8px 0;
-    background: #fff;
-    transition: box-shadow .15s;
-}
-.task-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
-.task-line {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    /* Issue-034 (v1.8.0) tester-note-003 Bug 9 (revised) — without
-     * `flex-wrap: wrap;` the chip's `flex-basis: 100%` is silently
-     * treated as a basis request inside a `nowrap` row, and the
-     * chip ends up on the same row as the task title, covering it.
-     * W3C CSS Flexible Box §9 — flex-basis only requests a main size;
-     * whether the item actually wraps depends on the parent's
-     * `flex-wrap`. Adding wrap here is what makes the chip's
-     * flex-basis: 100% (round-1 fix in .task-reason) meaningful. */
-    flex-wrap: wrap;
-}
-.tree-indent {
-    color: #c7ccd1;
-    font-family: monospace;
-    margin-right: 4px;
-    flex-shrink: 0;
-}
-.task-body { flex: 1; min-width: 0; }
-.task-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    margin-bottom: 4px;
-}
-.task-name { font-weight: 600; color: #222; font-size: 1rem; }
-.task-desc { color: #555; font-size: 0.9rem; margin: 4px 0 8px; }
-.task-meta {
-    display: flex; flex-wrap: wrap; gap: 14px;
-    color: #666; font-size: 0.85rem; margin-bottom: 8px;
-}
-.task-meta i { color: #999; margin-right: 4px; }
-.task-progress {
-    display: flex; align-items: center; gap: 10px;
-}
-.task-progress .progress-bar { flex: 1; }
-.progress-text { font-size: 0.85rem; color: #555; min-width: 42px; text-align: right; }
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -263,66 +169,71 @@
     .client-shell { padding: 16px 12px 40px; }
 }
 
-/* Reuse + tweak a couple of main-app primitives on the client pages */
+/* Reuse + tweak a couple of main-app primitives on the client pages.
+   Issue-050: these overrides are now expressed in v2 tokens. The v2
+   component layer already provides .card / .progress / .progress__fill /
+   .text-muted, so these blocks only carry the client-specific deltas.
+   The legacy .progress-bar / .progress-fill pair is retained because the
+   public landing page's inline styles still reference it.
+
+   Issue-050 fix: the old block declared `border: 1px solid var(--gray-200)`
+   and then `border: none` — the second declaration won and silently
+   removed the card outline (computed border was `0px none`). One owner,
+   one value: the border is kept and the duplicated line is gone. */
 .client-body .card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
-    border: none;
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    box-shadow: var(--sh-sm);
 }
 .client-body .progress-bar {
     width: 100%;
-    background: #e9ecef;
-    border-radius: 999px;
+    background: var(--gray-200);
+    border-radius: var(--r-full);
     overflow: hidden;
     height: 10px;
 }
 .client-body .progress-fill {
-    background: linear-gradient(90deg, #007bff, #28a745);
+    background: linear-gradient(90deg, var(--brand-500), var(--success-500));
     height: 100%;
-    border-radius: 999px;
-    transition: width .3s ease;
+    border-radius: var(--r-full);
+    transition: width var(--dur) var(--ease);
 }
-.client-body .text-muted { color: #888 !important; }
+.client-body .text-muted { color: var(--gray-500) !important; }
+
+/* Issue-050: task description line, inside a .task-node. The legacy
+   .task-desc rule above is a flat v1 style; the v2 version is a muted,
+   small body line under the task name. */
+.client-body .task-desc {
+    color: var(--gray-600);
+    font-size: var(--fs-sm);
+    margin: var(--sp-2) 0 0;
+    line-height: var(--lh-normal);
+}
+
+/* Issue-050: .client-brand is used by the two error-path renders. */
+.client-body .client-brand {
+    text-align: center;
+    margin-bottom: var(--sp-5);
+}
+.client-body .client-brand i {
+    font-size: 38px;
+    color: var(--brand-500);
+    display: block;
+    margin-bottom: var(--sp-2);
+}
+.client-body .client-brand h1 {
+    margin: 0;
+    font-size: var(--fs-lg);
+    color: var(--gray-900);
+}
 /* ----------------------------------------------------------------------
    Language switcher
+
+   Issue-051: the legacy pill-style .lang-switch / .lang-switch-link rules
+   that used to live here are retired. The v2 segmented-control versions are
+   declared further down in the "Client portal (v2)" section of this file.
 ---------------------------------------------------------------------- */
-.client-body .lang-switch {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px dashed #e1e4e8;
-    font-size: .9rem;
-    color: #6a737d;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-.client-body .lang-switch.inline {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
-    justify-content: flex-end;
-}
-.client-body .lang-switch-label {
-    margin-right: 6px;
-}
-.client-body .lang-switch-link {
-    display: inline-block;
-    padding: 4px 10px;
-    border: 1px solid #d0d7de;
-    border-radius: 999px;
-    color: #24292f;
-    background: #fff;
-    text-decoration: none;
-    transition: background .15s ease, border-color .15s ease;
-}
-.client-body .lang-switch-link:hover {
-    background: #f6f8fa;
-    border-color: #afb8c1;
-    text-decoration: none;
-}
 
 /* Tighter header right column to fit switcher */
 .client-header-right {
@@ -333,29 +244,11 @@
     justify-content: flex-end;
 }
 
-/* Owner login link on the public landing page */
-.client-body .owner-login {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px dashed #e1e4e8;
-    text-align: center;
-}
-.client-body .owner-login-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #495057;
-    font-size: 0.92rem;
-    text-decoration: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    transition: color .15s ease, background .15s ease;
-}
-.client-body .owner-login-link:hover {
-    color: #007bff;
-    background: #f6f8fa;
-    text-decoration: none;
-}
+/* Owner login link on the public landing page.
+
+   Issue-051: retired. The landing page now renders the owner sign-in as a
+   v2 `.btn.btn--secondary.btn--block` (see the "Landing page (v2)" section
+   at the end of this file). */
 
 /* Application About / Version disclosure on the public client portal
    (issue-028). Uses the same <details>/<summary> zero-JS approach as
@@ -410,32 +303,11 @@
 .client-header-right .app-about-panel a { color: #007bff; text-decoration: none; }
 .client-header-right .app-about-panel a:hover { text-decoration: underline; }
 
-/* Foot-anchored variant on the public landing page (root index.php). */
-.client-foot .app-about { display: inline-block; }
-.client-foot .app-about-trigger {
-    list-style: none;
-    cursor: pointer;
-    background: transparent;
-    color: #007bff;
-    font-size: 0.85rem;
-    padding: 0;
-    margin-left: 4px;
-    text-decoration: underline dotted;
-}
-.client-foot .app-about-trigger::-webkit-details-marker { display: none; }
-.client-foot .app-about-panel {
-    margin-top: 8px;
-    text-align: left;
-    background: #fff;
-    border: 1px solid #e1e4e8;
-    border-radius: 6px;
-    padding: 12px 14px;
-    color: #333;
-    font-size: 0.85rem;
-    line-height: 1.4;
-}
-.client-foot .app-about-panel h3 { margin: 0 0 6px 0; font-size: 0.9rem; color: #007bff; }
-.client-foot .app-about-panel p { margin: 3px 0; }
+/* Foot-anchored variant on the public landing page (root index.php).
+
+   Issue-051: retired — the landing page no longer renders a
+   .client-foot about-disclosure. The client dashboard keeps its
+   .client-header__tools .app-about variant (below). */
 
 /* ============================================================================
  * Issue-034 (v1.8.0) — client-portal status reasons.
@@ -456,12 +328,17 @@
     font-size: 0.86rem;
     color: #24292f;
     line-height: 1.4;
-    /* Issue-034 (v1.8.0) tester note Bug 9 — drop to own row inside
-     * the .task-line flex container so the chip never overlaps the
-     * title row. flex-basis: 100% forces full width, min-width: 0
+    /* Issue-034 (v1.8.0) tester note Bug 9 — the chip must never overlap
+     * the title row. flex-basis: 100% forces full width, min-width: 0
      * keeps the body content from forcing the row to overflow, and
      * word-wrap: break-word prevents long un-spaced reasons from
-     * blowing out the layout on narrow client-portal viewports. */
+     * blowing out the layout on narrow client-portal viewports.
+     *
+     * Issue-053: the chip now lives inside `.task-node__reasons`
+     * (assets/css/v2-components.css), which is a column flex container —
+     * so it stacks under the task name by construction. The retired
+     * `.task-line` parent rule (which carried `flex-wrap: wrap`) is gone;
+     * `.task-node__head` now carries the wrap instead. */
     flex-basis: 100%;
     min-width: 0;
     word-wrap: break-word;
@@ -490,3 +367,529 @@
 }
 .reason-pill.delay   { background: #fff5f5; color: #cf222e; border-color: #f1c0c4; }
 .reason-pill.on-hold { background: #fff8e1; color: #7d5b00; border-color: #f0d77a; }
+
+/* ==========================================================================
+   v2 client portal — Phase 1.4a (issue-035)
+   --------------------------------------------------------------------------
+   Classes introduced by the retag of client/dashboard.php to the mockup's
+   BEM structure (docs/design/2.0/v2-tokens.css section 6, "Client portal").
+
+   Deliberately appended rather than merged into the existing rules above:
+   the two error-path renders earlier in dashboard.php still use the old
+   flat .client-card / .client-brand classes, so both generations must keep
+   working. The old rules can be dropped once those two paths are retagged.
+
+   Class names only. No t() keys, share-code values, element ids or AJAX
+   endpoints were touched -- this is a restyle.
+   ========================================================================== */
+
+.client-header__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.client-info-item .client-info-item__v.client-alert-strip {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.client-info-item .budget-amount {
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+}
+
+/* ==========================================================================
+   Issue-050 — v2.0 client portal, aligned to docs/design/2.0/client-dashboard.html
+   --------------------------------------------------------------------------
+   The mockup's client-portal block lives in docs/design/2.0/v2-tokens.css
+   §6 ("Client portal (public share view)"). Production splits that file
+   into three layers (v2-tokens.css = custom properties only,
+   v2-components.css = shared components, <page>.css = page-specific), so
+   the client-only rules are transplanted HERE — this file is the client
+   portal's page-CSS layer and is loaded last, so it wins the cascade at
+   equal specificity.
+
+   Everything below is expressed in v2 design tokens (var(--…)). The legacy
+   hard-coded hex rules above remain in place ONLY for the two error-path
+   renders (.client-card / .client-brand); those are retagged in issue-051
+   together with the public landing page, at which point the legacy block
+   can be dropped wholesale.
+
+   Red lines: the "#tasks-progress[data-subtasks='hidden'] ul.task-tree:not(.root)"
+   rule above is the sub-task toggle contract (issue-010 / issue-027) and is
+   NOT redefined here — the client/assets/js/subtask-toggle.js controller and
+   its ARIA reflection both depend on it.
+   ========================================================================== */
+
+.client-body {
+    background: var(--gray-50);
+    color: var(--gray-800);
+}
+
+/* --- Shell + header ------------------------------------------------------ */
+.client-shell {
+    max-width: none;
+    min-height: 100vh;
+    background: var(--gray-50);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.client-header {
+    background: var(--gray-900);
+    color: var(--gray-0);
+    padding: var(--sp-5) var(--sp-6);
+    box-shadow: none;
+}
+.client-header__inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+}
+.client-header__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    font-weight: var(--fw-bold);
+}
+.client-header__brand-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--r-md);
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+.client-header__project {
+    margin-left: auto;
+    text-align: right;
+}
+.client-header__project-name {
+    font-weight: var(--fw-semibold);
+}
+.client-header__project-meta {
+    font-size: var(--fs-xs);
+    color: var(--gray-400);
+}
+.client-header__project-meta code,
+.client-header__tools code {
+    font-family: var(--font-mono);
+    letter-spacing: .08em;
+    color: var(--brand-200);
+}
+.client-header__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.client-header__tools .text-muted { color: var(--gray-400) !important; }
+
+/* Language switcher — segmented control, per the mockup's .lang-switch. */
+.client-body .lang-switch {
+    display: inline-flex;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--gray-0);
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+}
+.client-body .lang-switch.inline {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+.client-body .lang-switch-label {
+    margin-right: 6px;
+}
+.client-body .lang-switch-link {
+    display: inline-block;
+    padding: var(--sp-1) var(--sp-3);
+    border: 0;
+    border-left: 1px solid var(--gray-200);
+    border-radius: 0;
+    color: var(--gray-500);
+    background: var(--gray-0);
+    text-decoration: none;
+    font-size: var(--fs-xs);
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.client-body .lang-switch-link:first-of-type { border-left: 0; }
+.client-body .lang-switch-link:hover {
+    background: var(--gray-100);
+    color: var(--gray-700);
+    text-decoration: none;
+}
+
+/* About / version disclosure — inverted for the dark client header. */
+.client-header__tools .app-about {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.client-header__tools .app-about-trigger {
+    list-style: none;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.12);
+    color: var(--gray-0);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    user-select: none;
+    transition: background var(--dur-fast) var(--ease);
+}
+.client-header__tools .app-about-trigger::-webkit-details-marker { display: none; }
+.client-header__tools .app-about-trigger:hover { background: rgba(255,255,255,.22); }
+.client-header__tools .app-about[open] .app-about-trigger { background: rgba(255,255,255,.3); }
+.client-header__tools .app-about-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 260px;
+    background: var(--gray-0);
+    color: var(--gray-800);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-lg);
+    padding: var(--sp-4);
+    z-index: var(--z-overlay);
+}
+.client-header__tools .app-about-panel h3 {
+    font-size: var(--fs-sm);
+    margin: 0 0 var(--sp-2) 0;
+    color: var(--brand-600);
+}
+.client-header__tools .app-about-panel p { margin: 3px 0; font-size: var(--fs-xs); }
+.client-header__tools .app-about-panel .text-muted { color: var(--gray-500) !important; }
+
+/* --- Content column ------------------------------------------------------- */
+.client-content {
+    flex: 1;
+    max-width: 1080px;
+    width: 100%;
+    margin: 0 auto;
+    padding: var(--sp-6);
+}
+
+/* --- Hero ---------------------------------------------------------------- */
+.client-hero {
+    background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+    color: #fff;
+    border-radius: var(--r-xl);
+    padding: var(--sp-8);
+    margin-bottom: var(--sp-5);
+}
+.client-hero__label {
+    font-size: var(--fs-xs);
+    opacity: .85;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+.client-hero__value {
+    font-size: var(--fs-3xl);
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+}
+.client-hero__bar {
+    margin-top: var(--sp-4);
+    background: rgba(255,255,255,.22);
+    border-radius: var(--r-full);
+    height: 8px;
+    overflow: hidden;
+}
+.client-hero__bar-fill {
+    height: 100%;
+    background: #fff;
+    border-radius: var(--r-full);
+}
+.client-hero__stats {
+    display: flex;
+    gap: var(--sp-8);
+    margin-top: var(--sp-6);
+    flex-wrap: wrap;
+}
+.client-hero__stat-label {
+    font-size: var(--fs-xs);
+    opacity: .85;
+}
+.client-hero__stat-value {
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Alert strip --------------------------------------------------------- */
+.client-alert-strip {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* --- Info grid ----------------------------------------------------------- */
+.client-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--sp-4);
+}
+.client-info-item {
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+}
+.client-info-item__k {
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+    margin-bottom: var(--sp-1);
+}
+.client-info-item__v {
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+}
+.client-info-item__v .text-muted { color: var(--gray-500) !important; font-weight: var(--fw-normal); }
+.client-info-item .budget-amount { font-size: var(--fs-lg); color: var(--gray-900); }
+
+/* --- Scope list ---------------------------------------------------------- */
+.scope-list {
+    margin: 0;
+    padding-left: var(--sp-5);
+    color: var(--gray-700);
+}
+.scope-list li { margin: var(--sp-2) 0; line-height: var(--lh-normal); }
+
+/* --- Project header ------------------------------------------------------ */
+.project-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-4);
+}
+.project-header h1 {
+    margin: 0;
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+}
+.project-header h1 i { color: var(--brand-500); margin-right: var(--sp-2); }
+.project-description {
+    color: var(--gray-700);
+    line-height: var(--lh-normal);
+    margin: 0 0 var(--sp-4);
+}
+
+/* --- Task tree ----------------------------------------------------------- */
+.task-tree.root { padding-left: 0; }
+.task-tree .task-tree { margin-top: var(--sp-2); }
+
+/* --- Footer -------------------------------------------------------------- */
+.client-body .footer {
+    padding: var(--sp-6);
+    text-align: center;
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+    border-top: 1px solid var(--gray-200);
+    background: var(--gray-0);
+    margin-top: auto;
+}
+
+/* --- Responsive ---------------------------------------------------------- */
+@media (max-width: 768px) {
+    .client-content { padding: var(--sp-4); }
+    .client-hero { padding: var(--sp-5); }
+    .client-hero__value { font-size: var(--fs-2xl); }
+    .client-hero__stats { gap: var(--sp-5); }
+    .client-header { padding: var(--sp-4); }
+    .client-header__project { margin-left: 0; text-align: left; }
+}
+
+/* ============================================================================
+ * Issue-051 — Landing page (v2).
+ *
+ * The public landing page (includes/landing.php, served at "/") now uses the
+ * v2.0 mockup vocabulary from docs/design/2.0/landing.html instead of the
+ * legacy .client-card / .client-brand / .client-form classes.
+ *
+ * Mirrors docs/design/2.0/v2-tokens.css lines 1109-1141 ("Landing /
+ * share-code"), with the production adjustments noted inline.
+ * ========================================================================== */
+
+.landing {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: var(--gray-50);
+    padding: var(--sp-6);
+}
+
+.landing__card {
+    width: 100%;
+    max-width: 520px;
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-lg);
+    padding: var(--sp-10);
+    text-align: center;
+}
+
+.landing__card h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+    color: var(--gray-900);
+}
+
+.landing__logo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--sp-5);
+    border-radius: var(--r-lg);
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 1.5rem;
+}
+
+/* The code field keeps the frozen inline style required by
+   assets/js/share-code-format.js (uppercase / letter-spacing / monospace).
+   The rules here only add the mockup's centred, monospaced sizing on top. */
+.landing__code-input {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xl);
+    letter-spacing: .12em;
+    text-align: center;
+    text-transform: uppercase;
+    padding: var(--sp-3);
+}
+
+.landing__foot {
+    margin-top: var(--sp-6);
+    font-size: var(--fs-sm);
+    color: var(--gray-500);
+}
+
+/* Production-only help line ("Lost your code? Please contact your project
+   manager."). Not part of the mockup, but it is useful guidance for a user
+   who has lost their share code, so it stays. */
+.landing__note {
+    margin-top: var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--gray-500);
+}
+
+/* "or" divider between the share-code form and the owner sign-in button.
+   Mirrors .auth-card__divider from the mockup (v2-tokens.css line 1103). */
+.landing__card .auth-card__divider {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin: var(--sp-5) 0;
+    color: var(--gray-400);
+    font-size: var(--fs-xs);
+}
+.landing__card .auth-card__divider::before,
+.landing__card .auth-card__divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--gray-200);
+}
+
+/* Language switcher — the mockup renders <button> elements, but the
+   production page uses server-rendered <a> links so the language is
+   persisted in the cookie by the server. The .is-active state is applied to
+   the current locale instead. */
+.landing .lang-switch {
+    display: inline-flex;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    overflow: hidden;
+}
+.landing .lang-switch-link {
+    background: var(--gray-0);
+    border: none;
+    cursor: pointer;
+    padding: var(--sp-1) var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.landing .lang-switch-link:hover {
+    background: var(--gray-100);
+    color: var(--gray-700);
+    text-decoration: none;
+}
+.landing .lang-switch-link.is-active {
+    background: var(--brand-600);
+    color: #fff;
+}
+
+/* Issue-051 introduced a header-appropriate active chip (white on dark).
+   Issue-055 supersedes it: the v2 mockup (docs/design/2.0/client-dashboard.html)
+   renders the same switcher on the same dark .client-header bar, and its
+   shared token rule marks the active locale with the brand fill —
+   `.lang-switch button.is-active { background: var(--brand-600); color: #fff; }`.
+   Production renders <a class="lang-switch-link"> rather than <button>, so
+   the token rule never matched and the active state came from the rule
+   below instead. The mockup is the source of truth, so the active chip now
+   uses the brand fill to match it.
+
+   The selector keeps three classes so it outranks the two-class
+   `.client-header__tools` rule that used to carry this treatment. */
+.client-body .lang-switch.inline .lang-switch-link.is-active {
+    background: var(--brand-600);
+    color: #fff;
+}
+.client-body .lang-switch.inline .lang-switch-link.is-active:hover {
+    background: var(--brand-700);
+    color: #fff;
+}
+
+/* Issue-055: the segmented control had a :hover state but no visible
+   keyboard-focus state, so keyboard users only got the browser default
+   outline on a low-contrast control.
+
+   The inactive link sits on the dark header, so it takes the brand ring.
+   The active link is already filled with brand-600, so a brand-600 ring
+   would be invisible against it — it uses a white ring instead, which
+   reads clearly on the brand fill and on the dark bar alike. */
+.client-body .lang-switch.inline .lang-switch-link:focus-visible {
+    outline: 2px solid var(--brand-600);
+    outline-offset: -2px;
+}
+.client-body .lang-switch.inline .lang-switch-link.is-active:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+}
+
+/* The landing page is a bare full-bleed canvas — the client-portal footer
+   rule must not apply to it. */
+.landing .footer { display: none; }
+
+/* --- Responsive ---------------------------------------------------------- */
+@media (max-width: 520px) {
+    .landing { padding: var(--sp-4); }
+    .landing__card { padding: var(--sp-6); }
+}

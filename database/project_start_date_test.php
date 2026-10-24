@@ -185,17 +185,28 @@ if (strpos($migration, 'ADD COLUMN start_date DATE NULL') === false) {
 
 // ---------------------------------------------------------------------------
 // 6. Dashboard "Recent Projects" section's "+ New Project" button must
-//    route to the create form (project_edit.php), NOT the projects list.
+//    route to the create form (/projects/new), NOT the projects list.
 //    See docs/issues/issue-008/tester-note-001.md bug 2.
+//    v2.0 issue-035: the canonical route replaced the legacy
+//    `project_edit.php` filename — the router still accepts the old
+//    URL via the 301 in includes/legacy_redirects.php, but the app
+//    must emit the clean path.
 // ---------------------------------------------------------------------------
 $dashboard = file_get_contents(__DIR__ . '/../dashboard.php');
-// Find the Recent Projects header, then the next <a ... >, then its href.
-if (preg_match('/Recent Projects.*?<a\s+href="([^"]*)"\s+class="btn btn-primary"\s*>\s*<i\s+class="fas fa-plus"><\/i>\s*New Project/s', $dashboard, $m)) {
-    if ($m[1] !== 'project_edit.php') {
-        $failures[] = "dashboard 'Recent Projects' '+ New Project' must link to project_edit.php (got: '{$m[1]}')";
+// Find the "+ New Project" link and check its href.
+// v2.0 issue-035 Phase 1.4b: the button moved out of the "Recent Projects"
+// card header and into the page-header action row (it now sits beside a
+// "Projects" link, per docs/design/2.0/dashboard.html). The requirement
+// under test is unchanged -- the primary action must point at the
+// create route /projects/new -- so the assertion follows the button
+// rather than the section it used to live in. The class name also moved
+// from `.btn btn-primary` to the v2 `.btn btn--primary`.
+if (preg_match('/<a\s+class="btn btn--primary"\s+href="([^"]*)"\s*>\s*<i\s+class="fas fa-plus"><\/i>\s*New Project/s', $dashboard, $m)) {
+    if ($m[1] !== '/projects/new') {
+        $failures[] = "dashboard '+ New Project' must link to /projects/new (got: '{$m[1]}')";
     }
 } else {
-    $failures[] = "could not locate dashboard 'Recent Projects' '+ New Project' button for link check";
+    $failures[] = "could not locate dashboard '+ New Project' button for link check";
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +215,11 @@ if (preg_match('/Recent Projects.*?<a\s+href="([^"]*)"\s+class="btn btn-primary"
 //    input must NOT only live inside the inline delete dialog. See
 //    docs/issues/issue-008/tester-note-001.md bug 4.
 // ---------------------------------------------------------------------------
-$main_form = preg_match('/<form\s+method="POST"\s+data-validate>.*?<input\s+type="hidden"\s+name="csrf_token"\s+value="/s', $project_edit);
+// issue-047: the v2 conversion moved the form's class attribute around
+// (<form method="POST" class="card" data-validate>), so the old regex
+// no longer matched. The assertion itself is unchanged: the MAIN form
+// must contain a hidden csrf_token input.
+$main_form = preg_match('/<form[^>]*method="POST"[^>]*>.*?<input\s+type="hidden"\s+name="csrf_token"\s+value="/s', $project_edit);
 if (!$main_form) {
     $failures[] = "project_edit.php main create/edit form is missing a hidden csrf_token input";
 }

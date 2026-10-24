@@ -28,7 +28,7 @@ if ($is_editing) {
     );
     
     if (!$task) {
-        redirect('tasks.php');
+        redirect('/tasks');
     }
     $project_id = $task['project_id'] ?? null;
 } elseif ($is_subtask) {
@@ -42,7 +42,7 @@ if ($is_editing) {
     );
     
     if (!$parent_task) {
-        redirect('tasks.php');
+        redirect('/tasks');
     }
     $project_id = $parent_task['project_id'];
 }
@@ -115,6 +115,12 @@ if ($is_editing) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // The error bag must exist before anything can append to it — the
+    // CSRF branch below and the parseFormDate() calls further down both
+    // write into it, and appending to an undefined variable silently
+    // creates a non-array.
+    $errors = [];
+
     // Issue-016 (CSRF): reject any request that does not carry a valid
     // CSRF token. The check sits BEFORE any input read so a missing /
     // invalid token cannot leak DB error messages or partial state.
@@ -128,6 +134,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $completion_percentage = floatval($_POST['completion_percentage'] ?? 0);
     $expected_completion_date = $_POST['expected_completion_date'] ?? null;
     $completion_date = $_POST['completion_date'] ?? null;
+    // Issue-055: task dates are calendar dates (SQL DATE), matching the
+    // schema and the project form. parseFormDate() validates AND
+    // normalises in one step, and the return value is what gets stored —
+    // the old DateTime::createFromFormat() blocks validated a value they
+    // then threw away, so the raw POST string reached the DB unchecked
+    // (and an impossible date such as 2026-02-31 was never caught).
+    //
+    // This runs early on purpose: the delay-reason checks below compare the
+    // expected date against today, and an unparsed value (e.g. "2026-13-01")
+    // would make strtotime() return false and manufacture a bogus
+    // "delay reason required" error on top of the real date error.
+    //
+    // $errors must exist BEFORE the first parseFormDate() call: the
+    // helper appends to it by reference, and passing an undefined
+    // (null) variable to an `array &$errors` parameter is a TypeError.
+    // (It is initialised at the top of this POST block.)
+    $expected_completion_date = parseFormDate(
+        $_POST['expected_completion_date'] ?? '',
+        'Expected completion date',
+        $errors
+    );
+    $completion_date = parseFormDate(
+        $_POST['completion_date'] ?? '',
+        'Completion date',
+        $errors
+    );
     $total_time = $_POST['total_time'] ?? '';
     $total_time_unit = $_POST['total_time_unit'] ?? 'hours';
     $responsible_person_id = $_POST['responsible_person_id'] ?? ($task['responsible_person_id'] ?? $user_id);
@@ -158,7 +190,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posted_inherit = $_POST['inherit_subtask_hours'] ?? null;
     $inherit_from_post = ($posted_inherit === '1') ? 1 : 0;
 
-    $errors = [];
     $estimated_hours = null;
     
     // Validation
@@ -314,25 +345,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Completion percentage must be between 0 and 100.";
     }
     
-    if (!empty($expected_completion_date)) {
-        $expected_date = DateTime::createFromFormat('Y-m-d', $expected_completion_date);
-        if (!$expected_date) {
-            $errors[] = "Invalid expected completion date format.";
-        }
-    }
-    
-    if (!empty($completion_date)) {
-        $comp_date = DateTime::createFromFormat('Y-m-d\TH:i', $completion_date);
-        if (!$comp_date) {
-            $errors[] = "Invalid completion date format.";
-        }
-    }
+    // Issue-055: task dates are parsed and normalised up-front (see the
+    // assignment block near the top of the POST handler), so $expected_date
+    // and $completion_date already hold the canonical Y-m-d values that are
+    // written to the database below.
     
     // If status is completed, ensure completion percentage is 100 and completion date is set
     if ($status === 'completed') {
         $completion_percentage = 100;
         if (empty($completion_date)) {
-            $completion_date = date('Y-m-d H:i:s');
+            // Day precision — the column is DATE; a timestamp here would be
+            // silently truncated by MariaDB (issue-055).
+            $completion_date = date('Y-m-d');
         }
     } elseif ($status !== 'completed') {
         $completion_date = null; // Clear completion date if not completed
@@ -370,22 +394,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 syncProjectTaskCompletions($db, $task['project_id']);
 
-                redirect("task_detail.php?id=$task_id", 'Task updated successfully!', 'success');
+                redirect('/tasks/' . $task_id, 'Task updated successfully!', 'success');
             } else {
                 // Create new task
                 $final_project_id = $is_subtask ? $parent_task['project_id'] : $form_project_id;
 
                 $db->execute(
                     "INSERT INTO tasks (
-                        name, description, status, completion_percentage,
+                        name, slug, description, status, completion_percentage,
                         expected_completion_date, completion_date, estimated_hours,
                         inherit_subtask_hours,
                         on_hold_reason, delay_reason,
                         responsible_person_id, contact_person_id,
                         project_id, parent_task_id, created_at, updated_at
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
-                        $name, $description, $status, $completion_percentage,
+                        $name, generateUniqueSlug($name, 'tasks'),
+                        $description, $status, $completion_percentage,
                         $expected_completion_date, $completion_date, $estimated_hours,
                         0, // new tasks can never start in inherit mode (no children yet)
                         $stored_on_hold_reason, $stored_delay_reason,
@@ -397,7 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_task_id = $db->lastInsertId();
                 syncProjectTaskCompletions($db, $final_project_id);
 
-                redirect("task_detail.php?id=$new_task_id", 'Task created successfully!', 'success');
+                redirect('/tasks/' . $new_task_id, 'Task created successfully!', 'success');
             }
         } catch (Exception $e) {
             // Issue-016: log the underlying PDO message server-side but
@@ -412,719 +437,404 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $title = $is_editing ? "Edit Task" : ($is_subtask ? "New Subtask" : "New Task");
 $show_nav = true;
+// v2.0: this page was missing $use_v2_shell, so header.php skipped the
+// .app-shell/.sidebar wrapper and the page rendered unstyled and
+// full-bleed. Every other v2 page sets this. See header.php line ~94.
+$use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/forms.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/task_edit.css')) ?>">
 
-<div class="page-container">
+<div class="content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/dashboard">Dashboard</a>
+        <span aria-hidden="true">/</span>
+        <a href="/tasks">Tasks</a>
+        <?php if ($is_editing): ?>
+            <span aria-hidden="true">/</span>
+            <a href="/tasks/<?= (int)$task['id'] ?>"><?= e($task['name']) ?></a>
+            <span aria-hidden="true">/</span>
+            <span>Edit</span>
+        <?php elseif ($is_subtask): ?>
+            <span aria-hidden="true">/</span>
+            <a href="/tasks/<?= (int)$parent_task['id'] ?>"><?= e($parent_task['name']) ?></a>
+            <span aria-hidden="true">/</span>
+            <span>New Subtask</span>
+        <?php else: ?>
+            <span aria-hidden="true">/</span>
+            <span>New Task</span>
+        <?php endif; ?>
+    </nav>
+
     <div class="page-header">
-        <div class="page-title">
-            <div class="breadcrumb">
-                <a href="dashboard.php">Dashboard</a>
-                <span>/</span>
-                <a href="tasks.php">Tasks</a>
-                <?php if ($is_editing): ?>
-                    <span>/</span>
-                    <a href="task_detail.php?id=<?= $task_id ?>"><?= e($task['name']) ?></a>
-                    <span>/</span>
-                    <span>Edit</span>
-                <?php elseif ($is_subtask): ?>
-                    <span>/</span>
-                    <a href="task_detail.php?id=<?= $parent_id ?>"><?= e($parent_task['name']) ?></a>
-                    <span>/</span>
-                    <span>New Subtask</span>
-                <?php else: ?>
-                    <span>/</span>
-                    <span>New Task</span>
-                <?php endif; ?>
-            </div>
-            <h1>
-                <i class="fas fa-<?= $is_subtask ? 'level-down-alt' : ($is_editing ? 'edit' : 'plus') ?>"></i>
-                <?= $title ?>
-            </h1>
-            <?php if ($is_subtask): ?>
-                <p>Creating subtask under: <strong><?= e($parent_task['name']) ?></strong></p>
+        <div class="page-header__text">
+            <h1><i class="fas fa-<?= $is_subtask ? 'level-down-alt' : ($is_editing ? 'list-check' : 'plus') ?>"></i> <?= e($title) ?></h1>
+            <?php if ($is_editing): ?>
+                <p class="page-header__sub"><?= e($task['name']) ?> &middot; <?= e($task['project_name'] ?? '') ?></p>
+            <?php elseif ($is_subtask): ?>
+                <p class="page-header__sub">Creating subtask under <?= e($parent_task['name']) ?></p>
+            <?php endif; ?>
+        </div>
+        <div class="page-actions">
+            <a class="btn btn--secondary" href="<?= $is_editing ? '/tasks/' . (int)$task['id'] : ($is_subtask ? '/tasks/' . (int)$parent_task['id'] : '/tasks') ?>">Cancel</a>
+            <?php if ($is_editing && !($task['parent_task_id'] ?? null)): ?>
+                <a href="/tasks/new?parent_id=<?= (int)$task_id ?>" class="btn btn--secondary">
+                    <i class="fas fa-plus"></i> Add Subtask
+                </a>
             <?php endif; ?>
         </div>
     </div>
 
     <?php if (!empty($errors)): ?>
-        <div class="alert alert-danger">
-            <ul>
-                <?php foreach ($errors as $error): ?>
-                    <li><?= e($error) ?></li>
-                <?php endforeach; ?>
-            </ul>
+        <div class="alert alert--danger">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div class="alert__body">
+                <div class="alert__title">Please fix the following before saving</div>
+                <ul>
+                    <?php foreach ($errors as $error): ?>
+                        <li><?= e($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         </div>
     <?php endif; ?>
 
-    <div class="form-layout">
-        <form method="POST" class="task-form">
-            <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
-            <div class="form-grid">
-                <!-- Basic Information -->
-                <div class="form-section">
-                    <h3>Basic Information</h3>
-                    
-                    <div class="form-group">
-                        <label for="name" class="required">Task Name:</label>
-                        <input type="text" id="name" name="name" 
-                               value="<?= e($_POST['name'] ?? $task['name'] ?? '') ?>" 
-                               required maxlength="255">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="description">Description:</label>
-                        <textarea id="description" name="description" rows="4" 
-                                  placeholder="Detailed description of the task..."><?= e($_POST['description'] ?? $task['description'] ?? '') ?></textarea>
-                    </div>
-                    
-                    <?php if (!$is_subtask): ?>
-                        <div class="form-group">
-                            <label for="project_id" class="required">Project:</label>
-                            <select id="project_id" name="project_id" required>
-                                <option value="">Select Project</option>
-                                <?php foreach ($user_projects as $project): ?>
-                                    <option value="<?= $project['id'] ?>" 
-                                            <?= ($_POST['project_id'] ?? $project_id) == $project['id'] ? 'selected' : '' ?>>
-                                        <?= e($project['name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    <?php else: ?>
-                        <div class="form-group">
-                            <label>Project:</label>
-                            <div class="readonly-field">
-                                <i class="fas fa-folder"></i>
-                                <?= e($parent_task['project_name']) ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Status & Progress -->
-                <div class="form-section">
-                    <h3>Status & Progress</h3>
-
-                    <?php
-                    // Issue-012: for a parent with sub-tasks, the status field is
-                    // a read-only display. The on-hold / resume button on the task
-                    // detail page is the only path that mutates status.
-                    $is_parent_with_subs = $is_editing && ($task['parent_task_id'] ?? null) === null && $subtask_count > 0;
-                    $status_label = ucfirst(str_replace('_', ' ', $task['status'] ?? 'not_started'));
-                    ?>
-                    <div class="form-group">
-                        <label for="status">Status:</label>
-                        <?php if ($is_parent_with_subs): ?>
-                            <input type="text" id="status_display" name="status_display"
-                                   value="<?= e($status_label) ?>"
-                                   disabled aria-describedby="status_help">
-                            <input type="hidden" name="status" value="<?= e($task['status']) ?>">
-                            <p class="field-help" id="status_help">
-                                <i class="fas fa-magic"></i>
-                                This task has <?= (int)$subtask_count ?> sub-task(s), so its
-                                status follows the sub-tasks automatically:
-                                <strong>completed</strong> if all sub-tasks are completed,
-                                <strong>in progress</strong> if any are in progress, and
-                                <strong>not started</strong> otherwise. To put this parent
-                                on hold, use the “On Hold” action on the task detail page.
-                            </p>
-                        <?php else: ?>
-                            <select id="status" name="status" onchange="handleStatusChange(this.value)">
-                                <option value="not_started" <?= ($_POST['status'] ?? $task['status'] ?? 'not_started') === 'not_started' ? 'selected' : '' ?>>
-                                    Not Started
-                                </option>
-                                <option value="in_progress" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'in_progress' ? 'selected' : '' ?>>
-                                    In Progress
-                                </option>
-                                <option value="completed" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'completed' ? 'selected' : '' ?>>
-                                    Completed
-                                </option>
-                                <option value="on_hold" <?= ($_POST['status'] ?? $task['status'] ?? '') === 'on_hold' ? 'selected' : '' ?>>
-                                    On Hold
-                                </option>
-                            </select>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="completion_percentage">Completion Percentage:</label>
-                        <div class="percentage-input">
-                            <input type="range" id="completion_slider" min="0" max="100" step="5"
-                                   value="<?= $_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0 ?>"
-                                   oninput="updatePercentageInput(this.value)">
-                            <input type="number" id="completion_percentage" name="completion_percentage"
-                                   min="0" max="100" step="0.1"
-                                   value="<?= $_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0 ?>"
-                                   oninput="updatePercentageSlider(this.value)">
-                            <span class="percentage-symbol">%</span>
-                        </div>
-                    </div>
-
-                    <?php // Issue-034 v1.8.0 — Status reason textareas. Each one is
-                          // shown only when its condition already holds on the row
-                          // (or is being posted in the same request, e.g. turning a
-                          // task to on_hold). The PHP normalizer (above) re-evaluates
-                          // the condition at save time, so even a stale DOM render is
-                          // safe — the values just won't survive into the UPDATE. ?>
-                    <?php
-                        // Prefer the value the user is in the middle of posting
-                        // (so failed validation does not blank the field); fall back
-                        // to the row value.
-                        $rendered_on_hold = $_POST['on_hold_reason'] ?? ($task['on_hold_reason'] ?? '');
-                        $rendered_delay   = $_POST['delay_reason']   ?? ($task['delay_reason']   ?? '');
-                        if (!is_string($rendered_on_hold)) { $rendered_on_hold = ''; }
-                        if (!is_string($rendered_delay))   { $rendered_delay   = ''; }
-
-                        // The on-hold reason is relevant any time status==='on_hold',
-                        // including for parents (where the field cannot drive a
-                        // status change BUT can edit the existing reason on an
-                        // already-on-hold parent — server normalizer will null it
-                        // out on save unless the status is unchanged to on_hold).
-                        $show_on_hold_reason = ($_POST['status'] ?? ($task['status'] ?? 'not_started')) === 'on_hold';
-
-                        // The delay reason is shown when (a) the row is delayed now,
-                        // or (b) the POST would make it delayed (date entered
-                        // programmatically during this submission).
-                        $expected_for_render = $_POST['expected_completion_date'] ?? ($task['expected_completion_date'] ?? null);
-                        $show_delay_reason = ($_POST['status'] ?? ($task['status'] ?? 'not_started')) !== 'completed'
-                            && !empty($expected_for_render)
-                            && strtotime((string)$expected_for_render) < strtotime(date('Y-m-d'));
-                    ?>
-                    <?php // Issue-034 v1.8.0 — the two reason <textarea>s are wrapped in
-                          // <div id="…_group"> so handleStatusChange() below can show
-                          // and hide them in response to a status / date flip. The
-                          // textareas are ALWAYS rendered (so the JS handler always
-                          // finds an element to show); the wrapper's initial
-                          // display is set by the PHP condition (so the first paint
-                          // matches the row state without waiting for JS). The
-                          // server-side normalizer above re-evaluates the condition
-                          // at save time, so flipping status back to not_started
-                          // will null out a non-empty reason in the same UPDATE. ?>
-                    <?php $on_hold_group_style = $show_on_hold_reason ? '' : ' style="display: none;"'; ?>
-                    <?php $delay_group_style   = $show_delay_reason   ? '' : ' style="display: none;"'; ?>
-                    <div id="on_hold_reason_group" class="form-group-wrap"<?= $on_hold_group_style ?>>
-                        <div class="form-group">
-                            <label for="on_hold_reason" class="required">On-hold reason:</label>
-                            <textarea id="on_hold_reason" name="on_hold_reason" rows="3"
-                                      maxlength="2000"
-                                      placeholder="Why is this task on hold? (Required when status is On Hold.)"><?= e($rendered_on_hold) ?></textarea>
-                            <p class="field-help">
-                                <i class="fas fa-info-circle"></i>
-                                The reason is shown on the task list and on the client
-                                portal so the manager and the client can scan it at a glance.
-                            </p>
-                        </div>
-                    </div>
-                    <div id="delay_reason_group" class="form-group-wrap"<?= $delay_group_style ?>>
-                        <div class="form-group">
-                            <label for="delay_reason" class="required">Delay reason:</label>
-                            <textarea id="delay_reason" name="delay_reason" rows="3"
-                                      maxlength="2000"
-                                      placeholder="Why is this task past its expected completion date? (Required when the task is delayed.)"><?= e($rendered_delay) ?></textarea>
-                            <p class="field-help">
-                                <i class="fas fa-info-circle"></i>
-                                Required whenever the task is past its expected completion
-                                date. Leave the field empty after moving the date forward,
-                                or vice-versa; the field is cleared automatically when the
-                                task is no longer delayed.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-section">
-                    <h3>Effort Estimate</h3>
-                    <?php
-                    // Issue-011: render the inherit checkbox only for a parent
-                    // task that has at least one sub-task. Compute the live sum
-                    // and positive-estimate count for the hint.
-                    $inherit_checked = $is_editing && $subtask_count > 0 && !empty($task['inherit_subtask_hours']);
-                    $inherit_positive = 0;
-                    $inherit_sum = 0.0;
-                    foreach ($subtask_estimates as $_est) {
-                        if ($_est !== null && is_numeric($_est) && (float)$_est > 0) {
-                            $inherit_positive++;
-                            $inherit_sum += (float)$_est;
-                        }
-                    }
-                    unset($_est);
-                    ?>
-                    <?php if ($is_editing && $subtask_count > 0): ?>
-                        <?php
-                        // On validation failure, prefer the user's last POST over the
-                        // saved DB value so a failed save doesn't silently clear the flag.
-                        $effective_inherit = $inherit_from_post !== null
-                            ? ((int)$inherit_from_post === 1)
-                            : $inherit_checked;
-                        ?>
-                        <div class="form-group inherit-group">
-                            <label class="checkbox-label" for="inherit_subtask_hours">
-                                <input type="checkbox"
-                                       id="inherit_subtask_hours"
-                                       name="inherit_subtask_hours"
-                                       value="1"
-                                       <?= $effective_inherit ? 'checked' : '' ?>
-                                       data-inherit-toggle
-                                       aria-describedby="inherit-hint">
-                                <span>Use sum of sub-task hours as total task time</span>
-                            </label>
-                            <p class="field-help">When checked, the total below is locked to the sum of this task's sub-task estimates. Leave unchecked to enter a manual total.</p>
-                            <p class="field-help" id="inherit-hint" <?= $inherit_checked ? '' : 'hidden' ?>>
-                                Computed total: <strong><span id="inherit-sum"><?= number_format($inherit_sum, 4, '.', '') ?></span></strong>
-                                hours (from <span id="inherit-count"><?= (int)$inherit_positive ?></span> sub-task(s) with
-                                positive estimates).
-                            </p>
-                            <p class="field-help" id="inherit-empty-hint" <?= ($inherit_checked && $inherit_positive === 0) ? '' : 'hidden' ?>>
-                                None of the sub-tasks currently have a positive estimate. The
-                                parent's completion will use the equal-average fallback until
-                                at least one sub-task has a value.
-                            </p>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="form-group">
-                        <label for="total_time">Total Task Time:</label>
-                        <div class="estimate-input">
-                            <?php
-                            // Issue-011: when in inherit mode the disabled field keeps
-                            // showing the resolved sum so the user sees what will be saved.
-                            $posted_total_time = $_POST['total_time'] ?? null;
-                            if ($is_editing && $subtask_count > 0 && !empty($task['inherit_subtask_hours'])) {
-                                $total_time_value = $inherit_positive > 0
-                                    ? rtrim(rtrim(number_format($inherit_sum, 4, '.', ''), '0'), '.')
-                                    : '';
-                            } elseif (is_scalar($posted_total_time)) {
-                                $total_time_value = (string)$posted_total_time;
-                            } elseif (isset($task['estimated_hours']) && $task['estimated_hours'] !== null) {
-                                $total_time_value = rtrim(rtrim(number_format((float)$task['estimated_hours'], 4, '.', ''), '0'), '.');
-                            } else {
-                                $total_time_value = '';
-                            }
-                            $selected_time_unit = $_POST['total_time_unit'] ?? 'hours';
-                            $total_time_disabled = $effective_inherit;
-                            ?>
-                            <input
-                                type="number"
-                                id="total_time"
-                                name="total_time"
-                                min="0"
-                                step="any"
-                                value="<?= e($total_time_value) ?>"
-                                placeholder="Not estimated"
-                                <?= $total_time_disabled ? 'disabled aria-disabled="true"' : '' ?>>
-                            <select id="total_time_unit" name="total_time_unit"
-                                    aria-label="Total task time unit"
-                                    <?= $total_time_disabled ? 'disabled aria-disabled="true"' : '' ?>>
-                                <option value="hours" <?= $selected_time_unit === 'hours' ? 'selected' : '' ?>>Hours</option>
-                                <option value="mandays" <?= $selected_time_unit === 'mandays' ? 'selected' : '' ?>>Mandays</option>
-                            </select>
-                        </div>
-                        <p class="field-help">One manday equals 8 hours. Leave blank if the task has no estimate; zero is saved but is not a usable completion weight.</p>
-                    </div>
-                </div>
-
-                <!-- Assignment -->
-                <div class="form-section">
-                    <h3>Assignment</h3>
-                    
-                    <div class="form-group">
-                        <label for="responsible_person_id">Responsible Person:</label>
-                        <select id="responsible_person_id" name="responsible_person_id">
-                            <option value="">Select Person</option>
-                            <?php foreach ($users as $user): ?>
-                                <option value="<?= $user['id'] ?>" 
-                                        <?= ($_POST['responsible_person_id'] ?? $task['responsible_person_id'] ?? '') == $user['id'] ? 'selected' : '' ?>>
-                                    <?= e($user['name']) ?> (<?= e($user['email']) ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="contact_person_id">Contact Person:</label>
-                        <select id="contact_person_id" name="contact_person_id">
-                            <option value="">No Contact Person</option>
-                            <?php foreach ($contacts as $contact): ?>
-                                <option value="<?= $contact['id'] ?>" 
-                                        <?= ($_POST['contact_person_id'] ?? $task['contact_person_id'] ?? '') == $contact['id'] ? 'selected' : '' ?>>
-                                    <?= e($contact['name']) ?>
-                                    <?php if ($contact['email']): ?>
-                                        (<?= e($contact['email']) ?>)
-                                    <?php endif; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="field-help">Select a contact person from the project contacts</p>
-                    </div>
-                </div>
-
-                <!-- Dates -->
-                <div class="form-section full-row">
-                    <h3>Dates</h3>
-                    
-                    <div class="form-group">
-                        <label for="expected_completion_date">Expected Completion:</label>
-                        <input type="date" id="expected_completion_date" name="expected_completion_date"
-                               value="<?= $_POST['expected_completion_date'] ?? (isset($task['expected_completion_date']) && $task['expected_completion_date'] ? date('Y-m-d', strtotime($task['expected_completion_date'])) : '') ?>"
-                               onchange="handleStatusChange(document.getElementById('status').value)">
-                    </div>
-                    
-                    <div class="form-group" id="completion_date_group" style="display: none;">
-                        <label for="completion_date">Completion Date:</label>
-                        <input type="datetime-local" id="completion_date" name="completion_date" 
-                               value="<?= $_POST['completion_date'] ?? (isset($task['completion_date']) && $task['completion_date'] ? date('Y-m-d\TH:i', strtotime($task['completion_date'])) : '') ?>">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <div class="form-actions-left">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i>
-                        <?= $is_editing ? 'Update Task' : 'Create Task' ?>
-                    </button>
-                    <a href="<?= $is_editing ? "task_detail.php?id=$task_id" : ($is_subtask ? "task_detail.php?id=$parent_id" : 'tasks.php') ?>" 
-                       class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
-                        Cancel
-                    </a>
-                    <?php if ($is_editing && !($task['parent_task_id'] ?? null)): ?>
-                        <a href="task_edit.php?parent_id=<?= $task_id ?>" class="btn btn-outline">
-                            <i class="fas fa-plus"></i>
-                            Add Subtask
-                        </a>
-                    <?php endif; ?>
-                </div>
-                <?php if ($is_editing): ?>
-                    <div class="form-actions-right">
-                        <button type="button" class="btn btn-danger" onclick="confirmDelete()">
-                            <i class="fas fa-trash"></i>
-                            Delete Task
-                        </button>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </form>
+    <div class="alert alert--info">
+        <i class="fas fa-circle-info"></i>
+        <div class="alert__body">
+            <div class="alert__title">Delayed and on-hold tasks must carry a reason</div>
+            The reason fields below become required when the status matches, and are shown to the
+            client on the shared project portal.
+        </div>
     </div>
+
+    <form class="card" method="POST" action="">
+        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+        <div class="card__header">
+            <h2 class="card__title-icon"><i class="fas fa-circle-info"></i> Task information</h2>
+        </div>
+        <div class="card__body">
+            <div class="form-grid form-grid--2">
+
+                <div class="field form-section">
+                    <label for="name">Task Name <span class="req" aria-hidden="true">*</span></label>
+                    <input class="input" type="text" id="name" name="name"
+                           value="<?= e($_POST['name'] ?? $task['name'] ?? '') ?>"
+                           required maxlength="255">
+                </div>
+
+                <div class="field">
+                    <label for="project_id">Project <span class="req" aria-hidden="true">*</span></label>
+                    <?php if (!$is_subtask): ?>
+                        <select class="select" id="project_id" name="project_id" required>
+                            <option value="">Select Project</option>
+                            <?php foreach ($user_projects as $project): ?>
+                                <option value="<?= (int)$project['id'] ?>"
+                                        <?= ($_POST['project_id'] ?? $project_id) == $project['id'] ? 'selected' : '' ?>>
+                                    <?= e($project['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php else: ?>
+                        <input class="input" type="text" id="project_display"
+                               value="<?= e($parent_task['project_name']) ?>" readonly>
+                        <input type="hidden" name="project_id" value="<?= (int)$parent_task['project_id'] ?>">
+                        <span class="hint">Read-only &mdash; a subtask always belongs to its parent task's project.</span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="field form-section">
+                    <label for="description">Description</label>
+                    <textarea class="textarea" id="description" name="description" rows="4"
+                              placeholder="Detailed description of the task..."><?= e($_POST['description'] ?? $task['description'] ?? '') ?></textarea>
+                </div>
+
+                <?php
+                // Issue-012: for a parent with sub-tasks the status is derived from
+                // the children, so the field becomes a read-only display. The
+                // on-hold / resume action on the task detail page is the only path
+                // that mutates the status of such a parent.
+                $is_parent_with_subs = $is_editing && ($task['parent_task_id'] ?? null) === null && $subtask_count > 0;
+                $status_label = ucfirst(str_replace('_', ' ', $task['status'] ?? 'not_started'));
+                $current_status = $_POST['status'] ?? ($task['status'] ?? 'not_started');
+                ?>
+                <div class="field">
+                    <label for="status_display">Current Status</label>
+                    <input class="input" type="text" id="status_display"
+                           value="<?= e(ucfirst(str_replace('_', ' ', $current_status))) ?>" readonly>
+                    <?php if ($is_parent_with_subs): ?>
+                        <span class="hint">Read-only &mdash; this task has <?= (int)$subtask_count ?> sub-task(s), so its status follows the sub-tasks automatically. To put this parent on hold, use the &ldquo;On Hold&rdquo; action on the task detail page.</span>
+                    <?php else: ?>
+                        <span class="hint">Read-only &mdash; change the status below.</span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="field">
+                    <label for="status">Status <span class="req" aria-hidden="true">*</span></label>
+                    <?php if ($is_parent_with_subs): ?>
+                        <input type="hidden" name="status" value="<?= e($task['status']) ?>">
+                        <input class="input" type="text" id="status"
+                               value="<?= e($status_label) ?>" disabled aria-describedby="status_help">
+                    <?php else: ?>
+                        <select class="select" id="status" name="status" data-status-select>
+                            <option value="not_started" <?= $current_status === 'not_started' ? 'selected' : '' ?>>Not Started</option>
+                            <option value="in_progress" <?= $current_status === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                            <option value="completed" <?= $current_status === 'completed' ? 'selected' : '' ?>>Completed</option>
+                            <option value="on_hold" <?= $current_status === 'on_hold' ? 'selected' : '' ?>>On Hold</option>
+                        </select>
+                    <?php endif; ?>
+                </div>
+
+                <div class="field form-section">
+                    <label for="completion_percentage">Completion Percentage</label>
+                    <div class="range-row">
+                        <input type="range" id="completion_slider" min="0" max="100" step="5"
+                               value="<?= (int)($_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0) ?>"
+                               data-range-sync="#completion_percentage" data-range-out="#completion_pct">
+                        <input class="input" type="number" id="completion_percentage" name="completion_percentage"
+                               min="0" max="100" step="0.1"
+                               value="<?= e($_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0) ?>"
+                               style="width:90px;">
+                        <span class="range-value" id="completion_pct"><?= (int)($_POST['completion_percentage'] ?? $task['completion_percentage'] ?? 0) ?>%</span>
+                    </div>
+                </div>
+
+                <?php
+                // Issue-034 v1.8.0 &mdash; Status reason textareas. Each one is shown
+                // only when its condition already holds on the row (or is being posted
+                // in the same request, e.g. turning a task to on_hold). The PHP
+                // normalizer re-evaluates the condition at save time, so even a stale
+                // DOM render is safe &mdash; the values just won't survive into the
+                // UPDATE.
+                $rendered_on_hold = $_POST['on_hold_reason'] ?? ($task['on_hold_reason'] ?? '');
+                $rendered_delay   = $_POST['delay_reason']   ?? ($task['delay_reason']   ?? '');
+                if (!is_string($rendered_on_hold)) { $rendered_on_hold = ''; }
+                if (!is_string($rendered_delay))   { $rendered_delay   = ''; }
+
+                $expected_for_render = $_POST['expected_completion_date'] ?? ($task['expected_completion_date'] ?? null);
+                $show_delay_reason = $current_status !== 'completed'
+                    && !empty($expected_for_render)
+                    && strtotime((string)$expected_for_render) < strtotime(date('Y-m-d'));
+                ?>
+                <div class="field form-section" data-reason-panel="on_hold"
+                     <?= $current_status === 'on_hold' ? '' : 'hidden' ?>>
+                    <label for="on_hold_reason">On-hold reason <span class="req" aria-hidden="true">*</span></label>
+                    <textarea class="textarea" id="on_hold_reason" name="on_hold_reason" rows="3"
+                              maxlength="2000"
+                              placeholder="Why is this task on hold? (Required when status is On Hold.)"><?= e($rendered_on_hold) ?></textarea>
+                    <span class="hint">Mandatory while the status is On Hold. Max 2000 characters.</span>
+                </div>
+
+                <div class="field form-section" data-reason-panel="delayed"
+                     <?= $show_delay_reason ? '' : 'hidden' ?>>
+                    <label for="delay_reason">Delay reason <span class="req" aria-hidden="true">*</span></label>
+                    <textarea class="textarea" id="delay_reason" name="delay_reason" rows="3"
+                              maxlength="2000"
+                              placeholder="Why is this task past its expected completion date? (Required when the task is delayed.)"><?= e($rendered_delay) ?></textarea>
+                    <span class="hint">Mandatory when the expected completion date has passed. Max 2000 characters.</span>
+                </div>
+
+                <div class="field form-section" data-delay-hint
+                     <?= $show_delay_reason ? '' : 'hidden' ?>>
+                    <div class="alert alert--warning" style="margin:0;">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <div class="alert__body">
+                            <div class="alert__title">This task is past its expected completion date</div>
+                            Add a delay reason above, or update the expected completion date.
+                        </div>
+                    </div>
+                </div>
+
+                <?php
+                // Issue-011: the inherit checkbox is only offered for a parent task
+                // that has at least one sub-task. The live sum and the count of
+                // positive estimates feed the hint below.
+                $inherit_checked = $is_editing && $subtask_count > 0 && !empty($task['inherit_subtask_hours']);
+                $inherit_positive = 0;
+                $inherit_sum = 0.0;
+                foreach ($subtask_estimates as $_est) {
+                    if ($_est !== null && is_numeric($_est) && (float)$_est > 0) {
+                        $inherit_positive++;
+                        $inherit_sum += (float)$_est;
+                    }
+                }
+                unset($_est);
+
+                // On validation failure, prefer the user's last POST over the saved
+                // DB value so a failed save doesn't silently clear the flag.
+                // ($effective_inherit is already computed in the PHP block at the
+                // top of the file — see the $is_editing branch — so it is only
+                // READ here, never re-assigned.)
+
+                // When in inherit mode the disabled field keeps showing the resolved
+                // sum so the user sees what will be saved.
+                $posted_total_time = $_POST['total_time'] ?? null;
+                if ($is_editing && $subtask_count > 0 && !empty($task['inherit_subtask_hours'])) {
+                    $total_time_value = $inherit_positive > 0
+                        ? rtrim(rtrim(number_format($inherit_sum, 4, '.', ''), '0'), '.')
+                        : '';
+                } elseif (is_scalar($posted_total_time)) {
+                    $total_time_value = (string)$posted_total_time;
+                } elseif (isset($task['estimated_hours']) && $task['estimated_hours'] !== null) {
+                    $total_time_value = rtrim(rtrim(number_format((float)$task['estimated_hours'], 4, '.', ''), '0'), '.');
+                } else {
+                    $total_time_value = '';
+                }
+                $selected_time_unit = $_POST['total_time_unit'] ?? 'hours';
+                $total_time_disabled = $effective_inherit;
+                ?>
+                <div class="field form-section">
+                    <label for="total_time">Total Task Time</label>
+                    <div class="range-row" style="gap:.5rem;">
+                        <input class="input" type="number" id="total_time" name="total_time"
+                               min="0" step="any" style="width:110px;"
+                               value="<?= e($total_time_value) ?>"
+                               placeholder="Not estimated"
+                               <?= $total_time_disabled ? 'disabled aria-disabled="true"' : '' ?>>
+                        <select class="select" id="total_time_unit" name="total_time_unit"
+                                style="width:140px;"
+                                <?= $total_time_disabled ? 'disabled aria-disabled="true"' : '' ?>>
+                            <option value="hours" <?= $selected_time_unit === 'hours' ? 'selected' : '' ?>>Hours</option>
+                            <option value="mandays" <?= $selected_time_unit === 'mandays' ? 'selected' : '' ?>>Mandays</option>
+                        </select>
+                    </div>
+                    <?php if ($is_editing && $subtask_count > 0): ?>
+                        <label class="checkbox" for="inherit_subtask_hours" style="margin-top:.6rem;">
+                            <input type="checkbox"
+                                   id="inherit_subtask_hours"
+                                   name="inherit_subtask_hours"
+                                   value="1"
+                                   <?= $effective_inherit ? 'checked' : '' ?>
+                                   data-inherit-toggle>
+                            <span>Use sum of sub-task hours as total task time</span>
+                        </label>
+                        <span class="hint" id="inherit-hint" <?= $inherit_checked ? '' : 'hidden' ?>>
+                            Computed total: <strong><span id="inherit-sum"><?= number_format($inherit_sum, 4, '.', '') ?></span></strong>
+                            hours (from <span id="inherit-count"><?= (int)$inherit_positive ?></span> sub-task(s) with positive estimates).
+                        </span>
+                        <span class="hint" id="inherit-empty-hint" <?= ($inherit_checked && $inherit_positive === 0) ? '' : 'hidden' ?>>
+                            None of the sub-tasks currently have a positive estimate. The parent's
+                            completion will use the equal-average fallback until at least one
+                            sub-task has a value.
+                        </span>
+                    <?php endif; ?>
+                    <span class="hint">One manday equals 8 hours. Leave blank if the task has no estimate; zero is saved but is not a usable completion weight.</span>
+                </div>
+
+                <div class="field">
+                    <label for="responsible_person_id">Responsible Person</label>
+                    <select class="select" id="responsible_person_id" name="responsible_person_id">
+                        <option value="">Select Person</option>
+                        <?php foreach ($users as $user): ?>
+                            <option value="<?= (int)$user['id'] ?>"
+                                    <?= ($_POST['responsible_person_id'] ?? $task['responsible_person_id'] ?? '') == $user['id'] ? 'selected' : '' ?>>
+                                <?= e($user['name']) ?> (<?= e($user['email']) ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="contact_person_id">Contact Person</label>
+                    <select class="select" id="contact_person_id" name="contact_person_id">
+                        <option value="">No Contact Person</option>
+                        <?php foreach ($contacts as $contact): ?>
+                            <option value="<?= (int)$contact['id'] ?>"
+                                    <?= ($_POST['contact_person_id'] ?? $task['contact_person_id'] ?? '') == $contact['id'] ? 'selected' : '' ?>>
+                                <?= e($contact['name']) ?>
+                                <?php if ($contact['email']): ?>
+                                    (<?= e($contact['email']) ?>)
+                                <?php endif; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="hint">Select a contact person from the project contacts</span>
+                </div>
+
+                <div class="field">
+                    <label for="expected_completion_date">Expected Completion</label>
+                    <input class="input" type="date" id="expected_completion_date" name="expected_completion_date"
+                           value="<?= e($_POST['expected_completion_date'] ?? (isset($task['expected_completion_date']) && $task['expected_completion_date'] ? date('Y-m-d', strtotime($task['expected_completion_date'])) : '')) ?>">
+                </div>
+
+                <div class="field">
+                    <label for="completion_date">Completion Date</label>
+                    <input class="input" type="date" id="completion_date" name="completion_date"
+                           value="<?= e($_POST['completion_date'] ?? (isset($task['completion_date']) && $task['completion_date'] ? date('Y-m-d', strtotime($task['completion_date'])) : '')) ?>">
+                    <span class="hint">Set when the task is actually finished.</span>
+                </div>
+
+            </div>
+        </div>
+        <div class="card__footer">
+            <button class="btn btn--primary" type="submit"><i class="fas fa-floppy-disk"></i> Save Task</button>
+            <a class="btn btn--secondary" href="<?= $is_editing ? '/tasks/' . (int)$task['id'] : ($is_subtask ? '/tasks/' . (int)$parent_task['id'] : '/tasks') ?>">Cancel</a>
+        </div>
+    </form>
+
+    <?php if ($is_editing): ?>
+        <?php
+        // The mockup shows a task code in the confirmation dialog. The tasks table
+        // has no code column, so the code is derived from the row id: TSK-0007.
+        $task_code = 'TSK-' . str_pad((string)(int)$task['id'], 4, '0', STR_PAD_LEFT);
+        $delete_subtask_count = (int)$subtask_count;
+        ?>
+        <div class="card danger-zone" style="margin-top:var(--sp-5);">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-triangle-exclamation"></i> Danger zone</h2>
+            </div>
+            <div class="card__body">
+                <p class="text-sm text-muted">
+                    Deleting removes this task<?= $delete_subtask_count > 0 ? ', its ' . $delete_subtask_count . ' subtask' . ($delete_subtask_count === 1 ? '' : 's') : '' ?>
+                    and every time entry logged against <?= $delete_subtask_count > 0 ? 'them' : 'it' ?>. This cannot be undone.
+                </p>
+                <button class="btn btn--danger btn--block" type="button" style="margin-top:1rem;"
+                        data-modal-open="confirm-delete-task">
+                    <i class="fas fa-trash"></i> Delete Task
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="confirm-delete-task" hidden>
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cdt-title">
+                <div class="modal__header">
+                    <div>
+                        <h3 id="cdt-title">Confirm task deletion</h3>
+                        <p>Type the task name exactly as shown to confirm.</p>
+                    </div>
+                    <button class="modal__close" type="button" data-modal-close aria-label="Close"><i class="fas fa-xmark"></i></button>
+                </div>
+                <div class="modal__body">
+                    <div class="alert alert--danger">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <div class="alert__body">
+                            <div class="alert__title"><?= e($task['name']) ?></div>
+                            This task<?= $delete_subtask_count > 0 ? ', its ' . $delete_subtask_count . ' subtask' . ($delete_subtask_count === 1 ? '' : 's') : '' ?>
+                            and all logged time entries will be permanently removed.
+                        </div>
+                    </div>
+                    <form method="POST" action="/tasks/<?= (int)$task['id'] ?>/delete">
+                        <input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+                        <input type="hidden" name="task_id" value="<?= (int)$task['id'] ?>">
+                        <div class="field">
+                            <label for="delete-task-confirmation">Task Name <span class="req" aria-hidden="true">*</span></label>
+                            <input class="input text-mono" type="text" id="delete-task-confirmation"
+                                   name="confirmation_name" placeholder="<?= e($task['name']) ?>">
+                            <span class="hint">Must exactly match <strong><?= e($task['name']) ?></strong>.</span>
+                        </div>
+                        <div class="modal__footer">
+                            <button class="btn btn--secondary" type="button" data-modal-close>Cancel</button>
+                            <button class="btn btn--danger" type="submit">
+                                <i class="fas fa-trash"></i> Delete permanently
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
-
-<script>
-// Initialize form on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const status = document.getElementById('status').value;
-    handleStatusChange(status);
-});
-
-// Handle status change
-function handleStatusChange(status) {
-    const completionDateGroup = document.getElementById('completion_date_group');
-    const completionPercentage = document.getElementById('completion_percentage');
-    const completionSlider = document.getElementById('completion_slider');
-
-    if (status === 'completed') {
-        completionDateGroup.style.display = 'block';
-        completionPercentage.value = 100;
-        completionSlider.value = 100;
-
-        // Set completion date to now if empty
-        const completionDateInput = document.getElementById('completion_date');
-        if (!completionDateInput.value) {
-            const now = new Date();
-            const offset = now.getTimezoneOffset();
-            const adjustedDate = new Date(now.getTime() - (offset * 60 * 1000));
-            completionDateInput.value = adjustedDate.toISOString().slice(0, 16);
-        }
-    } else {
-        completionDateGroup.style.display = 'none';
-        document.getElementById('completion_date').value = '';
-    }
-
-    // Issue-034 v1.8.0 — reveal / hide the on-hold reason and delay
-    // reason textareas so the manager is not surprised by a server-
-    // side error after click-save. The two wrapper <div id="…_group">
-    // elements live just below the Status & Progress section; the JS
-    // flips only their display so the underlying <textarea> render
-    // path (controlled by $show_on_hold_reason / $show_delay_reason)
-    // stays authoritative for the first paint.
-    //
-    // Delay condition mirrors the PHP rule (task_edit.php lines around
-    // $show_delay_reason): status !== 'completed' AND
-    // expected_completion_date is set AND in the past.
-    const onHoldGroup = document.getElementById('on_hold_reason_group');
-    if (onHoldGroup) {
-        onHoldGroup.style.display = (status === 'on_hold') ? 'block' : 'none';
-    }
-    const delayGroup = document.getElementById('delay_reason_group');
-    if (delayGroup) {
-        const expectedRaw = (document.getElementById('expected_completion_date') || {}).value || '';
-        const todayIso = new Date().toISOString().slice(0, 10);
-        const isDelayed = status !== 'completed'
-            && expectedRaw !== ''
-            && expectedRaw < todayIso;
-        delayGroup.style.display = isDelayed ? 'block' : 'none';
-    }
-}
-
-// Sync percentage slider and input
-function updatePercentageInput(value) {
-    document.getElementById('completion_percentage').value = value;
-}
-
-function updatePercentageSlider(value) {
-    document.getElementById('completion_slider').value = value;
-}
-
-// Issue-011: when the inherit checkbox is toggled, lock/unlock the
-// total_time field. The server is the source of truth; this is a UX
-// nicety so the field visually disables without a round-trip.
-document.addEventListener('DOMContentLoaded', function () {
-    var inheritBox = document.getElementById('inherit_subtask_hours');
-    if (!inheritBox) { return; }
-    var total = document.getElementById('total_time');
-    var unit = document.getElementById('total_time_unit');
-    var hint = document.getElementById('inherit-hint');
-    var emptyHint = document.getElementById('inherit-empty-hint');
-    var sumEl = document.getElementById('inherit-sum');
-    var countEl = document.getElementById('inherit-count');
-
-    function apply() {
-        var on = inheritBox.checked;
-        if (total) { total.disabled = on; total.setAttribute('aria-disabled', on ? 'true' : 'false'); }
-        if (unit)  { unit.disabled  = on; unit.setAttribute('aria-disabled',  on ? 'true' : 'false'); }
-        if (hint)  { hint.hidden = !on; }
-        if (emptyHint) { emptyHint.hidden = !(on && countEl && countEl.textContent === '0'); }
-    }
-    inheritBox.addEventListener('change', apply);
-    apply();
-});
-
-// Load contacts for selected project
-function loadProjectContacts(projectId) {
-    const contactSelect = document.getElementById('contact_person_id');
-    
-    if (!projectId) {
-        contactSelect.innerHTML = '<option value="">No Contact Person</option>';
-        return;
-    }
-    
-    fetch(`ajax/get_project_contacts.php?project_id=${projectId}`)
-        .then(response => response.json())
-        .then(data => {
-            contactSelect.innerHTML = '<option value="">No Contact Person</option>';
-            data.contacts.forEach(contact => {
-                const option = document.createElement('option');
-                option.value = contact.id;
-                option.textContent = contact.name + (contact.email ? ` (${contact.email})` : '');
-                contactSelect.appendChild(option);
-            });
-        })
-        .catch(error => {
-            console.error('Error loading contacts:', error);
-        });
-}
-</script>
-
-<style>
-/* Per-page CSS for task_edit.php.
- *
- * As of v1.6.0 (issue-014), the global rules in assets/css/style.css
- * provide the baseline (page-container, breadcrumb, form-layout,
- * form-grid, form-section, form-group, btn, alert, page-header,
- * page-actions, checkbox-label, estimate-input, field-help,
- * form-actions, form-actions-left/right, and the @media (max-width:
- * 768px) collapse). Rules below are EITHER page-unique to this form
- * OR explicit per-page overrides of a global rule (the divergence is
- * intentional; comments tag them).
- */
-
-/* Per-page override of .form-grid in style.css: this form prefers
- * wider gaps (30px) and an extra bottom margin to separate sections
- * visually. The 2-column structure itself matches the global rule. */
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 30px;
-    margin-bottom: 30px;
-}
-
-/* Per-page override of .form-grid .form-section h3 in style.css:
- * heavier border-bottom (2px vs 1px) and larger font (1.2rem vs 1rem). */
-.form-section h3 {
-    margin: 0 0 20px 0;
-    color: #333;
-    font-size: 1.2rem;
-    border-bottom: 2px solid #f1f3f4;
-    padding-bottom: 10px;
-}
-
-/* Per-page override of .form-group in style.css: this form keeps a
- * tighter 1px input border (vs the global 2px) and a 0.95rem font size. */
-.form-group label.required::after {
-    content: ' *';
-    color: #dc3545;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 100px;
-}
-
-.readonly-field {
-    padding: 12px;
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 6px;
-    color: #666;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.percentage-input {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.percentage-input input[type="range"] {
-    flex: 1;
-    width: auto;
-}
-
-.percentage-input input[type="number"] {
-    width: 80px;
-    flex-shrink: 0;
-}
-
-.percentage-symbol {
-    color: #666;
-    font-weight: 500;
-}
-
-/* Per-page override of .estimate-input in style.css: identical layout
- * but this file ships the rule inline so the form renders correctly
- * even if a future change to style.css drops it. */
-.estimate-input {
-    display: flex;
-    gap: 10px;
-}
-
-.estimate-input input {
-    min-width: 0;
-    flex: 1;
-}
-
-.estimate-input select {
-    width: auto;
-    min-width: 120px;
-}
-
-/* Per-page override of .alert / .alert-danger in style.css: this form
- * uses an all-around 1px border (vs the global 4px border-left). */
-.alert {
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.alert-danger {
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
-}
-
-@media (max-width: 768px) {
-    /* Per-page mobile overrides. The baseline mobile collapse for
-     * .form-grid and .estimate-input now lives in style.css; only the
-     * page-specific mobile tweaks remain here. */
-    .page-container {
-        padding: 15px;
-    }
-
-    .form-layout {
-        padding: 20px;
-    }
-
-    .form-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-
-    .form-actions {
-        flex-direction: column;
-        gap: 15px;
-    }
-
-    .form-actions-left,
-    .form-actions-right {
-        flex-direction: column;
-        width: 100%;
-    }
-
-    .form-actions .btn {
-        text-align: center;
-    }
-
-    .percentage-input {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .percentage-input input[type="number"] {
-        width: 100%;
-    }
-}
-</style>
-
-<script>
-const totalTimeInput = document.getElementById('total_time');
-const totalTimeUnit = document.getElementById('total_time_unit');
-
-totalTimeUnit.addEventListener('change', function() {
-    const amount = Number(totalTimeInput.value);
-    if (totalTimeInput.value.trim() === '' || !Number.isFinite(amount)) {
-        totalTimeUnit.dataset.previousUnit = this.value;
-        return;
-    }
-
-    const hours = totalTimeUnit.dataset.previousUnit === 'mandays' ? amount * 8 : amount;
-    const newAmount = this.value === 'mandays' ? hours / 8 : hours;
-    totalTimeInput.value = String(newAmount);
-    totalTimeUnit.dataset.previousUnit = this.value;
-});
-
-totalTimeUnit.dataset.previousUnit = totalTimeUnit.value;
-</script>
-
-<?php if ($is_editing): ?>
-<script>
-function confirmDelete() {
-    if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-        window.location.href = 'task_delete.php?id=<?= $task_id ?>';
-    }
-}
-</script>
-<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

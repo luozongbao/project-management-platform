@@ -1,0 +1,171 @@
+/* ===========================================================================
+   profile.php — Phase 1.4b (issue-035)
+   ---------------------------------------------------------------------------
+   Prefix: .pf-*  (profile)
+
+   Deliberately NOT adopted from the mockup
+   (docs/design/2.0/profile.html):
+     - The mockup drops the "Profile Overview" card entirely and goes straight
+       to the two forms. v1.8.0 shows an avatar, name, @username, email and
+       member-since above the forms. That is real information the user came
+       here to check, so the card is KEPT and restyled as .pf-overview.
+     - The mockup drops "Account Actions" (Back to Dashboard / Logout). The
+       sidebar already carries both links, but v1.8.0 puts them on the page
+       and a logout one click from the password form is deliberate -- keep.
+     - The mockup's save button lives in the page header. v1.8.0 keeps the
+       submit at the end of each form, which is the correct affordance when
+       there are two independent forms on one page: a single header button
+       cannot say which form it submits.
+
+   The four stat values come from $user_stats and are rendered with the shared
+   .stat-grid / .stat components rather than a bespoke .pf-stats block, so the
+   profile page matches dashboard/tasks/projects without extra CSS.
+
+   Fields use the bare shared .form-grid, matching the mockup, which carries NO
+   --2/--3 modifier and therefore wants a single column.
+
+   ⚠ `.form-grid` is NOT single-column by default, despite what
+   v2-components.css:526 appears to say. That rule sets only `display:grid` and
+   `gap`; it never resets `grid-template-columns`, so the legacy two-column track
+   from style.css:466 (`1fr 1fr`) survives and wins -- legacy loads first, v2
+   second, and v2 is silent on that one property.
+
+   That legacy default is currently load-bearing: task_edit.php and
+   contact_edit.php render a bare `.form-grid` and depend on the two columns.
+   v2-components.css:18-32 documents this deliberately -- overriding it in the
+   shared layer would silently collapse both edit forms while the regression
+   suite stayed green, because task_layout_issue013_test.php asserts on
+   style.css with strpos() and never inspects the computed cascade.
+
+   So the reset is scoped HERE, on this one page, rather than in the shared
+   layer. When task_edit.php and contact_edit.php are converted they will gain
+   the explicit modifiers their mockups already specify (--2 and --3), and only
+   then can the legacy two-column default be retired from style.css.
+   Single column is also simply correct here: .grid-2 gives each card ~700px,
+   so one field per row lands at a comfortable reading width, where a two-up
+   layout would halve that and leave the inputs short.
+
+   Tokens used are verified to exist in v2-tokens.css. Do not invent new ones.
+   =========================================================================== */
+
+/* --- single-column fields ------------------------------------------------ */
+/* Scoped reset of the legacy two-column `.form-grid` default (style.css:466).
+   See the header comment: the shared layer cannot do this because
+   task_edit.php / contact_edit.php still depend on the old default. `1fr` with
+   no template means a single implicit column -- i.e. one field per row. */
+.form-grid { grid-template-columns: 1fr; }
+
+/* NOTE: this page deliberately does NOT wrap its markup in the legacy
+   .page-container. That class caps at max-width:1000px and adds its own 20px
+   padding, which fights the v2 .content (max-width:var(--content-max-w)=1440px)
+   and squeezes the form cards into a narrow column. includes/header.php already
+   emits <main class="content">; dashboard/projects/tasks/contacts all sit
+   directly in it for the same reason.
+
+   Section rhythm used to be hand-patched here via .pf-overview-card and
+   .pf-stat-row (each margin-bottom: var(--sp-5)), because .card and .stat-grid
+   did not own spacing between them. That is now handled ONCE in
+   v2-components.css ("Section rhythm"), which covers .card / .grid-2 / .grid-3
+   / .grid-sidebar and applies here without a page-specific override. The .pf-*
+   rules below are kept only for the overview card's own internal layout. */
+
+.pf-overview {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.pf-avatar {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  border-radius: var(--r-full);
+  background: var(--brand-100);
+  color: var(--brand-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-2xl);
+}
+
+.pf-overview__text {
+  min-width: 0;
+  /* The name is the largest text on the page, so it gets an explicit colour
+     rather than inheriting (see the issue-038 note in projects.css). */
+  flex: 1 1 auto;
+}
+.pf-overview__name {
+  margin: 0 0 var(--sp-1) 0;
+  color: var(--gray-900);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  overflow-wrap: anywhere;
+}
+.pf-overview__handle {
+  margin: 0 0 var(--sp-1) 0;
+  color: var(--brand-600);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.pf-overview__email {
+  margin: 0 0 var(--sp-2) 0;
+  color: var(--gray-700);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+.pf-overview__since {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: var(--fs-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.pf-overview__since i { color: var(--gray-400); }
+
+/* --- the two forms sit side by side, stats sit above them ---------------- */
+/* Uses the shared .grid-2 rather than re-declaring the same two-column track,
+   so this page stays in step with the rest of the system. The only thing that
+   needs adding is the equal-height behaviour: the two form cards wrap to
+   different line counts, and without stretch one ends visibly higher than the
+   other with a ragged bottom edge. */
+.pf-body { align-items: stretch; }
+/* A stretched card must distribute its extra height to the body, not leave a
+   gap under the footer, so the form card becomes a column flex box. */
+.pf-body > .card { display: flex; flex-direction: column; }
+.pf-body > .card > .card__body { flex: 1 1 auto; }
+/* Account Actions is a short link row, not a form -- it spans the full
+   width so the two buttons do not stretch oddly next to tall cards. */
+.pf-body > .pf-actions-card { grid-column: 1 / -1; }
+
+.pf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+/* --- alert list ---------------------------------------------------------- */
+/* v1.8.0 renders validation errors as a <ul> inside the danger alert. The
+   list needs real spacing rules of its own; the inline style it used to carry
+   is now here. */
+.pf-errors {
+  margin: var(--sp-2) 0 0 0;
+  padding-left: var(--sp-5);
+}
+.pf-errors li { margin-bottom: var(--sp-1); }
+.pf-errors li:last-child { margin-bottom: 0; }
+
+/* --- responsive ---------------------------------------------------------- */
+/* The two-column form layout needs no rule here: v2-components.css:1015
+   already collapses .grid-2 to a single column at 768px, and .pf-body rides
+   on that. Only the Account Actions span has to be undone, because a
+   full-width grid item is the default anyway once the grid is one column. */
+@media (max-width: 900px) {
+  .pf-body > .pf-actions-card { grid-column: auto; }
+}
+@media (max-width: 640px) {
+  .pf-overview { flex-direction: column; align-items: center; text-align: center; }
+  .pf-overview__since { justify-content: center; }
+  .pf-actions .btn { flex: 1 1 auto; }
+}

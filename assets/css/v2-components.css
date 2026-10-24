@@ -1,0 +1,1267 @@
+/* ==========================================================================
+   Project Management Platform — v2.0 base + component layer
+   --------------------------------------------------------------------------
+   Layer 2 of 3 (see docs/design/2.0/docs-design-notes.html §1):
+
+     1. tokens           assets/css/v2-tokens.css       (loaded globally)
+     2. base/components  assets/css/v2-components.css   <- this file
+     3. page CSS         assets/css/pages/*.css
+
+   v2.0 replaces the single-file v1.8.0 stylesheet (984 lines of hardcoded
+   Bootstrap-era colours plus per-page inline <style> blocks) with a token-
+   driven component layer.
+
+   Rule of thumb (docs-design-notes §1): if a rule appears on more than one
+   screen it belongs here. Anything genuinely page-specific goes in
+   assets/css/pages/.
+
+   --------------------------------------------------------------------------
+   WHY THIS IS NOT assets/css/style.css
+   --------------------------------------------------------------------------
+   This file deliberately does NOT replace style.css. Several selectors here
+   change behaviour, not just appearance:
+
+     .form-grid  v1.8.0 defaults to two columns (1fr 1fr); here it is a
+                 single column and two-column is opt-in via .form-grid--2.
+                 task_edit.php and contact_edit.php render class="form-grid"
+                 with no modifier, so adopting the v2 rule here would silently
+                 collapse both edit forms to one column.
+     .table      gains min-width: 1280px.
+
+   Both would regress real pages while the regression suite stayed GREEN,
+   because task_layout_issue013_test asserts on style.css with strpos()/
+   preg_match() and has no notion of the cascade. That is precisely the trap
+   this split avoids.
+
+   So style.css stays authoritative until every page has been converted
+   (issue-035 Phase 1.4), and v1.8.0 is only stripped in Phase 1.5.
+
+   --------------------------------------------------------------------------
+   HOW TO LOAD IT
+   --------------------------------------------------------------------------
+   v2-tokens.css is loaded globally — unused custom properties cost nothing.
+   THIS file is OPT-IN: a page loads it only once that page has been converted
+   to the v2 markup in Phase 1.4, and removing the <link> reverts that page to
+   v1.8.0 intact. Conversion is therefore reversible one page at a time.
+
+   Load order on a converted page:
+       v2-tokens.css -> v2-components.css -> pages/<name>.css
+
+   --------------------------------------------------------------------------
+   PROVENANCE
+   --------------------------------------------------------------------------
+   Extracted from docs/design/2.0/v2-tokens.css. Mockup sections 6 (Screen-
+   specific), 7 (Footer) and 8 (Mockup-only helpers) are intentionally NOT
+   here: section 6 becomes assets/css/pages/*.css in Phase 1.4, section 7 is
+   part of the shell in Phase 1.3, and section 8 exists only for the design
+   index page. Hence the non-contiguous numbering below.
+
+   Loaded AFTER v2-tokens.css — every colour, size, radius, shadow and z-index
+   below resolves through a --* custom property.
+
+   v2.0 is a restyle, never a behaviour refactor. No selector in this file may
+   hide, reorder or remove a control that the traceability matrix
+   (docs/issues/issue-035.md §9) requires to be present.
+
+   Sections (numbering follows the mockup):
+     2. Reset + base          3. Typography        4. Layout primitives
+     5. Components            9. Responsive        10. Dark mode
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   2. Reset + base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    line-height: var(--lh-normal);
+    color: var(--gray-800);
+    background: var(--gray-50);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img, svg { max-width: 100%; display: block; }
+
+a { color: var(--brand-600); text-decoration: none; }
+a:hover { color: var(--brand-700); text-decoration: underline; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+}
+
+::selection { background: var(--brand-200); color: var(--brand-900); }
+
+/* --------------------------------------------------------------------------
+   3. Typography
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    margin: 0 0 var(--sp-3);
+    line-height: var(--lh-tight);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+    letter-spacing: -0.01em;
+}
+h1 { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-lg); }
+h4 { font-size: var(--fs-base); }
+
+p { margin: 0 0 var(--sp-3); }
+
+code, kbd, pre { font-family: var(--font-mono); font-size: 0.9em; }
+
+.text-xs   { font-size: var(--fs-xs); }
+.text-sm   { font-size: var(--fs-sm); }
+.text-lg   { font-size: var(--fs-lg); }
+.text-muted { color: var(--gray-500); }
+.text-mono { font-family: var(--font-mono); }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-success { color: var(--success-700); }
+.text-danger  { color: var(--danger-700); }
+.text-warning { color: var(--warning-700); }
+.text-info    { color: var(--info-700); }
+.text-brand   { color: var(--brand-600); }
+.fw-medium { font-weight: var(--fw-medium); }
+.fw-semibold { font-weight: var(--fw-semibold); }
+.fw-bold { font-weight: var(--fw-bold); }
+.nowrap { white-space: nowrap; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hidden { display: none !important; }
+
+/* --------------------------------------------------------------------------
+   4. Layout primitives
+   -------------------------------------------------------------------------- */
+
+/* --- App shell (sidebar + main) ---------------------------------------- */
+.app-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    min-height: 100vh;
+}
+.app-shell.is-collapsed { grid-template-columns: var(--sidebar-w-collapsed) 1fr; }
+
+/* --- Sidebar ------------------------------------------------------------ */
+.sidebar {
+    background: var(--gray-900);
+    color: var(--gray-300);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: var(--z-sticky);
+}
+.sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-5) var(--sp-4);
+    min-height: var(--topbar-h);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    /* The sidebar is dark in BOTH colour schemes, so the app name must use a
+     * fixed light colour. A theme token such as --gray-0 would be remapped to
+     * a near-black in dark mode and render the name invisible. */
+    color: #fff;
+    font-weight: var(--fw-bold);
+    font-size: var(--fs-lg);
+    letter-spacing: -0.02em;
+}
+.sidebar__brand-icon {
+    width: 36px; height: 36px;
+    flex-shrink: 0;
+    display: grid; place-items: center;
+    border-radius: var(--r-md);
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+    color: #fff;
+    font-size: var(--fs-base);
+}
+.sidebar__brand-text { white-space: nowrap; overflow: hidden; }
+.sidebar__brand small {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-normal);
+    /* Fixed light tint: the sidebar background is dark in both schemes, so a
+     * theme-dependent token would drop below AA for this small text. */
+    color: #a9b3c6;
+    letter-spacing: 0;
+}
+.sidebar__nav { padding: var(--sp-4) var(--sp-3); flex: 1; }
+.sidebar__section-label {
+    padding: var(--sp-4) var(--sp-3) var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    /* Fixed light tint: the sidebar is dark in both schemes, so this must not
+     * follow the theme (it fell to 3.82:1 in light mode as --gray-500). */
+    color: #97a2b8;
+}
+.sidebar__link {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border-radius: var(--r-md);
+    /* Fixed light tint: --gray-300 is remapped to a near-black in dark mode,
+     * which made every inactive nav item unreadable on the dark sidebar. */
+    color: #cbd3e1;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    margin-bottom: 2px;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+    position: relative;
+}
+.sidebar__link i { width: 20px; text-align: center; flex-shrink: 0; font-size: 1rem; }
+.sidebar__link:hover {
+    background: rgba(255,255,255,.06);
+    color: #fff;
+    text-decoration: none;
+}
+.sidebar__link.is-active {
+    background: var(--brand-600);
+    color: #fff;
+}
+.sidebar__link .badge-count {
+    margin-left: auto;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    padding: 1px 7px;
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+}
+.sidebar__link.is-active .badge-count { background: rgba(255,255,255,.25); }
+.sidebar__link .badge-count.is-alert { background: var(--danger-500); }
+.sidebar__footer {
+    padding: var(--sp-4);
+    border-top: 1px solid rgba(255,255,255,.06);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+.sidebar__avatar {
+    width: 36px; height: 36px;
+    border-radius: var(--r-full);
+    background: linear-gradient(135deg, var(--brand-400), var(--brand-600));
+    color: #fff;
+    display: grid; place-items: center;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    flex-shrink: 0;
+}
+.sidebar__user { min-width: 0; flex: 1; }
+.sidebar__user-name {
+    /* Fixed white: --gray-0 becomes near-black in dark mode, hiding the name. */
+    color: #fff;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Fixed light tint for the same reason as the other sidebar text. */
+.sidebar__user-role { font-size: var(--fs-xs); color: #97a2b8; }
+
+/* --- Main column -------------------------------------------------------- */
+.app-main { display: flex; flex-direction: column; min-width: 0; }
+
+.topbar {
+    height: var(--topbar-h);
+    background: var(--gray-0);
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: 0 var(--sp-6);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+}
+.topbar__toggle {
+    background: none; border: none; cursor: pointer;
+    color: var(--gray-500); font-size: 1.1rem; padding: var(--sp-2);
+    border-radius: var(--r-sm);
+}
+.topbar__toggle:hover { background: var(--gray-100); color: var(--gray-800); }
+.topbar__search {
+    flex: 1;
+    max-width: 460px;
+    position: relative;
+}
+.topbar__search input {
+    width: 100%;
+    padding: var(--sp-2) var(--sp-4) var(--sp-2) 2.4rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-full);
+    background: var(--gray-50);
+    font-size: var(--fs-sm);
+    transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.topbar__search input:focus {
+    outline: none;
+    border-color: var(--brand-400);
+    background: var(--gray-0);
+    box-shadow: 0 0 0 3px var(--brand-100);
+}
+.topbar__search i {
+    position: absolute; left: var(--sp-3); top: 50%; transform: translateY(-50%);
+    color: var(--gray-400); font-size: var(--fs-sm); pointer-events: none;
+}
+.topbar__actions { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
+.topbar__icon-btn {
+    background: none; border: 1px solid transparent; cursor: pointer;
+    width: 38px; height: 38px; border-radius: var(--r-md);
+    display: grid; place-items: center; color: var(--gray-600);
+    position: relative;
+}
+.topbar__icon-btn:hover { background: var(--gray-100); color: var(--gray-900); }
+.topbar__icon-btn .dot {
+    position: absolute; top: 7px; right: 8px;
+    width: 8px; height: 8px; border-radius: var(--r-full);
+    background: var(--danger-500);
+    border: 2px solid var(--gray-0);
+}
+
+.content {
+    flex: 1;
+    padding: var(--sp-6);
+    max-width: var(--content-max-w);
+    width: 100%;
+    margin: 0 auto;
+}
+.content--narrow { max-width: 900px; }
+.content--mid    { max-width: 1180px; }
+
+/* --- Page header -------------------------------------------------------- */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-6);
+    flex-wrap: wrap;
+}
+.page-header__text { min-width: 0; flex: 1; }
+.page-header h1 {
+    display: flex; align-items: center; gap: var(--sp-3);
+    margin-bottom: var(--sp-1);
+}
+.page-header h1 i { color: var(--brand-500); font-size: 1.35rem; }
+.page-header__sub { color: var(--gray-500); font-size: var(--fs-sm); margin: 0; }
+.page-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+
+.breadcrumb {
+    display: flex; align-items: center; gap: var(--sp-2);
+    font-size: var(--fs-sm); color: var(--gray-500);
+    margin-bottom: var(--sp-2); flex-wrap: wrap;
+}
+.breadcrumb a { color: var(--gray-500); }
+.breadcrumb a:hover { color: var(--brand-600); }
+.breadcrumb span[aria-hidden] { color: var(--gray-300); }
+
+/* --------------------------------------------------------------------------
+   5. Components
+   -------------------------------------------------------------------------- */
+
+/* --- Buttons ------------------------------------------------------------ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    line-height: 1.4;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease),
+                border-color var(--dur-fast) var(--ease),
+                color var(--dur-fast) var(--ease),
+                box-shadow var(--dur-fast) var(--ease),
+                transform var(--dur-fast) var(--ease);
+    text-decoration: none;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled, .btn.is-disabled {
+    opacity: .55; cursor: not-allowed; pointer-events: none;
+}
+.btn--primary {
+    background: var(--brand-600); color: #fff;
+    box-shadow: var(--sh-xs);
+}
+.btn--primary:hover { background: var(--brand-700); color: #fff; text-decoration: none; }
+.btn--secondary {
+    background: var(--gray-0); color: var(--gray-700); border-color: var(--gray-300);
+}
+.btn--secondary:hover { background: var(--gray-100); color: var(--gray-900); text-decoration: none; }
+.btn--ghost { background: transparent; color: var(--gray-600); }
+.btn--ghost:hover { background: var(--gray-100); color: var(--gray-900); text-decoration: none; }
+.btn--success { background: var(--success-500); color: #fff; }
+.btn--success:hover { background: var(--success-700); color: #fff; text-decoration: none; }
+.btn--danger { background: var(--danger-500); color: #fff; }
+.btn--danger:hover { background: var(--danger-700); color: #fff; text-decoration: none; }
+.btn--warning { background: var(--warning-500); color: #fff; }
+.btn--warning:hover { background: var(--warning-700); color: #fff; text-decoration: none; }
+.btn--sm { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.btn--lg { padding: var(--sp-3) var(--sp-6); font-size: var(--fs-base); }
+.btn--block { width: 100%; }
+.btn--icon { padding: var(--sp-2); width: 36px; height: 36px; }
+.btn-group { display: inline-flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* --- Cards -------------------------------------------------------------- */
+.card {
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    box-shadow: var(--sh-sm);
+    overflow: hidden;
+}
+/* v1.8.0 had `.card + .card { margin-top: var(--sp-5) }` here. It is DELETED,
+   not kept: the "Section rhythm" block below gives .card a margin-bottom of the
+   same --sp-5, so leaving the old rule would have stacked margin-top +
+   margin-bottom and pushed adjacent cards from 20px to 30px apart. One owner,
+   one value. The replacement is strictly more general -- it also covers a .card
+   followed by a grid / filter-bar / list, which the sibling rule never did. */
+
+/* --- Section rhythm ------------------------------------------------------
+   Vertical spacing between the top-level sections inside <main class="content">
+   is currently INCONSISTENT about who owns it:
+
+     .page-header   margin-bottom: var(--sp-6)   (line ~350)
+     .stat-grid     margin-bottom: var(--sp-6)   (line ~457)
+     .filter-bar    margin-bottom: var(--sp-5)   (line ~603)
+     .alert         margin-bottom: var(--sp-4)   (line ~657)
+     .card          owns NOTHING (only .card + .card above)
+     .grid-2/-3     own NOTHING (gap is internal, not outer)
+
+   So a container that FOLLOWS a .card or a grid gets no separation at all.
+   This is the same defect profile.php had to work around by hand with
+   .pf-overview-card / .pf-stat-row (see assets/css/pages/profile.css), and it
+   recurred on dashboard / projects / tasks.
+
+   The rule below gives the un-owned containers a bottom margin so consecutive
+   sections always separate. It deliberately does NOT touch .page-header,
+   .stat-grid, .filter-bar or .alert — those already own a margin, and adding a
+   second one here would double the gap.
+
+   --sp-5 matches .card + .card and .filter-bar, and is what profile.php's
+   hand-written patches already used, so nothing moves that is not currently
+   flush. Page-specific containers (.dash-grid, .tk-list, .proj-grid, and the
+   .pf-* patches) are also excluded: they are already correct, and once their
+   pages are re-checked in review those local overrides can be dropped.
+
+   Removed margins collapse, not double, when a section is the last child.  */
+.grid-2,
+.grid-3,
+.grid-sidebar,
+.card { margin-bottom: var(--sp-5); }
+
+/* A trailing margin on the final section is dead space at the bottom of the
+   page; the footer already provides separation. */
+.content > .card:last-child,
+.content > .grid-2:last-child,
+.content > .grid-3:last-child,
+.content > .grid-sidebar:last-child,
+.content > .stat-grid:last-child,
+.content > .page-header:last-child,
+.content > .filter-bar:last-child,
+.content > .alert:last-child { margin-bottom: 0; }
+.card__header {
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; gap: var(--sp-3);
+    background: var(--gray-25);
+}
+.card__header h2, .card__header h3 {
+    margin: 0; font-size: var(--fs-base); font-weight: var(--fw-semibold);
+}
+.card__header .card__actions { margin-left: auto; display: flex; gap: var(--sp-2); }
+.card__body { padding: var(--sp-5); }
+.card__body--flush { padding: 0; }
+.card__footer {
+    padding: var(--sp-3) var(--sp-5);
+    border-top: 1px solid var(--gray-100);
+    background: var(--gray-25);
+    display: flex; align-items: center; gap: var(--sp-3);
+}
+.card__title-icon { color: var(--brand-500); }
+
+/* --- Stat cards --------------------------------------------------------- */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-6);
+}
+.stat {
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5);
+    box-shadow: var(--sh-sm);
+    display: flex; gap: var(--sp-4); align-items: flex-start;
+    transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.stat:hover { box-shadow: var(--sh-md); transform: translateY(-1px); }
+.stat__icon {
+    width: 46px; height: 46px; flex-shrink: 0;
+    border-radius: var(--r-md);
+    display: grid; place-items: center;
+    font-size: 1.15rem;
+    background: var(--brand-50); color: var(--brand-600);
+}
+.stat__value {
+    font-size: var(--fs-2xl); font-weight: var(--fw-bold);
+    line-height: 1.1; color: var(--gray-900);
+    font-variant-numeric: tabular-nums;
+}
+.stat__label { color: var(--gray-500); font-size: var(--fs-sm); margin-top: 2px; }
+.stat__meta { font-size: var(--fs-xs); color: var(--gray-400); margin-top: var(--sp-1); }
+.stat--delayed .stat__icon { background: var(--danger-100);  color: var(--danger-700); }
+.stat--delayed .stat__value { color: var(--danger-700); }
+.stat--on-hold .stat__icon { background: var(--warning-100); color: var(--warning-700); }
+.stat--on-hold .stat__value { color: var(--warning-700); }
+.stat--success .stat__icon { background: var(--success-100); color: var(--success-700); }
+.stat--info    .stat__icon { background: var(--info-100);    color: var(--info-700); }
+
+/* --- Badges / pills ----------------------------------------------------- */
+.badge {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    line-height: 1.6;
+    white-space: nowrap;
+}
+.badge--neutral   { background: var(--gray-200);    color: var(--gray-700); }
+.badge--info      { background: var(--info-100);    color: var(--info-700); }
+.badge--success   { background: var(--success-100); color: var(--success-700); }
+.badge--warning   { background: var(--warning-100); color: var(--warning-700); }
+.badge--danger    { background: var(--danger-100);  color: var(--danger-700); }
+.badge--brand     { background: var(--brand-100);   color: var(--brand-800); }
+.badge--outline   { background: transparent; border: 1px solid var(--gray-300); color: var(--gray-600); }
+.badge--lg { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+
+/* Status badge — the canonical 4 states + the derived "delayed" state */
+.status {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+}
+.status--not_started { background: var(--status-not-started-bg); color: var(--status-not-started-fg); }
+.status--in_progress { background: var(--status-in-progress-bg); color: var(--status-in-progress-fg); }
+.status--completed   { background: var(--status-completed-bg);   color: var(--status-completed-fg); }
+.status--on_hold     { background: var(--status-on-hold-bg);     color: var(--status-on-hold-fg); }
+.status--delayed     { background: var(--status-delayed-bg);     color: var(--status-delayed-fg); }
+.status i { font-size: .8em; }
+
+/* --- Forms -------------------------------------------------------------- */
+.form-grid { display: grid; gap: var(--sp-5); }
+.form-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.form-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.form-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.form-section { grid-column: 1 / -1; }
+.form-section__title {
+    font-size: var(--fs-xs); font-weight: var(--fw-bold);
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--gray-500);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: var(--sp-1);
+}
+
+.field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.field label {
+    font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--gray-700);
+    display: flex; align-items: center; gap: var(--sp-1);
+}
+.field label .req { color: var(--danger-500); }
+.field .hint { font-size: var(--fs-xs); color: var(--gray-500); }
+.field .error-text { font-size: var(--fs-xs); color: var(--danger-700); display: flex; gap: 4px; }
+
+.input, .select, .textarea {
+    width: 100%;
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-md);
+    background: var(--gray-0);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.input:hover, .select:hover, .textarea:hover { border-color: var(--gray-400); }
+.input:focus, .select:focus, .textarea:focus {
+    outline: none;
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--brand-100);
+}
+.input[readonly], .input:disabled, .select:disabled, .textarea:disabled {
+    background: var(--gray-100); color: var(--gray-500); cursor: not-allowed;
+}
+.textarea { resize: vertical; min-height: 88px; }
+.select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7691' d='M6 8.5 1.5 4h9z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--sp-3) center;
+    background-size: 12px;
+    padding-right: var(--sp-8);
+}
+.input-group { display: flex; }
+.input-group .input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.input-group .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+
+/* --- Date / datetime picker indicator ----------------------------------
+   issue-055 bug 2: the native Chromium calendar-picker indicator is drawn
+   with a hard-coded dark fill, so on the dark v2 surface (--gray-0) it
+   rendered as a near-black square and was effectively invisible -- the
+   "date picker is gone" symptom. The `color` property cannot fix it:
+   Chromium paints its own glyph and ignores the inherited text colour.
+
+   So we paint the indicator ourselves with an explicit SVG. The native
+   widget is still what opens on click (the pseudo-element IS the native
+   button, so pointer handling and showPicker() keep working).
+   ---------------------------------------------------------------------- */
+.input[type="date"]::-webkit-calendar-picker-indicator,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.input[type="month"]::-webkit-calendar-picker-indicator,
+.input[type="week"]::-webkit-calendar-picker-indicator,
+.input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%234d5771' d='M5 1v2H3v12h10V3h-2V1h-1v2H6V1H5zm-1 6v6h8V7H4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+    background-position: center;
+    border-radius: var(--r-sm);
+    transition: background-color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+.input[type="month"]::-webkit-calendar-picker-indicator:hover,
+.input[type="week"]::-webkit-calendar-picker-indicator:hover,
+.input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    background-color: var(--gray-100);
+}
+.input[type="date"]::-webkit-calendar-picker-indicator:active,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator:active,
+.input[type="month"]::-webkit-calendar-picker-indicator:active,
+.input[type="week"]::-webkit-calendar-picker-indicator:active,
+.input[type="time"]::-webkit-calendar-picker-indicator:active {
+    background-color: var(--gray-200);
+}
+.input[type="date"]::-webkit-calendar-picker-indicator:focus-visible,
+.input[type="datetime-local"]::-webkit-calendar-picker-indicator:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 1px;
+}
+/* Keep the calendar glyph from colliding with the typed date text. */
+.input[type="date"], .input[type="datetime-local"], .input[type="month"],
+.input[type="week"], .input[type="time"] { padding-right: var(--sp-8); }
+
+.checkbox, .radio {
+    display: flex; align-items: flex-start; gap: var(--sp-2);
+    font-size: var(--fs-sm); cursor: pointer;
+}
+.checkbox input, .radio input { margin-top: 3px; accent-color: var(--brand-600); width: 16px; height: 16px; flex-shrink: 0; }
+.checkbox-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.checkbox-list--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: var(--sp-2); }
+
+.range-row { display: flex; align-items: center; gap: var(--sp-3); }
+.range-row input[type=range] { flex: 1; accent-color: var(--brand-600); }
+.range-row .range-value {
+    font-variant-numeric: tabular-nums; font-weight: var(--fw-semibold);
+    min-width: 48px; text-align: right; color: var(--brand-700);
+}
+
+/* --- Filter bar --------------------------------------------------------- */
+.filter-bar {
+    display: flex; gap: var(--sp-3); align-items: flex-end; flex-wrap: wrap;
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+    margin-bottom: var(--sp-5);
+    box-shadow: var(--sh-xs);
+}
+.filter-bar .field { flex: 1 1 180px; }
+.filter-bar .field label { font-size: var(--fs-xs); }
+.filter-bar__actions { display: flex; gap: var(--sp-2); }
+
+/* --- Tables ------------------------------------------------------------- */
+.table-wrap { overflow-x: auto; }
+/* Data tables have several nowrap columns. Without a min-width the browser
+ * satisfies width:100% by crushing the one flexible column (the task/project
+ * name) into a tall stack of wrapped words. A min-width lets .table-wrap
+ * scroll horizontally instead, so every name stays readable on one line. */
+.table {
+    width: 100%; min-width: 1280px;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+    /* RESET legacy properties (style.css:299-305) that this rule is otherwise
+     * silent on. style.css loads FIRST but wins any property it shares, and
+     * legacy `.table` sets background/border-radius/overflow/box-shadow while
+     * v2 declared none of them — so `background: white` bled through and every
+     * row rendered as a white band on the dark surface. The reason sub-rows
+     * (`--gray-25`) then looked like a grey strip floating on white.
+     * Rows must be transparent so the card surface shows through; the card
+     * itself already owns the radius/overflow/shadow.
+     * `color` is inherited, so only the background needs neutralizing. */
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--gray-800);
+}
+/* The first column carries the record's name and is the only column allowed
+ * to grow; the rest are nowrap values sized by their content. */
+.table th:first-child, .table td:first-child { min-width: 300px; }
+/* …but 300px is sized for a full-width table. Inside a grid sidebar that
+ * minimum exceeds the track and forces a horizontal scrollbar. No override
+ * is defined here on purpose: the dashboard used to relax it, but it now
+ * stacks its three tables full-width (see the note in dashboard.php), and
+ * no other page embeds a table in a sidebar. A future caller that does
+ * should scope the relaxation to its own layout, not to a shared class. */
+/* ...so provide the scoped modifier the mockups already designed for this
+ * case. `.table--fit` is opt-in: every table that does NOT carry it keeps the
+ * 1280px floor, so the data-dense list pages (tasks, dashboard) are unchanged.
+ * Used by the nested tables on project_detail, contact_detail, and dashboard. */
+.table--fit { min-width: 0; }
+.table--fit th:first-child,
+.table--fit td:first-child { min-width: 0; }
+.table--fit td { white-space: normal; }
+.table th {
+    text-align: left; font-weight: var(--fw-semibold);
+    color: var(--gray-500); font-size: var(--fs-xs);
+    text-transform: uppercase; letter-spacing: .04em;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--gray-200);
+    background: var(--gray-25);
+    white-space: nowrap;
+}
+.table td {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
+.table tbody tr { transition: background var(--dur-fast) var(--ease); }
+.table tbody tr:hover { background: var(--gray-25); }
+.table tbody tr:last-child td { border-bottom: none; }
+.table .row-actions { display: flex; gap: var(--sp-1); justify-content: flex-end; }
+.table--compact td, .table--compact th { padding: var(--sp-2) var(--sp-3); }
+
+/* --- Grid layouts ------------------------------------------------------- */
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-5); }
+.grid-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--sp-5); align-items: start; }
+/* Self-sufficient: the mockup applies this class alone, with no companion
+ * .grid-sidebar, so it must redeclare display/gap/align-items rather than
+ * only overriding the track size. */
+.grid-sidebar--wide { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--sp-5); align-items: start; }
+.grid-sidebar--left { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
+/* A bare 1fr track has an automatic minimum size, so a wide child (a table
+ * with min-width) would grow the track and push the sibling column off-screen.
+ * minmax(0,…) lets the track shrink and hand the overflow to .table-wrap.
+ * The modifier variants need this too: the dashboard's wide column holds a
+ * table with min-width, and without it the 1fr track is forced open. */
+.grid-2 > *, .grid-3 > *, .grid-sidebar > *, .grid-sidebar--wide > *, .grid-sidebar--left > * { min-width: 0; }
+
+/* --- Alerts / banners ---------------------------------------------------- */
+.alert {
+    display: flex; align-items: flex-start; gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid transparent;
+    font-size: var(--fs-sm);
+    margin-bottom: var(--sp-4);
+}
+.alert i { margin-top: 2px; flex-shrink: 0; }
+.alert__body { flex: 1; }
+.alert__title { font-weight: var(--fw-semibold); margin-bottom: 2px; }
+.alert--info    { background: var(--info-100);    border-color: #b8dff7; color: var(--info-700); }
+.alert--success { background: var(--success-100); border-color: #b3e8c9; color: var(--success-700); }
+.alert--warning { background: var(--warning-100); border-color: #f5dfa0; color: var(--warning-700); }
+.alert--danger  { background: var(--danger-100);  border-color: #f3c2c2; color: var(--danger-700); }
+.alert--brand   { background: var(--brand-50);    border-color: var(--brand-200); color: var(--brand-800); }
+
+/* --- Empty state -------------------------------------------------------- */
+.empty-state { text-align: center; padding: var(--sp-12) var(--sp-6); }
+.empty-state__icon {
+    width: 64px; height: 64px; margin: 0 auto var(--sp-4);
+    border-radius: var(--r-xl);
+    background: var(--gray-100); color: var(--gray-400);
+    display: grid; place-items: center; font-size: 1.6rem;
+}
+.empty-state h3 { margin-bottom: var(--sp-2); }
+.empty-state p { color: var(--gray-500); max-width: 420px; margin: 0 auto var(--sp-4); font-size: var(--fs-sm); }
+
+/* --- Progress ----------------------------------------------------------- */
+.progress { height: 6px; background: var(--gray-200); border-radius: var(--r-full); overflow: hidden; }
+.progress__fill { height: 100%; background: var(--brand-500); border-radius: var(--r-full); transition: width var(--dur-slow) var(--ease); }
+.progress--success .progress__fill { background: var(--success-500); }
+.progress--warning .progress__fill { background: var(--warning-500); }
+.progress--danger  .progress__fill { background: var(--danger-500); }
+.progress--lg { height: 10px; }
+
+.progress-ring { position: relative; display: inline-grid; place-items: center; }
+.progress-ring__value { font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--gray-700); }
+
+/* --- Reason chip (v1.8.0 reasons, v2.0 restyle) ------------------------- */
+.reason-chip {
+    display: inline-flex; align-items: flex-start; gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-md);
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    border-left: 3px solid transparent;
+    max-width: 100%;
+}
+.reason-chip--delay {
+    background: var(--danger-100); color: var(--danger-700);
+    border-left-color: var(--danger-500);
+}
+.reason-chip--on-hold {
+    background: var(--warning-100); color: var(--warning-700);
+    border-left-color: var(--warning-500);
+}
+.reason-chip i { margin-top: 2px; flex-shrink: 0; }
+.reason-chip--block { display: flex; width: 100%; }
+
+/* --- Reason sub-row ------------------------------------------------------
+ * A task's on-hold / delayed reasons are important, recordable information
+ * (the list can even warn about MISSING reasons), so they are never hidden
+ * behind a hover tooltip. They render in full on a dedicated sub-row that
+ * spans every column, directly beneath the task it belongs to. The task row
+ * itself therefore keeps a single uniform height and stays aligned. */
+.reason-row__cell {
+    padding: 0 var(--sp-4) var(--sp-3) !important;
+    border-bottom: 1px solid var(--gray-100);
+    background: var(--gray-25);
+    vertical-align: top;
+}
+/* A reason sub-row is never the visual last row of the table body, so the
+ * standard :last-child border reset must not apply to it. */
+.table tbody tr.reason-row:last-child td { border-bottom: 1px solid var(--gray-100); }
+/* Hovering either the task row or its sub-row highlights the whole group. */
+.table tbody tr:has(+ .reason-row):hover td,
+.table tbody tr.reason-row:hover td { background: var(--gray-100); }
+.reason-row:hover .reason-row__cell { background: var(--gray-100); }
+/* One reason per line: the on-hold and delayed reasons are distinct facts with
+ * different urgency, and side-by-side chips of unequal length read unevenly.
+ * A vertical stack also keeps the longest reason on a single predictable line. */
+.reason-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    border-left: 2px solid var(--gray-200);
+    padding-left: var(--sp-3);
+    margin-left: 2px;
+}
+/* Full text is shown, so the chip may wrap across lines. */
+.reason-row .reason-chip,
+.reason-row .reason-chip--block {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    width: auto;
+    max-width: 100%;
+    padding: var(--sp-1) var(--sp-3);
+    line-height: 1.5;
+}
+.reason-row .reason-chip > span { min-width: 0; }
+.reason-row .reason-chip i { margin-top: 2px; }
+/* Last sub-row in the group carries the divider; keeps spacing even. */
+.reason-row:last-child .reason-row__cell { border-bottom: 1px solid var(--gray-100); }
+
+/* Missing-reason marker (v1.8.0). Parity with production
+ * .status-reason-required (assets/css/style.css). Rendered as a
+ * superscript next to the status badge when a delayed / on-hold task
+ * still has no reason recorded. */
+.reason-missing {
+    color: var(--danger-500); font-size: var(--fs-xs);
+    margin-left: var(--sp-1);
+}
+.reason-missing--inline {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    color: var(--danger-700); background: var(--danger-100);
+    border-radius: var(--r-sm); padding: 2px var(--sp-2);
+    font-size: var(--fs-xs); font-weight: var(--fw-medium);
+}
+.reason-missing i { font-size: .9em; }
+
+/* Not-estimated marker (v1.8.0). Parity with production
+ * .not-estimated (client/dashboard.php). Shown on a task node whose
+ * estimate could not be resolved because no sub-task carries one. */
+.not-estimated {
+    display: inline-flex; align-items: center; gap: var(--sp-1);
+    color: var(--gray-600); background: var(--gray-100);
+    border: 1px dashed var(--gray-300);
+    border-radius: var(--r-sm);
+    padding: 1px var(--sp-2);
+    font-size: var(--fs-xs); font-style: italic;
+}
+.not-estimated i { font-size: .9em; }
+
+/* Inline reason editor (v1.8.0). Parity with production
+ * .reason-inline-edit (task_detail.php): a <details> disclosure that
+ * holds the textarea + Save button for one reason field. */
+.reason-inline-edit {
+    margin-top: var(--sp-2);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    background: var(--gray-0);
+    padding: var(--sp-2) var(--sp-3);
+}
+.reason-inline-edit > summary {
+    cursor: pointer;
+    color: var(--brand-600);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    list-style: revert;
+}
+.reason-inline-edit > summary:hover { color: var(--brand-700); }
+.reason-inline-edit[open] > summary { margin-bottom: var(--sp-2); }
+.reason-inline-edit .textarea { margin-bottom: var(--sp-2); }
+.reason-inline-edit [data-save-status] {
+    display: inline-block; margin-left: var(--sp-2);
+    font-size: var(--fs-xs); color: var(--gray-500);
+}
+
+/* --- Task tree ---------------------------------------------------------- */
+.task-tree { list-style: none; margin: 0; padding: 0; }
+.task-tree .task-tree { margin-left: var(--sp-6); padding-left: var(--sp-4); border-left: 2px solid var(--gray-200); }
+.task-node {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-2);
+    background: var(--gray-0);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.task-node:hover { border-color: var(--gray-300); box-shadow: var(--sh-xs); }
+.task-node--delayed { border-left: 3px solid var(--danger-500); }
+.task-node--on-hold { border-left: 3px solid var(--warning-500); }
+.task-node--completed { opacity: .72; }
+.task-node__head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.task-node__name { font-weight: var(--fw-medium); color: var(--gray-900); }
+/* Completed tasks are shown dimmed, NOT struck through. A line-through reads
+ * as "cancelled / voided" rather than "done", and it also cuts diagonally
+ * through the descenders and the Font Awesome icons in the same row. The
+ * Completed badge plus the 100% bar already carry the status unambiguously. */
+.task-node__name--done { color: var(--gray-500); }
+.task-node__meta {
+    display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+    margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--gray-500);
+}
+.task-node__meta span { display: inline-flex; align-items: center; gap: 4px; }
+.task-node__progress { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
+.task-node__progress .progress { flex: 1; }
+.task-node__pct { font-variant-numeric: tabular-nums; font-weight: var(--fw-semibold); font-size: var(--fs-xs); min-width: 40px; text-align: right; }
+.task-node__reasons { margin-top: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* --- Timeline / activity ------------------------------------------------ */
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li {
+    display: flex; gap: var(--sp-3);
+    padding: var(--sp-3) 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+.timeline li:last-child { border-bottom: none; }
+.timeline__icon {
+    width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: var(--r-full);
+    background: var(--gray-100); color: var(--gray-500);
+    display: grid; place-items: center; font-size: var(--fs-xs);
+}
+.timeline__body { flex: 1; min-width: 0; }
+.timeline__meta { font-size: var(--fs-xs); color: var(--gray-400); }
+
+/* --- Detail list -------------------------------------------------------- */
+.detail-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.detail-row { display: flex; gap: var(--sp-3); font-size: var(--fs-sm); align-items: baseline; }
+.detail-row__k { color: var(--gray-500); min-width: 160px; flex-shrink: 0; }
+.detail-row__v { color: var(--gray-800); flex: 1; min-width: 0; }
+.detail-row--stacked { flex-direction: column; gap: var(--sp-1); }
+.detail-row--stacked .detail-row__k { min-width: 0; font-size: var(--fs-xs); }
+
+/* --- Modal -------------------------------------------------------------- */
+/* The UA stylesheet's `[hidden] { display: none }` has the lowest
+   specificity of any rule, so ANY class that sets `display` (e.g.
+   `.modal-backdrop { display: grid }`) silently overrides the `hidden`
+   attribute. That made every delete-confirmation modal render open on
+   page load and swallow all clicks on the page behind it.
+   This rule re-asserts the attribute with matching specificity. */
+[hidden] { display: none !important; }
+
+.modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(21, 26, 40, .55);
+    backdrop-filter: blur(2px);
+    display: grid; place-items: center;
+    z-index: var(--z-overlay);
+    padding: var(--sp-4);
+}
+.modal {
+    background: var(--gray-0);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-xl);
+    width: 100%; max-width: 520px;
+    max-height: 88vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+}
+.modal--lg { max-width: 760px; }
+.modal__header {
+    padding: var(--sp-5) var(--sp-5) var(--sp-3);
+    display: flex; align-items: flex-start; gap: var(--sp-3);
+}
+.modal__header h3 { margin: 0; }
+.modal__header p { margin: var(--sp-1) 0 0; color: var(--gray-500); font-size: var(--fs-sm); }
+.modal__close {
+    margin-left: auto; background: none; border: none; cursor: pointer;
+    color: var(--gray-400); font-size: 1.1rem; padding: var(--sp-1);
+    border-radius: var(--r-sm);
+}
+.modal__close:hover { background: var(--gray-100); color: var(--gray-800); }
+.modal__body { padding: 0 var(--sp-5) var(--sp-4); overflow-y: auto; flex: 1; }
+.modal__footer {
+    padding: var(--sp-4) var(--sp-5);
+    border-top: 1px solid var(--gray-100);
+    background: var(--gray-25);
+    display: flex; justify-content: flex-end; gap: var(--sp-2);
+}
+.modal__footer--split { justify-content: space-between; }
+
+/* --- Toast -------------------------------------------------------------- */
+.toast-stack { position: fixed; bottom: var(--sp-6); right: var(--sp-6); z-index: var(--z-toast); display: flex; flex-direction: column; gap: var(--sp-2); }
+.toast {
+    background: var(--gray-900); color: var(--gray-0);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-lg);
+    font-size: var(--fs-sm);
+    display: flex; align-items: center; gap: var(--sp-3);
+    min-width: 260px;
+}
+.toast--success { background: var(--success-700); }
+.toast--danger  { background: var(--danger-700); }
+.toast--warning { background: var(--warning-700); }
+
+/* --- Share box ---------------------------------------------------------- */
+/* Used by the project detail page (client share panel) and the project
+   edit page (Client share card). The code is 17 chars of mono, so it
+   must not wrap. */
+.share-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+}
+
+.share-box code {
+    font-family: var(--font-mono, monospace);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .06em;
+    color: var(--gray-800);
+    white-space: nowrap;
+}
+
+/* Copy-button feedback states (issue-055). The copy buttons swap their
+   label/icon to "Copied" or "Copy failed"; these classes tint the button
+   so the outcome is legible at a glance and not only via the icon. */
+.btn.is-copied {
+    background: var(--success-500);
+    border-color: var(--success-500);
+    color: #fff;
+}
+.btn.is-copied:hover {
+    background: var(--success-700);
+    border-color: var(--success-700);
+    color: #fff;
+}
+.btn.is-copy-failed {
+    background: var(--danger-500);
+    border-color: var(--danger-500);
+    color: #fff;
+}
+.btn.is-copy-failed:hover {
+    background: var(--danger-700);
+    border-color: var(--danger-700);
+    color: #fff;
+}
+
+/* --- Dropdown ----------------------------------------------------------- */
+.dropdown { position: relative; }
+.dropdown__menu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    min-width: 200px;
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-lg);
+    padding: var(--sp-1);
+    z-index: var(--z-dropdown);
+}
+.dropdown__item {
+    display: flex; align-items: center; gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    font-size: var(--fs-sm); color: var(--gray-700);
+    width: 100%; background: none; border: none; cursor: pointer; text-align: left;
+}
+.dropdown__item:hover { background: var(--gray-100); color: var(--gray-900); text-decoration: none; }
+.dropdown__item.is-danger { color: var(--danger-700); }
+.dropdown__item.is-danger:hover { background: var(--danger-100); }
+.dropdown__divider { height: 1px; background: var(--gray-100); margin: var(--sp-1) 0; }
+
+/* --- Tabs --------------------------------------------------------------- */
+.tabs { display: flex; gap: var(--sp-1); border-bottom: 1px solid var(--gray-200); margin-bottom: var(--sp-5); }
+.tab {
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--fs-sm); font-weight: var(--fw-medium);
+    color: var(--gray-500); border-bottom: 2px solid transparent;
+    margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none;
+    cursor: pointer;
+}
+.tab:hover { color: var(--gray-800); text-decoration: none; }
+.tab.is-active { color: var(--brand-700); border-bottom-color: var(--brand-600); }
+
+/* --- Misc --------------------------------------------------------------- */
+.divider { height: 1px; background: var(--gray-200); border: none; margin: var(--sp-5) 0; }
+.code-block {
+    background: var(--gray-900); color: var(--gray-100);
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md);
+    font-family: var(--font-mono); font-size: var(--fs-sm);
+    overflow-x: auto; margin: 0 0 var(--sp-3);
+}
+.kbd {
+    display: inline-block; padding: 1px 6px;
+    border: 1px solid var(--gray-300); border-bottom-width: 2px;
+    border-radius: var(--r-sm); background: var(--gray-50);
+    font-family: var(--font-mono); font-size: var(--fs-xs);
+}
+.avatar {
+    width: 32px; height: 32px; border-radius: var(--r-full);
+    background: var(--brand-100); color: var(--brand-800);
+    display: grid; place-items: center;
+    font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+    flex-shrink: 0;
+}
+.avatar--lg { width: 64px; height: 64px; font-size: var(--fs-lg); }
+.avatar--sm { width: 24px; height: 24px; font-size: 10px; }
+.avatar--danger { background: var(--danger-100); color: var(--danger-700); }
+.avatar--warning { background: var(--warning-100); color: var(--warning-700); }
+.avatar--success { background: var(--success-100); color: var(--success-700); }
+.avatar--gray   { background: var(--gray-200);   color: var(--gray-700); }
+.chip-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+.scroll-x { overflow-x: auto; }
+
+/* --------------------------------------------------------------------------
+   9. Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 1200px) {
+    .grid-sidebar, .grid-sidebar--wide, .grid-sidebar--left { grid-template-columns: 1fr; }
+    .kanban { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 992px) {
+    .app-shell { grid-template-columns: var(--sidebar-w-collapsed) 1fr; }
+    .sidebar__brand-text, .sidebar__link span, .sidebar__user, .sidebar__section-label { display: none; }
+    .sidebar__link { justify-content: center; }
+    .form-grid--3, .form-grid--4 { grid-template-columns: repeat(2, 1fr); }
+    .auth-shell { grid-template-columns: 1fr; }
+    .auth-aside { display: none; }
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+    .content { padding: var(--sp-4); }
+    .topbar { padding: 0 var(--sp-4); }
+    .topbar__search { display: none; }
+    .form-grid--2, .form-grid--3, .form-grid--4, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .kanban { grid-template-columns: 1fr; }
+    .page-header { flex-direction: column; align-items: stretch; }
+    .detail-row { flex-direction: column; gap: var(--sp-1); }
+    .detail-row__k { min-width: 0; }
+    .task-tree .task-tree { margin-left: var(--sp-3); padding-left: var(--sp-3); }
+    .modal { max-height: 92vh; }
+}
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
+   10. Dark mode
+   -------------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --gray-50:  #12161f;
+        --gray-100: #1a1f2b;
+        --gray-200: #262d3c;
+        --gray-25:  #151a24;
+        --gray-300: #384155;
+        --gray-400: #5c6880;
+        --gray-500: #8792a8;
+        --gray-600: #a9b3c6;
+        --gray-700: #c6cedd;
+        --gray-800: #e2e7f0;
+        --gray-900: #f1f4f9;
+        --gray-950: #ffffff;
+        --gray-0:   #0c1018;
+        --brand-50: #14203c;
+        --brand-100:#17294d;
+        --brand-200:#1e3a69;
+        /* Tinted surfaces go dark; the -700 text tones go light so chips and
+         * callouts stay legible instead of glowing on a dark table. */
+        --warning-100: #33280c;
+        --warning-700: #f2c460;
+        --danger-100:  #3a1717;
+        --danger-700:  #f28b8b;
+    }
+    body { background: var(--gray-50); color: var(--gray-800); }
+    .card, .stat, .filter-bar, .input, .select, .textarea { background: var(--gray-0); }
+    .sidebar { background: #080b12; }
+    .table th, .card__header, .card__footer, .modal__footer { background: var(--gray-25); }
+    .table tbody tr:hover, .table--compact tbody tr:hover { background: var(--gray-100); }
+    .input:focus, .select:focus, .textarea:focus { box-shadow: 0 0 0 3px rgba(51,102,255,.25); }
+    /* issue-055 bug 2: the calendar glyph is baked into a data: URL, so the
+     * dark theme needs its own, lighter icon to stay legible on --gray-0. */
+    .input[type="date"]::-webkit-calendar-picker-indicator,
+    .input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+    .input[type="month"]::-webkit-calendar-picker-indicator,
+    .input[type="week"]::-webkit-calendar-picker-indicator,
+    .input[type="time"]::-webkit-calendar-picker-indicator {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23a9b3c6' d='M5 1v2H3v12h10V3h-2V1h-1v2H6V1H5zm-1 6v6h8V7H4z'/%3E%3C/svg%3E");
+    }
+    .input[type="date"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="month"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="week"]::-webkit-calendar-picker-indicator:hover,
+    .input[type="time"]::-webkit-calendar-picker-indicator:hover {
+        background-color: var(--gray-100);
+    }
+}

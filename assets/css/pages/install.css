@@ -1,0 +1,235 @@
+/* ==========================================================================
+   Install wizard — v2
+   --------------------------------------------------------------------------
+   Migrated from the 79-line inline <style> block install.php used to carry
+   (issue-052). The legacy .install-container / .step-indicator / .step /
+   .form-group / .btn / .alert vocabulary is replaced by the shared v2
+   component layer plus the rules below.
+
+   There is no dedicated mockup for this page (the v2.0 mockup set covers
+   the landing page and the four auth screens but not the installer), so the
+   visual language is borrowed from the landing page — .landing /
+   .landing__card / .landing__logo — so the two public, unauthenticated
+   entry points of the application look like the same product.
+
+   Loaded AFTER v2-components.css, so it may override component rules.
+   ========================================================================== */
+
+.install-body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+}
+
+.install-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: var(--sp-6);
+}
+
+/* --- Card ----------------------------------------------------------------
+   Mirrors .landing__card from the landing page: same width, radius,
+   padding and shadow, so the two screens read as a pair. */
+.install-card {
+    width: 100%;
+    max-width: 620px;
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-lg);
+    padding: var(--sp-10);
+}
+
+.install-card__logo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--sp-5);
+    border-radius: var(--r-lg);
+    background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 1.5rem;
+}
+
+.install-card h1 {
+    font-size: var(--fs-2xl);
+    margin-bottom: var(--sp-2);
+    color: var(--gray-900);
+    text-align: center;
+}
+
+.install-card__sub {
+    color: var(--gray-500);
+    font-size: var(--fs-sm);
+    text-align: center;
+    margin-bottom: var(--sp-8);
+}
+
+.install-card__h2 {
+    font-size: var(--fs-xl);
+    margin-bottom: var(--sp-4);
+    color: var(--gray-900);
+}
+
+/* --- Stepper -------------------------------------------------------------
+   Replaces the old .step-indicator / .step circles. The label under each
+   dot is new: the bare numbered circles gave no hint what each step was
+   for. */
+.stepper {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--sp-2);
+    list-style: none;
+    margin: 0 0 var(--sp-8);
+    padding: 0;
+}
+
+.stepper__step {
+    flex: 1 1 0;
+    max-width: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    position: relative;
+    color: var(--gray-400);
+}
+
+/* The connector line between consecutive dots. */
+.stepper__step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 20px;
+    left: calc(50% + 24px);
+    right: calc(-50% + 24px);
+    height: 2px;
+    background: var(--gray-200);
+}
+
+.stepper__step.is-completed:not(:last-child)::after {
+    background: var(--success-500);
+}
+
+.stepper__dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    background: var(--gray-100);
+    color: var(--gray-500);
+    border: 2px solid var(--gray-200);
+    position: relative;
+    z-index: 1;
+}
+
+.stepper__step.is-active .stepper__dot {
+    background: var(--brand-500);
+    border-color: var(--brand-500);
+    color: #fff;
+}
+
+.stepper__step.is-completed .stepper__dot {
+    background: var(--success-500);
+    border-color: var(--success-500);
+    color: #fff;
+}
+
+.stepper__label {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+}
+
+.stepper__step.is-active .stepper__label { color: var(--brand-700); }
+.stepper__step.is-completed .stepper__label { color: var(--success-700); }
+
+/* --- Content lists ------------------------------------------------------- */
+.install-list {
+    list-style: none;
+    margin: 0 0 var(--sp-5);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.install-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+}
+
+.install-list i {
+    color: var(--success-500);
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.install-list--compact { gap: var(--sp-1); }
+
+.install-panel {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4) var(--sp-5);
+    margin-bottom: var(--sp-6);
+}
+
+.install-panel__title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+    margin-bottom: var(--sp-3);
+}
+
+.install-panel__title i { color: var(--brand-500); }
+
+/* --- Alerts -------------------------------------------------------------- */
+.alert__list {
+    margin: 0;
+    padding-left: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+}
+
+.install-next { margin: var(--sp-3) 0 var(--sp-1); }
+
+.install-next-list {
+    margin: 0 0 var(--sp-4);
+    padding-left: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+}
+
+/* --- Forms ---------------------------------------------------------------
+   .form-grid--2 lays the wizard fields out two-up; the wizard forms are
+   narrow enough that a single column would waste vertical space. The submit
+   button sits outside the grid so it spans the full card width. */
+.install-card form { margin-top: var(--sp-5); }
+
+.install-card form .btn { margin-top: var(--sp-6); }
+
+.install-card form .form-section { grid-column: 1 / -1; }
+
+/* --- Responsive ----------------------------------------------------------
+   Below the two-column breakpoint the fields stack into one column and the
+   card padding tightens, matching the landing page's mobile behaviour. */
+@media (max-width: 640px) {
+    .install-shell { padding: var(--sp-4); }
+    .install-card { padding: var(--sp-6); }
+    .install-card .form-grid--2 { grid-template-columns: 1fr; }
+    .stepper__label { display: none; }
+}

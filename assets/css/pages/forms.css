@@ -1,0 +1,153 @@
+/* ==========================================================================
+   forms.css — shared styling for the three New/Edit surfaces
+   --------------------------------------------------------------------------
+   WHY THIS FILE EXISTS
+   task_edit.php, project_edit.php and contact_edit.php are one conversion
+   unit: they share the same v2 skeleton (breadcrumb → page-header → card
+   form → danger zone → confirm modal) and the same field vocabulary
+   (.field / .input / .select / .textarea / .hint / .req / .error-text).
+
+   Before issue-047 each of the three files carried its own inline <style>
+   block full of v1 hardcoded hex colours (#ddd, #f8f9fa, #007bff, #333 …).
+   Those blocks are removed by this conversion; what genuinely belongs to a
+   single surface (the project share-code box, the task inherit-hint
+   group) lives in assets/css/pages/<page>.css instead.
+
+   The shared v2 form vocabulary (.form-grid, .field, .input, .select,
+   .textarea, .hint, .req, .error-text, .checkbox-list, .range-row,
+   .alert, .card__footer, .btn--danger, .btn--block, .text-mono) already
+   exists in assets/css/v2-components.css and is NOT duplicated here.
+
+   Loaded AFTER v2-components.css, together with the per-page file.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Form shell
+   ------------------------------------------------------------------------ */
+.form-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+}
+
+/* The v2 mockup puts the form card and the sidebar (share code / danger
+ * zone) side by side on the project surface, and stacks them on the task
+ * and contact surfaces. `.grid-sidebar` supplies the two columns. */
+.form-page__aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+}
+
+/* --------------------------------------------------------------------------
+   Danger zone
+   --------------------------------------------------------------------------
+   The mockup styles the danger card with inline custom properties rather
+   than a dedicated class:
+       <div class="card" style="border-color:var(--danger-500);">
+           <div class="card__header" style="background:var(--danger-100);">
+   Keeping the same inline approach means the mockup markup can be pasted
+   verbatim. The class below is the reusable form for that look, so the
+   three surfaces do not each repeat the inline declarations. */
+.danger-zone {
+    border-color: var(--danger-500);
+}
+.danger-zone .card__header {
+    background: var(--danger-100);
+}
+.danger-zone .card__title-icon {
+    color: var(--danger-700);
+}
+
+/* --------------------------------------------------------------------------
+   Field helpers
+   ------------------------------------------------------------------------ */
+/* A read-only value that stands in for an input — used for the task form's
+ * "Current Status" box and the subtask "Project" box. */
+.readonly-field {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 38px;
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-sm);
+    background: var(--gray-25);
+    color: var(--gray-600);
+    font-size: var(--fs-sm);
+}
+.readonly-field i {
+    color: var(--gray-400);
+}
+
+/* A pair of controls on one line — number input + unit select. */
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+/* The range slider + number box + percentage readout. */
+.percentage-input {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+.percentage-input input[type=range] {
+    flex: 1;
+    accent-color: var(--brand-600);
+}
+.percentage-input .input {
+    width: 90px;
+}
+.percentage-symbol {
+    font-size: var(--fs-sm);
+    color: var(--gray-500);
+}
+
+/* --------------------------------------------------------------------------
+   Checkbox list
+   ------------------------------------------------------------------------ */
+/* The mockup renders the project checkboxes as a grid of .checkbox rows.
+ * The v1 page used a scrollable boxed list; the grid is the v2 look. */
+.project-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--sp-2);
+}
+
+.no-projects-message {
+    padding: var(--sp-4);
+    border: 1px dashed var(--gray-200);
+    border-radius: var(--r-sm);
+    background: var(--gray-25);
+    color: var(--gray-500);
+    font-size: var(--fs-sm);
+    text-align: center;
+}
+.no-projects-message p {
+    margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Narrow screens
+   ------------------------------------------------------------------------ */
+@media (max-width: 900px) {
+    .form-grid--2,
+    .form-grid--3 {
+        grid-template-columns: 1fr;
+    }
+    .form-section {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 640px) {
+    .percentage-input,
+    .control-row {
+        flex-wrap: wrap;
+    }
+    .project-checkboxes {
+        grid-template-columns: 1fr;
+    }
+}

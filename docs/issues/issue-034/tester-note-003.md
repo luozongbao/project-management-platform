@@ -1,5 +1,17 @@
 # Tester note — issue-034 (v1.8.0: on-hold / delayed reasons) — round 3, after the user proved cache is NOT the cause
 
+> ## ⚠️ SUPERSEDED FOR v2.0 (added 2026-10-24 by the v2.0 QA pass)
+>
+> This note diagnoses the **v1.8.0 markup** (`.task-line` flex row). The v2.0 conversion changed the DOM: the reason chip now lives inside `.task-node__reasons` — a **column** flex container (`display:flex; flex-direction:column` in `assets/css/v2-components.css`) — and `.task-node__head` carries `flex-wrap:wrap`. The chip therefore stacks under the task name by construction, and the retired `.task-line` rule was deliberately removed by issue-053's dead-CSS sweep.
+>
+> **The overlap described below no longer reproduces in v2.0** — confirmed in the live client portal HTML (`<div class="task-node__reasons"><div class="reason-chip reason-chip--on-hold">…`) and by 8 automated assertions in `database/v2_0_acceptance_test.php`.
+>
+> **Do not re-apply the `flex-wrap` fix to `.task-line`** — that rule no longer exists. See [`docs/v2.0-test-report.md`](../../v2.0-test-report.md) §6, observation O-1.
+>
+> The note below is kept for the v1.8.0 record only.
+
+---
+
 > **Author:** Tester
 > **Purpose:** **Supersedes `tester-note-002.md`.** Round-2 wrongly blamed nginx / browser cache for the still-broken overlap visual. The user loaded the screenshot in their next message with DevTools **"Disable cache"** turned ON and the Network panel showing fresh fetches — yet the bug is still present. The cache theory is therefore wrong, and the round-2 note must be retracted.
 > **New verdict (real root cause):** the dev's `flex-basis: 100%` fix is **necessary but not sufficient.** It misses the missing `flex-wrap: wrap;` on the parent container `.task-line`. Without wrapping enabled on the parent, `flex-basis: 100%` is silently treated as "I want 100% but I'm allowed to shrink" — and the chip ends up on **the same row as the title**, occupying most of the visible width and visually covering the rest.

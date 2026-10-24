@@ -30,6 +30,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/Database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/slug.php';
 
 $db = Database::getInstance();
 $failures = [];
@@ -220,9 +221,9 @@ $db->execute(
 $user_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, share_code, responsible_person_id, created_at)
-     VALUES (?, ?, ?, NOW())",
-    [$test_project_name, generateShareCode(), $user_id]
+    "INSERT INTO projects (name, slug, share_code, responsible_person_id, created_at)
+     VALUES (?, ?, ?, ?, NOW())",
+    [$test_project_name, generateUniqueSlug($test_project_name, 'projects'), generateShareCode(), $user_id]
 );
 $project_id = (int)$db->lastInsertId();
 
@@ -232,9 +233,9 @@ try {
     // Helper to create a task.
     $create = function ($name, $parent_id, $status) use ($db, $project_id, $user_id, &$created_task_ids) {
         $db->execute(
-            "INSERT INTO tasks (project_id, parent_task_id, name, responsible_person_id, status, completion_percentage, completion_date, created_at)
-             VALUES (?, ?, ?, ?, ?, 0, NULL, NOW())",
-            [$project_id, $parent_id, $name, $user_id, $status]
+            "INSERT INTO tasks (project_id, parent_task_id, name, slug, responsible_person_id, status, completion_percentage, completion_date, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NOW())",
+            [$project_id, $parent_id, $name, generateUniqueSlug($name, 'tasks'), $user_id, $status]
         );
         $id = (int)$db->lastInsertId();
         $created_task_ids[] = $id;

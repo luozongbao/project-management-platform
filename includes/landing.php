@@ -1,0 +1,241 @@
+<?php
+/**
+ * Public landing page — domain root.
+ *
+ * Three flows:
+ *  1. Logged-in owner → redirect to dashboard.php
+ *  2. GET ?code=XXXXX-XXXXX-XXXXX → redirect to client/dashboard.php?code=…
+ *  3. POST with code → verify code exists, redirect to client/dashboard.php?code=…
+ *  4. GET (no code) → show the code-entry form and the owner login link.
+ *
+ * The share code itself is the client credential — no client login. Owners
+ * use the visible "Owner sign in" link to reach the normal login page.
+ *
+ * Localization: ENG (default) / 中文. Choose via ?lang=, browser header,
+ * or the toggle on this form. Choice persists in a 1-year cookie.
+ */
+
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../includes/Database.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../client/lang.php';
+
+// Issue-020: security response headers (tightened CSP — no 'unsafe-inline'
+// for script-src because the client portal has no inline event handlers).
+require_once __DIR__ . '/../includes/security_headers.php';
+sendClientPortalSecurityHeaders();
+
+// Persist ?lang= into the cookie so subsequent navigations remember it.
+if (isset($_GET['lang']) && in_array($_GET['lang'], client_supported_langs(), true)) {
+    client_set_lang_cookie($_GET['lang']);
+}
+$lang = client_current_lang();
+
+// Logged-in owners go straight to their dashboard — they don't need to
+// re-enter a code here. This preserves the prior behaviour for owners.
+// Absolute path so it resolves the same way no matter which URL the
+// user landed on.
+if (function_exists('isLoggedIn') && isLoggedIn()) {
+    header('Location: /dashboard');
+    exit();
+}
+
+$db = Database::getInstance();
+
+// Issue-023: rate-limit the public client portal by client IP. The
+// same limit applies to BOTH the direct-link branch (?code=… in the
+// URL) AND the form-POST branch. We pull a candidate code from
+// either source and apply the limit BEFORE doing any DB lookup so
+// the limit fires even on malformed / non-existent codes. The IP
+// is REMOTE_ADDR, never X-Forwarded-For.
+$clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+$candidateCode = $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? (string)($_POST['code'] ?? '')
+    : (string)($_GET['code'] ?? '');
+
+// Initialise at function scope so a plain GET (no POST, no ?code=)
+// does not emit "Undefined variable" warnings when the template
+// later reads $code and $error (input value + error banner). Both
+// variables are otherwise only assigned inside the direct-link
+// GET branch and the POST branch — neither of which runs on a
+// fresh landing-page render. (tester-note-001 bug 3 / note-002 §2.1)
+$code  = '';
+$error = '';
+
+// Helper: validate format only — don't reveal whether a code exists until
+// we actually look it up. Format = 5-5-5 of A-Z0-9 minus confusing chars.
+function isValidShareCodeFormat($code) {
+    return (bool)preg_match('/^[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/', strtoupper((string)$code));
+}
+
+// --- 1. Direct link: ?code=… → dashboard -----------------------------------
+$code = $_GET['code'] ?? '';
+if ($code !== '') {
+    $code = strtoupper(trim($code));
+
+    // Issue-023: per-IP rate limit applies before the format/exists
+    // checks. A 429 records one failure; the redirect target
+    // client/dashboard.php does its own check so the same IP can't
+    // bypass the limit by switching the entry surface.
+    if (isShareCodeRateLimited($clientIp)) {
+        recordShareCodeAttempt($clientIp, $code, null, false);
+        http_response_code(429);
+        $error = t('err.too_many_requests');
+    } else {
+        if (isValidShareCodeFormat($code)) {
+            $exists = $db->fetchOne(
+                "SELECT 1 AS x FROM projects WHERE share_code = ?",
+                [$code]
+            );
+            if ($exists) {
+                // The form-validation succeeded; the redirect target
+                // does the heavy lifting (and will record the actual
+                // success/failure against the project row).
+                recordShareCodeAttempt($clientIp, $code, null, true);
+                header('Location: /client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
+                exit();
+            }
+            // Format passed but no project — record as failure.
+            recordShareCodeAttempt($clientIp, $code, null, false);
+        } else {
+            // Malformed direct-link — still record so a brute-force
+            // spray of random strings is throttled.
+            recordShareCodeAttempt($clientIp, $code, null, false);
+        }
+        // Bad/missing code falls through and shows the form again with an error.
+    }
+}
+
+// --- 2. Form submission -----------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $code = strtoupper(trim($_POST['code'] ?? ''));
+
+    // Issue-023: per-IP rate limit on the POST too. We check
+    // BEFORE the format/empty/exists checks so a script spraying
+    // form POSTs hits the same wall.
+    if (isShareCodeRateLimited($clientIp)) {
+        recordShareCodeAttempt($clientIp, $code, null, false);
+        http_response_code(429);
+        $error = t('err.too_many_requests');
+    } elseif ($code === '') {
+        $error = t('err.empty_code');
+    } elseif (!isValidShareCodeFormat($code)) {
+        recordShareCodeAttempt($clientIp, $code, null, false);
+        $error = t('err.bad_format');
+    } else {
+        $exists = $db->fetchOne(
+            "SELECT 1 AS x FROM projects WHERE share_code = ?",
+            [$code]
+        );
+        if (!$exists) {
+            recordShareCodeAttempt($clientIp, $code, null, false);
+            $error = t('err.no_project');
+        } else {
+            // The form-validation succeeded; the redirect target
+            // does the heavy lifting (and will record the actual
+            // success/failure against the project row).
+            recordShareCodeAttempt($clientIp, $code, null, true);
+            header('Location: /client/dashboard.php?code=' . rawurlencode($code) . '&lang=' . urlencode($lang));
+            exit();
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="<?= e($lang) ?>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= e(t('landing.title')) ?> — <?= e(APP_NAME) ?></title>
+    <link rel="icon" type="image/png" href="/assets/image/project-favicon.png">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-tokens.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/style.css')) ?>">
+    <?php /* Issue-050: layer 2.5 — the shared v2 component layer. The client
+            portal is not served through includes/header.php, so it has to
+            opt in explicitly. Same order as the internal app: tokens ->
+            legacy base -> v2 components -> page CSS, so the client page
+            CSS gets the final say at equal specificity. */ ?>
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/v2-components.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('/client/assets/client.css')) ?>">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="client-body">
+
+<?php /* Issue-051: the public landing page moves to the v2.0 mockup
+        vocabulary (docs/design/2.0/landing.html). The legacy
+        .client-card / .client-brand / .client-form / .form-group /
+        .owner-login vocabulary is replaced by .landing / .landing__card /
+        .landing__logo / .landing__code-input / .landing__foot plus the
+        shared .field / .hint / .input / .btn--primary / .alert--danger
+        vocabulary from v2-components.css.
+
+        RED LINES (unchanged):
+          - id="code" name="code" + pattern + placeholder + the inline
+            style attribute. assets/js/share-code-format.js keys off
+            exactly this field and its inline styling.
+          - POST action "/" — the form posts to the domain root.
+          - The rate-limit caps/ordering and the DB lookup order. */
+?>
+<div class="landing">
+    <div class="landing__card">
+        <div class="landing__logo"><i class="fas fa-project-diagram"></i></div>
+        <h1><?= e(APP_NAME) ?></h1>
+        <p class="text-muted text-sm" style="margin-bottom: 1.5rem;">
+            <?= e(t('landing.tagline')) ?>
+        </p>
+
+        <?php if ($error): ?>
+            <div class="alert alert--danger" role="alert">
+                <i class="fas fa-circle-exclamation"></i>
+                <div class="alert__body">
+                    <div class="alert__title"><?= e(t('landing.try_again')) ?></div>
+                    <?= e($error) ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <form method="POST" action="/" autocomplete="off" style="text-align: left;">
+            <div class="field" style="margin-bottom: 1rem;">
+                <label for="code"><?= e(t('landing.code_label')) ?></label>
+                <input
+                    class="input landing__code-input"
+                    type="text"
+                    id="code"
+                    name="code"
+                    placeholder="<?= e(t('landing.code_placeholder')) ?>"
+                    value="<?= e($code) ?>"
+                    maxlength="17"
+                    required
+                    autofocus
+                    pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"
+                    title="Format: 5-5-5 alphanumeric, e.g. AX498-99ZB2-92C3J"
+                    style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.15rem;">
+                <span class="hint"><?= e(t('landing.code_help')) ?></span>
+            </div>
+            <button type="submit" class="btn btn--primary btn--lg btn--block">
+                <i class="fas fa-arrow-right"></i> <?= e(t('landing.submit')) ?>
+            </button>
+        </form>
+
+        <div class="auth-card__divider"><?= e(t('landing.divider_or')) ?></div>
+
+        <a class="btn btn--secondary btn--block" href="/login">
+            <i class="fas fa-user-lock"></i> <?= e(t('landing.owner_login')) ?>
+        </a>
+
+        <p class="landing__note"><?= e(t('landing.foot')) ?></p>
+
+        <div class="landing__foot">
+            <div class="lang-switch" data-lang-switch role="group" aria-label="<?= e(t('landing.lang_label')) ?>">
+                <?php foreach (client_all_langs() as $code2 => $label): ?>
+                    <a href="<?= e(client_lang_url($code2)) ?>"
+                       class="lang-switch-link<?= ($code2 === client_current_lang()) ? ' is-active' : '' ?>"
+                       <?= ($code2 === client_current_lang()) ? ' aria-current="true"' : '' ?>><?= e($label) ?></a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/assets/js/share-code-format.js" defer></script>
+</body>
+</html>
