@@ -12,6 +12,57 @@ if (isLoggedIn()) {
     exit();
 }
 
+// Public registration can be closed by configuration (issue-039).
+// This must be checked before any input processing, and for both GET and
+// POST, so a direct POST cannot bypass the UI. The guard sits ABOVE the
+// `if ($_POST)` block below on purpose: a check placed inside the POST
+// branch would still let a GET render the form, and would let any future
+// code path that creates a user bypass the gate entirely.
+if (!isRegistrationAllowed()) {
+    http_response_code(403);
+    $title = "Registration Closed";
+    $use_v2_shell = true;
+    $content_bleed = true;
+
+    include 'includes/header.php';
+    ?>
+    <link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/auth.css')) ?>">
+
+    <div class="auth-shell">
+        <aside class="auth-aside">
+            <div class="auth-aside__brand">
+                <span class="auth-aside__brand-icon"><i class="fas fa-project-diagram"></i></span>
+                <?= APP_NAME ?>
+            </div>
+            <div>
+                <h2 class="auth-aside__headline">Set up your<br>workspace in<br>under a minute.</h2>
+                <p class="auth-aside__sub">One owner account gives you projects, tasks, subtasks, contacts and a client-facing share portal.</p>
+                <ul class="auth-aside__points">
+                    <li><i class="fas fa-circle-check"></i><span>Projects with budget, scope and three milestone dates</span></li>
+                    <li><i class="fas fa-circle-check"></i><span>Tasks and subtasks with completion tracking</span></li>
+                    <li><i class="fas fa-circle-check"></i><span>Contacts linked to projects and tasks</span></li>
+                </ul>
+            </div>
+            <div class="auth-aside__foot"><?= APP_VERSION ?> &middot; <?= APP_NAME ?></div>
+        </aside>
+
+        <main class="auth-main">
+            <div class="auth-card">
+                <h1>Registration is closed</h1>
+                <p class="auth-card__sub">
+                    New accounts cannot be created on this installation.
+                </p>
+                <div class="auth-card__foot">
+                    <a href="/login"><i class="fas fa-arrow-left"></i> Back to Login</a>
+                </div>
+            </div>
+        </main>
+    </div>
+    <?php
+    include 'includes/footer.php';
+    exit();
+}
+
 $errors = [];
 $success = false;
 

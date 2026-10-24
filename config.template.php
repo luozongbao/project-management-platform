@@ -23,6 +23,9 @@ const APP_VERSION = 'v1.8.0';
 const APP_URL = 'http://localhost';
 const TIMEZONE = 'UTC';
 
+// Public registration (issue-039). false = /register is closed (403).
+const APP_ALLOW_REGISTRATION = true;
+
 // Security
 const SESSION_LIFETIME = 3600; // 1 hour
 const PASSWORD_RESET_EXPIRY = 3600; // 1 hour

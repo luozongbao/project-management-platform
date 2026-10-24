@@ -60,6 +60,55 @@ function requireLogin() {
     }
 }
 
+/**
+ * Whether public registration is currently allowed.
+ *
+ * The flag lives in config.php as a single constant, so the same edit works
+ * on Docker and on plain shared hosting:
+ *
+ *   const APP_ALLOW_REGISTRATION = true;   // registration open
+ *   const APP_ALLOW_REGISTRATION = false;  // registration closed
+ *
+ * The default is permissive on purpose. A missing or misspelled constant must
+ * never lock every new user out of the system.
+ *
+ * The `static` cache below lasts for the lifetime of ONE request only, so a
+ * change to config.php takes effect on the very next page load -- there is
+ * nothing to clear and no restart to perform.
+ */
+function isRegistrationAllowed() {
+    static $allowed = null;
+    if ($allowed !== null) {
+        return $allowed;
+    }
+
+    if (!defined('APP_ALLOW_REGISTRATION')) {
+        // Not declared - default to open.
+        return $allowed = true;
+    }
+
+    $raw = APP_ALLOW_REGISTRATION;
+
+    if (is_bool($raw)) {
+        // The normal case: the constant is a real PHP boolean.
+        return $allowed = $raw;
+    }
+
+    // Tolerate a quoted string ("true" / "false") in case a hand-edit adds
+    // quotes, but treat anything unrecognised as permissive and log it so a
+    // typo is discoverable rather than invisible.
+    $parsed = filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($parsed === null) {
+        error_log(
+            'APP_ALLOW_REGISTRATION: unrecognised value "' . var_export($raw, true) .
+            '" - defaulting to allowed.'
+        );
+        return $allowed = true;
+    }
+
+    return $allowed = $parsed;
+}
+
 // Get current user ID
 function getCurrentUserId() {
     startSession();

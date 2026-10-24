@@ -135,12 +135,14 @@ $content_bleed = true;
                 </button>
             </form>
 
-            <div class="auth-card__divider">New here?</div>
+            <?php if (isRegistrationAllowed()): ?>
+                <div class="auth-card__divider">New here?</div>
 
-            <a class="btn btn--secondary btn--block" href="/register">
-                <i class="fas fa-user-plus"></i>
-                Create an account
-            </a>
+                <a class="btn btn--secondary btn--block" href="/register">
+                    <i class="fas fa-user-plus"></i>
+                    Create an account
+                </a>
+            <?php endif; ?>
 
             <div class="auth-card__foot">
                 <a href="/"><i class="fas fa-key"></i> Client? Enter your share code</a>

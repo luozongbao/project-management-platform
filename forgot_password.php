@@ -168,7 +168,9 @@ include 'includes/header.php';
 
             <div class="auth-links" style="margin-top: var(--sp-5);">
                 <a href="/login"><i class="fas fa-arrow-left"></i> Back to Login</a>
-                <a href="/register">Don't have an account? Register</a>
+                <?php if (isRegistrationAllowed()): ?>
+                    <a href="/register">Don't have an account? Register</a>
+                <?php endif; ?>
             </div>
         </div>
     </main>
