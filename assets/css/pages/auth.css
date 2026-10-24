@@ -1,0 +1,120 @@
+/* ==========================================================================
+   Auth screens — v2 (login, register, forgot-password, reset-password, install)
+   --------------------------------------------------------------------------
+   Migrated from the inline <style> blocks those pages previously carried.
+   Structure follows docs/design/2.0/login.html, register.html,
+   forgot-password.html and reset-password.html, and §6 "Auth screens".
+
+   This is ONE file for all the auth screens, not one per page: the shell
+   (.auth-shell / .auth-aside / .auth-main / .auth-card) is identical across
+   them and only the copy differs, so duplicating it would guarantee drift.
+
+   SCOPE (agreed for v2.0): structure and appearance only. The mockup also
+   shows a password show/hide toggle and a "Remember me" checkbox; both are
+   behaviour features and are deliberately NOT implemented. Keep this file
+   presentational.
+
+   Loaded AFTER v2-components.css, so it may override component rules.
+   ========================================================================== */
+
+/* The auth shell is full-bleed, but header.php always wraps page output in
+   <main class="content"> which carries padding and a max-width. The page opts
+   out via $content_bleed, which adds .content--bleed — neutralise both so the
+   auth screen owns the full viewport. */
+.content--bleed {
+    padding: 0;
+    max-width: none;
+    margin: 0;
+}
+
+.auth-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* --- Aside panel ---------------------------------------------------------- */
+.auth-aside {
+    background: linear-gradient(150deg, var(--brand-800), var(--brand-600) 55%,
+var(--brand-500));
+    color: #fff;
+    padding: var(--sp-12);
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative; overflow: hidden;
+}
+.auth-aside::after {
+    content: ""; position: absolute; right: -140px; bottom: -140px;
+    width: 420px; height: 420px; border-radius: 50%;
+    background: rgba(255,255,255,.07);
+}
+.auth-aside__brand { display: flex; align-items: center; gap: var(--sp-3); font-
+weight: var(--fw-bold); font-size: var(--fs-lg); }
+.auth-aside__brand-icon {
+    width: 40px; height: 40px; border-radius: var(--r-md);
+    background: rgba(255,255,255,.18); display: grid; place-items: center;
+}
+.auth-aside__headline { font-size: var(--fs-3xl); font-weight: var(--fw-bold); line-
+height: 1.15; margin-bottom: var(--sp-4); color: #fff; }
+.auth-aside__sub { color: rgba(255,255,255,.82); font-size: var(--fs-base); max-
+width: 420px; }
+.auth-aside__points { list-style: none; padding: 0; margin: var(--sp-6) 0 0; dis-
+play: flex; flex-direction: column; gap: var(--sp-3); }
+.auth-aside__points li { display: flex; gap: var(--sp-3); align-items: flex-star-
+t; color: rgba(255,255,255,.92); font-size: var(--fs-sm); }
+.auth-aside__points i { color: #fff; margin-top: 3px; }
+.auth-aside__foot { font-size: var(--fs-xs); color: rgba(255,255,255,.6); }
+
+/* --- Card ---------------------------------------------------------------- */
+.auth-main { display: grid; place-items: center; padding: var(--sp-10) var(--sp-6); background: var(--gray-0); }
+.auth-card { width: 100%; max-width: 420px; }
+.auth-card h1 { font-size: var(--fs-2xl); margin-bottom: var(--sp-2); }
+.auth-card__sub { color: var(--gray-500); font-size: var(--fs-sm); margin-bottom: var(--sp-6); }
+.auth-card .field { margin-bottom: var(--sp-4); }
+.auth-card__foot { text-align: center; margin-top: var(--sp-5); font-size: var(--fs-sm); color: var(--gray-500); }
+.auth-card__divider {
+    display: flex; align-items: center; gap: var(--sp-3);
+    margin: var(--sp-5) 0; color: var(--gray-400); font-size: var(--fs-xs);
+}
+.auth-card__divider::before, .auth-card__divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--gray-200);
+}
+.auth-links { display: flex; justify-content: space-between; align-items: center;
+    font-size: var(--fs-sm); }
+
+/* --- Register-specific ----------------------------------------------------
+   The post-registration success panel stacks several paragraphs plus a link.
+   The shared .alert__body needs to allow them to breathe. */
+.auth-card .alert__body p { margin: 0 0 var(--sp-2); }
+.auth-card .alert__body p:last-child { margin-bottom: 0; }
+.auth-card .alert__title { font-weight: var(--fw-semibold); margin-bottom: var(--sp-1); }
+
+/* --- Reset-password specific ---------------------------------------------
+   Confirms WHICH account is being reset before the user types a new
+   password. Replaces the old .reset-info block. */
+.auth-reset-info {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--gray-600);
+}
+.auth-reset-info p { margin: 0; }
+.auth-reset-info p + p { margin-top: var(--sp-1); color: var(--gray-500); font-size: var(--fs-xs); }
+.auth-reset-info strong { color: var(--gray-900); font-weight: var(--fw-semibold); }
+
+/* --- Responsive ---------------------------------------------------------
+   Below the two-column breakpoint the aside panel stacks above the form.
+   Its marketing content (headline, points) is the first thing to drop —
+   the sign-in card is what the user actually came for. */
+@media (max-width: 900px) {
+    .auth-shell { grid-template-columns: 1fr; }
+    .auth-aside { padding: var(--sp-8) var(--sp-6); gap: var(--sp-6); }
+    .auth-aside__points { display: none; }
+}
+@media (max-width: 480px) {
+    .auth-aside__headline { font-size: var(--fs-2xl); }
+    .auth-main { padding: var(--sp-6) var(--sp-4); }
+    .auth-links { flex-direction: column; gap: var(--sp-2); }
+}

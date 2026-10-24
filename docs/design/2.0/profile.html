@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <span class="sidebar__brand-icon"><i class="fas fa-project-diagram"></i></span>
+        <span class="sidebar__brand-text">Project Management System<small>v2.0 redesign</small></span>
+      </div>
+      <nav class="sidebar__nav" aria-label="Main navigation">
+        <a class="sidebar__link" href="dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+        <a class="sidebar__link" href="projects.html"><i class="fas fa-folder-open"></i><span>Projects</span></a>
+        <a class="sidebar__link" href="tasks.html"><i class="fas fa-tasks"></i><span>Tasks</span><span class="badge-count">3</span></a>
+        <a class="sidebar__link" href="contacts.html"><i class="fas fa-address-book"></i><span>Contacts</span></a>
+        <div class="sidebar__section-label">Account</div>
+        <a class="sidebar__link is-active" href="profile.html"><i class="fas fa-user-edit"></i><span>My Profile</span></a>
+        <a class="sidebar__link" href="index.html"><i class="fas fa-palette"></i><span>Design Index</span></a>
+      </nav>
+      <div class="sidebar__footer">
+        <span class="sidebar__avatar">ZM</span>
+        <span class="sidebar__user">
+          <span class="sidebar__user-name">Zongbao M.</span>
+          <span class="sidebar__user-role">Owner</span>
+        </span>
+      </div>
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <button class="topbar__toggle" type="button" data-sidebar-toggle aria-label="Toggle navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar__search">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="search" placeholder="Search projects, tasks, contacts&hellip;" aria-label="Global search">
+        </div>
+        <div class="topbar__actions">
+          <button class="topbar__icon-btn" type="button" title="Notifications" data-toast="3 notifications" data-toast-kind="warning">
+            <i class="far fa-bell"></i><span class="dot" aria-hidden="true"></span>
+          </button>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" title="About" style="list-style:none;">
+              <i class="far fa-circle-question"></i>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <div style="padding:.6rem .75rem;border-bottom:1px solid var(--gray-100);">
+                <div class="text-sm fw-semibold">Version v2.0</div>
+                <div class="text-xs text-muted">Built by: Me</div>
+                <div class="text-xs text-muted">Vibe coding with AI agent</div>
+              </div>
+              <div class="dropdown__divider"></div>
+              <a class="dropdown__item" href="index.html"><i class="fas fa-rocket"></i> What&rsquo;s new in v2.0</a>
+            </div>
+          </details>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" style="list-style:none;">
+              <span class="avatar">ZM</span>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <a class="dropdown__item" href="profile.html"><i class="fas fa-user-edit"></i> Profile</a>
+              <a class="dropdown__item" href="login.html"><i class="fas fa-right-from-bracket"></i> Logout</a>
+            </div>
+          </details>
+        </div>
+      </header>
+      <main class="content">
+        <div class="page-header">
+          <div class="page-header__text">
+            <h1><i class="fas fa-user-edit"></i> My Profile</h1>
+            <p class="page-header__sub">Manage your account details and password.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn--primary" type="button" data-toast="Profile saved (demo)" data-toast-kind="success">
+              <i class="fas fa-floppy-disk"></i> Save Changes
+            </button>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat__icon"><i class="fas fa-folder-open"></i></div>
+            <div><div class="stat__value">7</div><div class="stat__label">Projects</div></div>
+          </div>
+          <div class="stat">
+            <div class="stat__icon"><i class="fas fa-list-check"></i></div>
+            <div><div class="stat__value">38</div><div class="stat__label">Tasks</div></div>
+          </div>
+          <div class="stat stat--success">
+            <div class="stat__icon"><i class="fas fa-circle-check"></i></div>
+            <div><div class="stat__value">19</div><div class="stat__label">Completed</div></div>
+          </div>
+          <div class="stat stat--info">
+            <div class="stat__icon"><i class="fas fa-address-book"></i></div>
+            <div><div class="stat__value">18</div><div class="stat__label">Contacts</div></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <form class="card" action="#" method="post">
+            <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-id-card"></i> Profile information</h2></div>
+            <div class="card__body">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="name">Full Name</label>
+                  <input class="input" type="text" id="name" name="name" value="Zongbao M.">
+                </div>
+                <div class="field">
+                  <label for="username">Username</label>
+                  <input class="input" type="text" id="username" name="username" value="zongbao">
+                </div>
+                <div class="field">
+                  <label for="email">Email Address</label>
+                  <input class="input" type="email" id="email" name="email" value="zongbao@example.com">
+                </div>
+              </div>
+            </div>
+            <div class="card__footer">
+              <button class="btn btn--primary" type="submit"><i class="fas fa-floppy-disk"></i> Update Profile</button>
+            </div>
+          </form>
+
+          <form class="card" action="#" method="post">
+            <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-lock"></i> Change Password</h2></div>
+            <div class="card__body">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="current_password">Current Password</label>
+                  <input class="input" type="password" id="current_password" name="current_password" autocomplete="current-password">
+                </div>
+                <div class="field">
+                  <label for="new_password">New Password</label>
+                  <input class="input" type="password" id="new_password" name="new_password" autocomplete="new-password">
+                  <span class="hint">At least 8 characters, including a letter and a number.</span>
+                </div>
+                <div class="field">
+                  <label for="confirm_password">Confirm New Password</label>
+                  <input class="input" type="password" id="confirm_password" name="confirm_password" autocomplete="new-password">
+                  <span class="error-text"><i class="fas fa-circle-exclamation"></i> Passwords do not match.</span>
+                </div>
+              </div>
+            </div>
+            <div class="card__footer">
+              <button class="btn btn--primary" type="submit"><i class="fas fa-key"></i> Change Password</button>
+            </div>
+          </form>
+        </div>
+      </main>
+      <footer class="footer">
+        &copy; 2026 Project Management System. All rights reserved.
+      </footer>
+    </div>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

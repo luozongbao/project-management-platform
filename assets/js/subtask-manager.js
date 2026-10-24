@@ -388,10 +388,10 @@ class SubtaskManager {
                     </div>
                 </div>
                 <div class="subtask-actions">
-                    <button class="btn btn-sm btn-success save-subtask" onclick="subtaskManager.saveSubtask(this)">
+                    <button class="btn btn--sm btn--success save-subtask" onclick="subtaskManager.saveSubtask(this)">
                         <i class="fas fa-save"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger delete-subtask" onclick="subtaskManager.deleteSubtask(this)">
+                    <button class="btn btn--sm btn--danger delete-subtask" onclick="subtaskManager.deleteSubtask(this)">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>

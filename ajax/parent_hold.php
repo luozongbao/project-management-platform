@@ -60,17 +60,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $csrf_token = $_POST['csrf_token'] ?? '';
 if (!validateCsrfToken($csrf_token)) {
     send_error($is_ajax, 400, 'Invalid form token. Please reload the page and try again.',
-        'tasks.php');
+        '/tasks');
 }
 
 $task_id = isset($_POST['task_id']) ? (int)$_POST['task_id'] : 0;
 $action = $_POST['action'] ?? '';
 
 if ($task_id <= 0) {
-    send_error($is_ajax, 400, 'Task ID is required.', 'tasks.php');
+    send_error($is_ajax, 400, 'Task ID is required.', '/tasks');
 }
 if (!in_array($action, ['hold', 'resume'], true)) {
-    send_error($is_ajax, 400, 'Invalid action.', 'tasks.php');
+    send_error($is_ajax, 400, 'Invalid action.', '/tasks');
 }
 
 $db = Database::getInstance();
@@ -90,7 +90,7 @@ if (!$task || (int)$task['responsible_person_id'] !== (int)$user_id) {
 
 if ($task['parent_task_id'] !== null) {
     send_error($is_ajax, 400, 'Only top-level parent tasks can be put on hold.',
-        'task_detail.php?id=' . $task_id);
+        '/tasks/' . $task_id);
 }
 
 $child_count = (int)($db->fetchOne(
@@ -100,7 +100,7 @@ $child_count = (int)($db->fetchOne(
 
 if ($child_count === 0) {
     send_error($is_ajax, 404, 'This task has no sub-tasks, so the hold action does not apply.',
-        'task_detail.php?id=' . $task_id);
+        '/tasks/' . $task_id);
 }
 
 // Issue-034 v1.8.0: the on-hold path requires a non-empty trimmed
@@ -114,11 +114,11 @@ if ($action === 'hold') {
         : '';
     if ($on_hold_reason === '') {
         send_error($is_ajax, 400, 'On-hold reason is required when putting a task on hold.',
-            'task_detail.php?id=' . $task_id);
+            '/tasks/' . $task_id);
     }
     if (strlen($on_hold_reason) > 2000) {
         send_error($is_ajax, 400, 'On-hold reason must be 2000 characters or less.',
-            'task_detail.php?id=' . $task_id);
+            '/tasks/' . $task_id);
     }
 }
 
@@ -144,7 +144,10 @@ if ($action === 'hold') {
     $set_completion_date = '';
     $params = [$new_status, $task_id];
     if ($new_status === 'completed') {
-        $set_completion_date = ', completion_date = COALESCE(completion_date, NOW())';
+        // Issue-055: completion_date is a SQL DATE column — NOW() would be
+        // silently truncated by MariaDB, so use CURDATE() for day precision
+        // to match task_edit.php.
+        $set_completion_date = ', completion_date = COALESCE(completion_date, CURDATE())';
     } elseif ($task['status'] === 'completed') {
         $set_completion_date = ', completion_date = NULL';
     }
@@ -162,5 +165,5 @@ if ($is_ajax) {
     exit;
 }
 
-header('Location: task_detail.php?id=' . $task_id);
+header('Location: /tasks/' . $task_id);
 exit;

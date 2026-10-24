@@ -47,7 +47,7 @@ class EmailService {
             // the envelope, but the visible body is rendered below.
             $this->mailer->addAddress($to_email, self::sanitizePlaintextName($to_name));
 
-            $reset_url = APP_URL . "/reset_password.php?token=" . $reset_token;
+            $reset_url = APP_URL . "/reset-password?token=" . $reset_token;
             $rendered  = self::renderPasswordResetBody($to_name, $reset_url);
 
             $this->mailer->isHTML(true);
@@ -68,7 +68,7 @@ class EmailService {
             $this->mailer->clearAddresses();
             $this->mailer->addAddress($to_email, self::sanitizePlaintextName($to_name));
 
-            $reset_url = APP_URL . "/reset_password.php?token=" . $reset_token;
+            $reset_url = APP_URL . "/reset-password?token=" . $reset_token;
             $rendered  = self::renderWelcomeBody($to_name, $reset_url);
 
             $this->mailer->isHTML(true);

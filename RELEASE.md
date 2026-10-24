@@ -1,5 +1,343 @@
 # Release Notes
 
+## v2.0 — 2026-10-25
+
+**Major release: the v2.0 front-end redesign.** Closes
+[issue-035](docs/issues/issue-035.md) and the follow-up alignment issues
+036–055. Every page of the internal console, the install wizard and the public
+client portal has been rebuilt on a shared v2 design system.
+
+> ### ⚠️ Deploy note — the production origin is compromised
+>
+> The v2.0 acceptance test report ([docs/v2.0-test-report.md](docs/v2.0-test-report.md))
+> records a **P0 operational incident** that no code change can fix:
+> `project.lorwongam.com` **no longer serves the application** — it serves a
+> BSC crypto-miner for every path. The report's verdict is
+> **"READY TO SHIP (code-wise)"** with **110 PASS / 0 FAIL**, but the origin
+> must be **rebuilt before v2.0 is deployed there**.
+>
+> Do not deploy v2.0 to `project.lorwongam.com` until the origin is restored.
+
+### The v2.0 red line
+
+v2.0 is a **restyle only**. Per issue-035, it may not remove, rename, merge,
+weaken or defer any v1.8.0 business capability. Forbidden: removing form
+fields, removing/renaming buttons/filters/stat cards, weakening validation,
+removing CSRF/share-code/throttles, changing AJAX endpoint contracts, dropping
+the client ENG/中文 switch, dropping the About/version panel, changing any
+query-parameter name, changing email/SMTP behaviour.
+
+The **one** permitted exception is URL *shape* (`.php` → clean path); query
+parameter names, AJAX endpoint paths, the client share-code URL format
+(`/?code=XXXXX-XXXXX-XXXXX`) and the i18n key set are unchanged.
+
+### Phase 0 — routing
+
+- **`slug` columns** added to `projects`, `tasks` and `contacts` via
+  `database/migrations/20261022_add_slugs.sql`; `slugify()` /
+  `generateUniqueSlug()` in `includes/functions.php`.
+- **Front controller** (`includes/Router.php`, 484 lines) with a route table,
+  plus the `.htaccess` and nginx rules. Legacy `.php` URLs 301-redirect to
+  the clean form.
+- **Numeric IDs in public URLs** ([issue-040](docs/issues/issue-040.md)) —
+  the canonical detail URL for all three collections is now
+  `/projects/<id>`, `/tasks/<id>`, `/contacts/<id>`. Slugs are mutable
+  (`generateUniqueSlug()` appends `-2` on collision), so renaming a project
+  used to break its URL, bookmarks and inbound links; IDs are stable. The
+  `slug` columns are deliberately **retained** so `includes/legacy_redirects.php`
+  can still resolve historical links — every existing slug URL 301s to its id.
+- **Reset-password route fix** ([issue-037](docs/issues/issue-037.md)) —
+  `/reset-password` and `/reset-password/<token>` were declared in the router
+  but returned **HTTP 404**, so every emailed password-reset link was dead.
+- Query-parameter names, form field names and the client share-code URL shape
+  are unchanged.
+
+### Phase 1 — visual redesign
+
+- **`assets/css/v2-tokens.css`** — the token layer (colour, spacing, radius,
+  typography, shadow, duration). 103 tokens; semantic tints use
+  `-100` / `-500` / `-700`.
+- **`assets/css/v2-components.css`** — the shared component vocabulary
+  (`.card`, `.btn`, `.status`, `.badge`, `.modal*`, `.toast*`, `.stat-grid`,
+  `.detail-list`, `.table`, `.task-tree`, `.form-grid`, `.field`, `.alert`, …).
+- **`assets/css/pages/*.css`** — 14 per-page stylesheets, so page styling no
+  longer lives in inline `<style>` blocks.
+- **Page conversions** — every page rebuilt on the v2 vocabulary, with its
+  styles moved to `assets/css/pages/<page>.css` and its inline `<style>` and
+  inline `<script>` blocks deleted:
+
+  | Page | Issue |
+  |---|---|
+  | `dashboard.php` | [issue-038](docs/issues/issue-038.md) |
+  | `projects.php`, `tasks.php`, `contacts.php`, `profile.php` | [issue-038](docs/issues/issue-038.md) |
+  | Detail pages — `project_detail.php`, `task_detail.php`, `contact_detail.php` | [issue-041](docs/issues/issue-041.md), [issue-043](docs/issues/issue-043.md), [issue-045](docs/issues/issue-045.md), [issue-046](docs/issues/issue-046.md) |
+  | New/Edit forms — `project_edit.php`, `contact_edit.php`, `task_edit.php` | [issue-047](docs/issues/issue-047.md) |
+  | Auth pages — `login.php`, `register.php`, `forgot_password.php`, `reset_password.php` | [issue-038](docs/issues/issue-038.md), [issue-055](docs/issues/issue-055.md) |
+  | Client portal — `client/dashboard.php` | [issue-050](docs/issues/issue-050.md) |
+  | Client landing page — `includes/landing.php` | [issue-051](docs/issues/issue-051.md) |
+  | Install wizard — `install.php` | [issue-052](docs/issues/issue-052.md) |
+
+- **`assets/js/script.js`** — the shared client-side behaviour moved out of
+  per-page inline scripts: `initModals()`, `initRangeSync()`,
+  `initStatusReason()`, `initCopy()` and the toast helper `pmpToast()`.
+
+### Phase 1.6 — dead CSS rule sweep
+
+[issue-053](docs/issues/issue-053.md)
+
+The page-by-page v2 conversion left the superseded v1 rules in place. This
+sweep removes them and fixes the two live inconsistencies the migration
+created.
+
+- **`assets/css/style.css`** — 90 dead selectors removed (984 → 428 lines,
+  22 604 → 12 397 bytes): the legacy layout vocabulary (`.navbar` / `.nav-*`,
+  `.main-content`, `.form-group` / `.form-row`), the legacy button modifiers
+  (`.btn-primary` … `.btn-block`), the legacy alert and card variants
+  (`.alert-success`, `.card-header`, …), the duplicated `.table` block, and
+  the unused utility helpers (`.text-*`, `.bg-*`, `.mt-*`, `.mb-*`, `.p-*`,
+  `.d-*`, `.justify-*`, `.align-*`, `.flex-1`). Every removal was made only
+  after proving **zero consumers** repo-wide — `class="…"` in every PHP file,
+  `class="…"` / `classList.*` in every JS file, and class names referenced by
+  any other stylesheet. A header at the top of the file now maps each removed
+  rule to its v2 replacement, so the migration path stays discoverable.
+- **`client/assets/client.css`** — 11 dead selectors removed (916 → 866 lines,
+  30 091 → 28 368 bytes): the legacy task block retired in issue-050
+  (`.task-item`, `.task-line`, `.tree-indent`, `.task-body`, `.task-head`,
+  `.task-name`, `.task-desc`, `.task-meta`, `.task-progress`,
+  `.progress-text`). The `.task-tree` sub-task toggle contract and the
+  `.client-body` overrides are retained.
+- **`assets/js/subtask-manager.js`** — the generated buttons now use the v2
+  vocabulary (`btn btn--sm btn--success` / `btn btn--sm btn--danger`); the
+  `save-subtask` / `delete-subtask` hook classes are unchanged.
+- **`profile.php`** — both form grids gained the `form-grid--2` modifier. v2's
+  bare `.form-grid` is single-column by design (the column count is opt-in),
+  so without the modifier the Profile information and Change Password cards
+  would have silently collapsed to one column.
+- **Two regression tests re-pointed at the layer that now owns the rule**
+  (`database/task_layout_issue013_test.php`,
+  `database/task_status_reasons_test.php`), with stricter regexes and new
+  re-introduction guards for the retired selectors.
+
+### Edit-mode look fixes and asset cache-busting
+
+[issue-048](docs/issues/issue-048.md)
+
+- **The delete-confirmation modal no longer renders open on page load.** The
+  UA stylesheet's `[hidden] { display: none }` has the lowest possible
+  specificity, so `.modal-backdrop { display: grid }` silently defeated the
+  `hidden` attribute — the full-screen backdrop swallowed every click on the
+  page and the user could not close it. A global `[hidden] { display: none
+  !important; }` rule in `assets/css/v2-components.css` re-asserts the
+  attribute. The modal's JavaScript was always correct.
+- **`asset_url()` cache-busting.** nginx serves static assets with
+  `Cache-Control: public, max-age=2592000` (30 days), so a corrected
+  stylesheet did not reach a returning browser. The new `asset_url()` helper
+  in `includes/functions.php` appends the file's mtime to every local,
+  root-relative stylesheet and script URL. Absolute URLs (the Font Awesome
+  CDN) and the client portal's relative paths are unchanged.
+- **`Projects/<id>/edit` now shows the Project ID** in the page header, and
+  the Client-share card is rendered for every project. A project whose
+  `share_code` is `NULL` previously lost the whole card — and with it the
+  only way to obtain a code — leaving it impossible to share or to delete.
+  Such a project now shows a **"Generate share code"** action that reuses the
+  existing rotation handler.
+- **`Tasks/<id>/edit` confirms the deletion with the task name**, matching
+  the contact-delete flow. The internal `TSK-####` code is no longer the
+  confirmation secret. Project deletion is still confirmed with the project
+  code and contact deletion with the contact name — both unchanged.
+
+### New delete endpoints (two pre-existing 404 bugs)
+
+- **`contact_delete.php`** (new) — `POST /contacts/<id>/delete`. Requires the
+  standard CSRF token plus the contact's own name as a typed confirmation
+  (`hash_equals`). Before this change the delete link pointed at a file that
+  did not exist and returned **HTTP 404**.
+- **`task_delete.php`** (new) — `POST /tasks/<id>/delete`. Requires the CSRF
+  token plus the task's **name** as a typed confirmation (`hash_equals`).
+  Previously the delete link also 404'd.
+- `tasks.parent_task_id` is `ON DELETE CASCADE`, so deleting a parent removes
+  its whole subtree. `tasks.contact_person_id` is `RESTRICT`, so
+  `contact_delete.php` clears the assignment first — the tasks themselves are
+  kept.
+- Routes added to `includes/Router.php`; `task_delete` added to the
+  `.htaccess` rewrite list.
+
+### Public registration can be closed
+
+[issue-039](docs/issues/issue-039.md)
+
+- **`const APP_ALLOW_REGISTRATION`** in `config.php` (the control point),
+  `config.template.php`, and the generators (`docker/entrypoint.sh`,
+  `install.php`). The live `config.php` is set to `false` on this checkout —
+  public registration is **closed**; set it to `true` to re-open.
+- **`isRegistrationAllowed()`** in `includes/functions.php` — one resolver.
+  Reads the constant, defaults to **permissive** (`true`) when absent, and
+  logs an unrecognised value to the error log rather than silently locking
+  everyone out.
+- **`register.php` returns HTTP 403** when the flag is off — the check is
+  **above** the `if ($_POST)` block, so it covers both `GET` and `POST` and a
+  direct `POST` cannot bypass the UI. No user is created and no welcome
+  email is sent.
+- The "Create an account" button on `/login` and the "Register" link on
+  `/forgot-password` are hidden when the flag is off.
+- **One file, both deployment targets.** The flag is deliberately **not** an
+  environment variable: on shared hosting (Hostinger / cPanel) there is no
+  `docker-compose` and nothing reads `.env`, whereas `config.php` is
+  hand-maintained on every deployment. `config.php` is bind-mounted into the
+  container, so the edit takes effect on the next request — no container
+  restart, no `docker compose`, no `.env` edit. The flag is also reversible
+  by editing the same line back.
+
+### Browser-found bug fixes
+
+[issue-055](docs/issues/issue-055.md)
+
+- **Copy button did nothing** (High) — `initCopy()` in `assets/js/script.js`
+  had no `execCommand` fallback (the Async Clipboard API only exists in a
+  secure context) and no error handling, so on a plain-HTTP origin the handler
+  threw a `TypeError` and aborted before the "Copied" label was set. A new
+  shared `pmpCopyText()` helper implements a real fallback chain
+  (`execCommand` → Clipboard API) and reports honest failure; the more robust
+  inline implementation in `project_detail.php` now calls the same helper.
+- **Task completion dates silently lost their time** (High) — the form
+  posted `datetime-local` values, but all four DB columns are `DATE`, so
+  MariaDB truncated `2026-10-22 14:30:00` to `2026-10-22`. The form now uses
+  `type="date"` and a new `parseFormDate()` helper, and the validation
+  actually rejects impossible dates such as `2026-02-31` (the old
+  `createFromFormat()` result was validated and then **discarded**).
+  `ajax/complete_task.php`, `ajax/update_task_status.php` and
+  `ajax/parent_hold.php` were corrected to day precision. No schema change.
+- **Client language switcher did not match the mockup** (Medium) — the mockup
+  rule was scoped to `button.is-active` while production renders
+  `<a class="lang-switch-link">`, so the active state never applied. A scoped
+  `.client-body .lang-switch.inline .lang-switch-link.is-active` rule (plus
+  `:focus-visible`) restores it; the links are kept.
+- **Forgot-password layout** (Low) — added the missing required-field marker,
+  `autocomplete="email"` and `autofocus`, and moved the error/success alerts
+  above the heading as the mockup has them. `register.php` was aligned the
+  same way.
+
+### Other v2.0 fixes
+
+- **App-shell opt-in bug** ([issue-041](docs/issues/issue-041.md)) — six
+  pages set `$show_nav = true` but never set `$use_v2_shell`, so they
+  rendered as completely unstyled markup with no sidebar. Fixed for
+  `project_detail`, `task_detail`, `contact_detail`, `project_edit`,
+  `task_edit` and `contact_edit`.
+- **Blank grey card headers** ([issue-043](docs/issues/issue-043.md)) — the
+  detail pages still emitted v1 `card-header` / `card-body` classes while
+  `style.css` hardcoded a light-grey header under the v2 dark theme. Both
+  pages were fully converted; a rename alone would have produced a fully
+  unstyled page.
+- **Contact-ownership SQL bug** ([issue-047](docs/issues/issue-047.md)) — the
+  check joined on the non-existent `c.contact_id` instead of
+  `c.id = pc.contact_id`.
+- **Parent-task link pointed at itself** ([issue-043](docs/issues/issue-043.md))
+  — `task_detail.php` linked to the current task's own id instead of
+  `parent_task_id`.
+- **Client sub-task toggle 404'd** ([issue-049](docs/issues/issue-049.md)) —
+  `client/dashboard.php` referenced `/assets/js/subtask-toggle.js` while the
+  file lives at `client/assets/js/subtask-toggle.js`. The regression test had
+  **pinned the broken path**, so the test was corrected too.
+- **Client dashboard had v2 markup but no v2 styling**
+  ([issue-050](docs/issues/issue-050.md)) — the component layer was never
+  loaded on the client portal, so `cardBorder` computed to `0px none`.
+- **Client landing page rebuilt** ([issue-051](docs/issues/issue-051.md)) —
+  the last client surface on the v1 vocabulary, with hard-coded hex colours
+  and a language switcher that had no active state.
+- **Install wizard rebuilt** ([issue-052](docs/issues/issue-052.md)) — the
+  last page with its own hand-rolled presentation layer (79-line inline
+  `<style>`, no dark-mode support). The PHP logic block was not modified.
+- **Two stale regression tests repaired** ([issue-042](docs/issues/issue-042.md))
+  — `security_headers_test.php` and `client_share_code_protection_test.php`
+  were pinned to pre-issue-040 file layout and URL shapes. The protections
+  they assert were intact; only the tests were repaired. Result:
+  **18 PASS / 2 FAIL → 20 PASS / 0 FAIL**.
+
+### Acceptance-test remediation (BUG-1 … BUG-4)
+
+From [docs/v2.0-test-report.md](docs/v2.0-test-report.md) — the first
+acceptance run was **105 PASS / 5 FAIL**; after remediation it is
+**110 PASS / 0 FAIL**.
+
+- **BUG-1 (Critical)** — `requireLogin()` emitted a relative
+  `Location: login.php`, so every unauthenticated deep link ended on a
+  **404** instead of the login page. Fixed with an absolute `/login` plus an
+  open-redirect-guarded `?redirect=` return path (new
+  `is_safe_return_path()` / `safe_return_target()` helpers). The same class
+  of relative-`Location` bug was fixed in `login.php`, `register.php`,
+  `reset_password.php`, `forgot_password.php`, `includes/landing.php`,
+  `ajax/parent_hold.php`, `client/dashboard.php` and `install.php`.
+- **BUG-2 (High)** — the mockup container published the **entire
+  `docs/issues/` tree** (50 internal issue documents) over plain HTTP. Only
+  `issue-035.md` is now mounted and served.
+- **BUG-3 (Medium)** — `/_diag.php` was publicly reachable and leaked file
+  MD5s and PHP runtime config. Now denied by `docker/nginx.conf` (as is
+  `/_smtp_test.php`).
+- **BUG-4 (Low)** — `_diag.php`'s `config.php` MD5 pin was stale. All 5 pins
+  re-bumped.
+- New regression net: `database/v2_0_test_report_fixes_test.php` — **40
+  checks** in 7 sections (A–G) covering all four defects plus a whole-tree
+  scan for any relative `Location` header.
+
+### Invariants preserved
+
+- The client share-code format, length, storage width, URL shape, validator
+  regex, `pattern` attribute, auto-format JS and rate limiting are untouched.
+- The "Rotate code" action, `share_code_rotated_at`, the "Last rotated" line
+  and the 90-day nudge are preserved.
+- No `name=` / `id=` attribute renames on fields read by an unchanged PHP
+  file, no form-action changes, no AJAX endpoint shape changes, no
+  query-parameter renames.
+- The client portal's CSP stays strict (no `'unsafe-inline'`).
+- The v1.8.0 on-hold / delay-reason feature, the CSRF and rate-limit
+  protections, and the session-hardening work from v1.7.0 are untouched.
+
+### Upgrade notes
+
+- Pull the latest code, then re-upload **the following to prod**:
+  - The new migration `database/migrations/20261022_add_slugs.sql` — adds
+    the `slug` columns (idempotent; safe to run more than once). Existing
+    rows get a slug on first write; the `slug` columns are retained even
+    though the canonical URLs now use numeric IDs.
+  - `config.php` — bump `APP_VERSION` from `'v1.8.0'` to `'v2.0'` **and**
+    set `APP_ALLOW_REGISTRATION` to your preferred value (`false` closes
+    public sign-up). Re-upload from `config.template.php`.
+  - `database/schema.sql` — only matters for new installs.
+  - `includes/Router.php`, `includes/legacy_redirects.php`, `includes/slug.php`,
+    `includes/functions.php`, `includes/header.php`, `includes/footer.php`,
+    `includes/landing.php`, `includes/security_headers.php`,
+    `includes/task_edit_auth.php` — the new routing / v2 shell layer.
+  - `assets/css/` — `v2-tokens.css`, `v2-components.css`, `style.css` and
+    the new `assets/css/pages/` directory (**14 new files**).
+  - `assets/js/script.js`, `assets/js/subtask-manager.js`.
+  - All page files (`*.php` at the repo root, plus `client/dashboard.php`,
+    `client/lang.php`, `index.php`, `install.php`) — the v2 markup.
+  - `contact_delete.php` and `task_delete.php` — **new files**.
+  - `docker/nginx.conf`, `docker-compose.yml`, `docker/mockup-nginx.conf`,
+    `docker/entrypoint.sh` — the routing, deny rules and mockup service.
+  - `.htaccess` — the new rewrite rules.
+  - `_diag.php` — the re-bumped md5 pins.
+- The new test files in `database/` (`v2_0_acceptance_test.php`,
+  `registration_flag_test.php`, `v2_0_test_report_fixes_test.php`, …) are
+  **dev-side only** — no need to upload to prod.
+- **Rebuild the production origin first.** `project.lorwongam.com` currently
+  serves a crypto-miner instead of the app — see the deploy note at the top.
+- Run the dev-side acceptance suite before declaring the release shipped:
+  ```bash
+  docker compose up -d
+  docker compose exec -T app php /var/www/html/database/v2_0_acceptance_test.php
+  ```
+  Expected: **110 PASS / 0 FAIL**.
+- Manual smoke: log in, open `/projects/<id>`, `/tasks/<id>` and
+  `/contacts/<id>` (numeric IDs), open each New/Edit form, run the delete
+  flows, copy a share URL, and view the client dashboard at
+  `/?code=<share-code>` — in both `en` and `zh`. With
+  `APP_ALLOW_REGISTRATION = false`, confirm `/register` returns **403** and
+  the login page shows no "Create an account" button.
+
+---
+
 ## v1.8.0 — 2026-10-19
 
 **Minor release: on-hold and delay reasons for tasks.** Closes [issue-034](docs/issues/issue-034.md). Adds a non-empty, ≤2000-char **on-hold reason** and **delay reason** to every task, with enforced validation on every write path. One backwards-incompatible schema migration; no public API change; no CSP change.
@@ -70,7 +408,7 @@
 
 ## v1.7.3.1 — 2026-10-17
 
-**Hotfix for the v1.7.3 `Executing inline script violates CSP` console error on the public landing `/`.** Closes [issue-032](docs/issues/issue-032.md): the v1.7.3 favicon ship (the same release that fixed the `GET /favicon.ico 404` console message) introduced a new console error on the public landing — the browser was logging
+**Hotfix for the v1.7.3 `Executing inline script violates CSP` console error on the public landing `/`.** Closes issue-032: the v1.7.3 favicon ship (the same release that fixed the `GET /favicon.ico 404` console message) introduced a new console error on the public landing — the browser was logging
 
 ```
 (index):61 Executing inline script violates the following Content Security Policy
@@ -119,7 +457,7 @@ The chosen fix (move the script to an external file, load it via `<script src="�
 
 ## v1.7.3 — 2026-10-17
 
-**Project favicon — eliminate the `/favicon.ico 404` in the browser console.** Closes [issue-031](docs/issues/issue-031.md): every page in the project (the public landing `index.php`, the owner `login.php` / `dashboard.php` / `projects.php` / etc. that include `includes/header.php`, the install wizard `install.php`, and the 3 styled pages of `client/dashboard.php`) was logging `GET /favicon.ico 404 (Not Found)` in the browser console because no `<link rel="icon">` tag was declared in any `<head>`. Browsers, when they see no icon declaration, fall back to a default `GET /favicon.ico` against the domain root. There was no `/favicon.ico` in the repo and no `RewriteRule` to a real icon, so the request 404'd. The 404 is cosmetic (the page still renders correctly), but it spams the console on every navigation and confuses any future error-monitoring tool that watches console output. The fix is the standard `<link rel="icon" type="image/png" href="…">` tag in every `<head>` that ships HTML to the browser, pointing to the new asset `assets/image/project-favicon.png` (a 41 KB PNG, user-supplied).
+**Project favicon — eliminate the `/favicon.ico 404` in the browser console.** Closes issue-031: every page in the project (the public landing `index.php`, the owner `login.php` / `dashboard.php` / `projects.php` / etc. that include `includes/header.php`, the install wizard `install.php`, and the 3 styled pages of `client/dashboard.php`) was logging `GET /favicon.ico 404 (Not Found)` in the browser console because no `<link rel="icon">` tag was declared in any `<head>`. Browsers, when they see no icon declaration, fall back to a default `GET /favicon.ico` against the domain root. There was no `/favicon.ico` in the repo and no `RewriteRule` to a real icon, so the request 404'd. The 404 is cosmetic (the page still renders correctly), but it spams the console on every navigation and confuses any future error-monitoring tool that watches console output. The fix is the standard `<link rel="icon" type="image/png" href="…">` tag in every `<head>` that ships HTML to the browser, pointing to the new asset `assets/image/project-favicon.png` (a 41 KB PNG, user-supplied).
 
 - A new asset `assets/image/project-favicon.png` is added to the repo. The file is in a new `assets/image/` directory (the `assets/` tree previously contained only `css/` and `js/`). The file is committed to git (not gitignored) and is served by both the internal app and the client portal under the existing `img-src 'self' data:` CSP — no CSP change is needed.
 - `<link rel="icon" type="image/png" href="assets/image/project-favicon.png">` is added to every root-level `<head>`: `includes/header.php` (which is included by every internal-app page), `index.php` (the public landing), and `install.php` (the install wizard). The link tag is placed immediately after the `<title>` line and before the stylesheet link, so the browser sees the icon declaration before it starts requesting any other asset.

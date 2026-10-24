@@ -123,17 +123,31 @@ $files_to_check = [
 // config.php for the third time in 3 releases. The other 3
 // (client/dashboard.php, client/lang.php, includes/functions.php)
 // keep their v1.7.3 / v1.7.2.2 md5s because v1.7.3.2 did not
-// change them. The placeholder FILL_IN_AT_RELEASE_TIME is
+// change them. issue-051 (landing page v2 conversion) touches
+// 2 more of the 5 files: client/dashboard.php (the header
+// language switcher now lists every locale and marks the
+// active one) and client/lang.php (new client_all_langs() /
+// client_lang_labels() helpers plus the landing.divider_or
+// string). Both md5s are re-bumped in the same commit as the
+// source change. issue-039 (allow-registration flag) touches 2 MORE
+// of the 5 files: config.php (the new APP_ALLOW_REGISTRATION constant)
+// and includes/functions.php (the new isRegistrationAllowed()
+// resolver). Both md5s are re-bumped in the same commit as the source
+// change. The v2.0 test-report remediation (BUG-4) re-bumps
+// config.php (the APP_ALLOW_REGISTRATION constant landed in
+// f54fabc without a pin update), client/dashboard.php and
+// includes/functions.php (the requireLogin() absolute-redirect fix
+// for BUG-1). The placeholder FILL_IN_AT_RELEASE_TIME is
 // replaced by the actual md5sum at release time (see
 // docs/RELEASE_PROCESS.md step 5.5 and docs/issues/issue-029.md
 // §6.4). The probe_diag_test.php test asserts that no
 // FILL_IN_AT_RELEASE_TIME literal remains in the deployed file.
 $expected_md5 = [
-    'config.php'              => 'e3de126d55f2e2f16c397384cba1456b',
-    'client/dashboard.php'    => '88decc9975659690de1a7325f427df77',
-    'client/lang.php'         => 'c1377682444842f7b3772a8b2b2a1c12',
-    'includes/header.php'     => 'fa27d8b758ad935eb671a2e9836e0d02',
-    'includes/functions.php'  => '9bc12011df6050d4e1ebb16fd15ec576',
+    'config.php'              => 'baab3d16990d21ee05a1a8fc2f22568f',
+    'client/dashboard.php'    => '194402c0a56bbe201b27b1b771180b86',
+    'client/lang.php'         => '5d83e532b71d6cc1ef6410609aee2e8c',
+    'includes/header.php'     => '04947db79160e2c1e3f759990093df65',
+    'includes/functions.php'  => 'b450e696bef724f38d5ebe77ab4daee5',
 ];
 
 // --- CSP probe -------------------------------------------------------

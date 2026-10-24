@@ -1,3 +1,55 @@
+/* ============================================================================
+ * assets/css/style.css — base / legacy layer.
+ *
+ * Load order (see docs/issues/issue-035.md for the asset-path contract):
+ *   v2-tokens.css  ->  style.css  ->  v2-components.css  ->  pages/<page>.css
+ *
+ * This file holds only the rules that are NOT covered by the v2 component
+ * layer. Everything that was superseded by the v2 conversion was removed in
+ * issue-053 (Phase 1.6 dead-rule sweep). The removed rules and their v2
+ * replacements:
+ *
+ *   .navbar .nav-brand .nav-menu .nav-link .nav-dropdown
+ *   .dropdown-toggle .dropdown-menu .dropdown-item
+ *        -> .app-shell .sidebar .sidebar__brand .sidebar__nav
+ *           .sidebar__link .topbar .topbar__actions .dropdown
+ *   .main-content .main-content.with-nav .main-content.no-nav
+ *        -> .content inside .app-main
+ *   .form-group .form-row .form-row-3
+ *        -> .field .input .select .textarea .form-grid .form-grid--2/--3/--4
+ *   .btn-primary .btn-secondary .btn-success .btn-danger .btn-warning
+ *   .btn-outline-primary .btn-sm .btn-lg .btn-block
+ *        -> .btn--primary .btn--secondary .btn--success .btn--danger
+ *           .btn--warning .btn--sm .btn--lg .btn--block
+ *   .card-header .card-footer .card-body
+ *        -> .card__header .card__footer .card__body
+ *   .alert-success .alert-danger .alert-warning .alert-info
+ *        -> .alert--success .alert--danger .alert--warning .alert--info
+ *   .table (the whole legacy block)
+ *        -> the v2 .table rule, which explicitly RESETS every property the
+ *           legacy rule set (background / border-radius / overflow /
+ *           box-shadow) — the legacy copy was pure duplication
+ *   .estimate-input .checkbox-label
+ *        -> .range-row .checkbox .checkbox-list
+ *   .inherit-warning .inherit-hint
+ *        -> (no equivalent; the markup uses .alert / .hint)
+ *   .form-layout .field-help .form-actions .form-actions-left/right
+ *   .page-container .breadcrumb .breadcrumb a .breadcrumb span
+ *        -> .card .field .hint .page-actions .page-header .breadcrumb
+ *   .owner-backfill-banner
+ *        -> the shared v2 .alert
+ *   .task-line
+ *        -> defined in client/assets/client.css for the client portal
+ *   .text-* .bg-* .mt-* .mb-* .p-* .d-* .justify-* .align-* .flex-1
+ *        -> (no equivalent; zero consumers)
+ *
+ * A rule is only removed when it had ZERO consumers repo-wide. Consumers
+ * were counted across: class="..." in every *.php, classList.add/remove/
+ * toggle('...') and class="..." in every *.js, and class names used by
+ * any OTHER stylesheet (those may load before this file).
+ * ============================================================================
+ */
+
 /* Global Styles */
 * {
     margin: 0;
@@ -10,163 +62,6 @@ body {
     line-height: 1.6;
     color: #333;
     background-color: #f8f9fa;
-}
-
-/* Navigation */
-.navbar {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-    color: white;
-    padding: 0 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    min-height: 60px;
-}
-
-.nav-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-
-.nav-brand i {
-    font-size: 1.5rem;
-}
-
-.nav-menu {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.nav-link {
-    color: white;
-    text-decoration: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.nav-link:hover {
-    background: rgba(255,255,255,0.1);
-    color: white;
-}
-
-.nav-dropdown {
-    position: relative;
-}
-
-.dropdown-toggle::after {
-    margin-left: 5px;
-}
-
-.dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    border-radius: 5px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    min-width: 180px;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s;
-}
-
-.nav-dropdown:hover .dropdown-menu {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.dropdown-item {
-    display: block;
-    padding: 12px 20px;
-    color: #333;
-    text-decoration: none;
-    transition: all 0.3s;
-    border-bottom: 1px solid #f1f1f1;
-}
-
-.dropdown-item:last-child {
-    border-bottom: none;
-}
-
-.dropdown-item:hover {
-    background: #f8f9fa;
-    color: #007bff;
-}
-
-/* Main Content */
-.main-content {
-    padding-top: 0;
-}
-
-.main-content.with-nav {
-    min-height: calc(100vh - 60px);
-}
-
-.main-content.no-nav {
-    min-height: 100vh;
-}
-
-/* Forms */
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #333;
-}
-
-.form-group input,
-.form-group textarea,
-.form-group select {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #e9ecef;
-    border-radius: 6px;
-    font-size: 14px;
-    transition: border-color 0.3s, box-shadow 0.3s;
-    background: white;
-}
-
-.form-group input:focus,
-.form-group textarea:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 100px;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.form-row-3 {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px;
 }
 
 /* Buttons */
@@ -196,47 +91,6 @@ body {
     transform: translateY(0);
 }
 
-.btn-primary { background: #007bff; }
-.btn-primary:hover { background: #0056b3; }
-
-.btn-secondary { background: #6c757d; }
-.btn-secondary:hover { background: #545b62; }
-
-.btn-success { background: #28a745; }
-.btn-success:hover { background: #218838; }
-
-.btn-danger { background: #dc3545; }
-.btn-danger:hover { background: #c82333; }
-
-.btn-warning { background: #ffc107; color: #212529; }
-.btn-warning:hover { background: #e0a800; color: #212529; }
-
-.btn-outline-primary {
-    background: transparent;
-    color: #007bff;
-    border: 2px solid #007bff;
-}
-
-.btn-outline-primary:hover {
-    background: #007bff;
-    color: white;
-}
-
-.btn-sm {
-    padding: 8px 16px;
-    font-size: 12px;
-}
-
-.btn-lg {
-    padding: 16px 32px;
-    font-size: 16px;
-}
-
-.btn-block {
-    width: 100%;
-    display: block;
-}
-
 /* Cards */
 .card {
     background: white;
@@ -244,23 +98,6 @@ body {
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     overflow: hidden;
     margin-bottom: 20px;
-}
-
-.card-header {
-    padding: 20px 25px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-    font-weight: 600;
-}
-
-.card-body {
-    padding: 25px;
-}
-
-.card-footer {
-    padding: 20px 25px;
-    background: #f8f9fa;
-    border-top: 1px solid #dee2e6;
 }
 
 /* Alerts */
@@ -271,110 +108,10 @@ body {
     border-left: 4px solid;
 }
 
-.alert-success {
-    background: #d4edda;
-    color: #155724;
-    border-left-color: #28a745;
-}
-
-.alert-danger {
-    background: #f8d7da;
-    color: #721c24;
-    border-left-color: #dc3545;
-}
-
-.alert-warning {
-    background: #fff3cd;
-    color: #856404;
-    border-left-color: #ffc107;
-}
-
-.alert-info {
-    background: #d1ecf1;
-    color: #0c5460;
-    border-left-color: #17a2b8;
-}
-
-/* Tables */
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.table th,
-.table td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.table th {
-    background: #f8f9fa;
-    font-weight: 600;
-    color: #495057;
-}
-
-.table tbody tr:hover {
-    background: #f8f9fa;
-}
-
-.table tbody tr:last-child td {
-    border-bottom: none;
-}
-
 /* Utilities */
 .text-center { text-align: center; }
-.text-left { text-align: left; }
 .text-right { text-align: right; }
-
-.text-primary { color: #007bff; }
-.text-secondary { color: #6c757d; }
-.text-success { color: #28a745; }
-.text-danger { color: #dc3545; }
-.text-warning { color: #ffc107; }
-.text-info { color: #17a2b8; }
 .text-muted { color: #6c757d; }
-
-.bg-primary { background: #007bff; }
-.bg-secondary { background: #6c757d; }
-.bg-success { background: #28a745; }
-.bg-danger { background: #dc3545; }
-.bg-warning { background: #ffc107; }
-.bg-info { background: #17a2b8; }
-.bg-light { background: #f8f9fa; }
-.bg-white { background: white; }
-
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 1rem; }
-.mt-4 { margin-top: 1.5rem; }
-.mt-5 { margin-top: 3rem; }
-
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 1rem; }
-.mb-4 { margin-bottom: 1.5rem; }
-.mb-5 { margin-bottom: 3rem; }
-
-.p-1 { padding: 0.25rem; }
-.p-2 { padding: 0.5rem; }
-.p-3 { padding: 1rem; }
-.p-4 { padding: 1.5rem; }
-.p-5 { padding: 3rem; }
-
-.d-flex { display: flex; }
-.d-block { display: block; }
-.d-none { display: none; }
-
-.justify-content-between { justify-content: space-between; }
-.justify-content-center { justify-content: center; }
-.align-items-center { align-items: center; }
-
-.flex-1 { flex: 1; }
 
 /* Footer */
 .footer {
@@ -423,29 +160,6 @@ body {
     cursor: help;
 }
 
-.inherit-warning {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 0.9rem;
-    margin: 12px 0;
-}
-
-.inherit-warning i {
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-
-.inherit-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: #6c757d;
-    font-size: 0.8rem;
-    font-style: italic;
-    margin-top: 4px;
-}
-
 /* Inline forms (e.g. On Hold / Resume buttons under page-actions) */
 .inline-form {
     display: inline-block;
@@ -455,54 +169,6 @@ body {
 
 .inline-form button {
     margin: 0;
-}
-
-/* Issue-013: 2-column form grid used by task_edit.php and any future
- * edit form. Sections stack into a single column below 768px. The
- * `.form-section.full-row` modifier lets a single section (e.g. "Dates")
- * span both columns of the grid. */
-.form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px 28px;
-    align-items: start;
-}
-
-.form-grid .form-section {
-    min-width: 0;
-}
-
-.form-grid .form-section.full-row {
-    grid-column: 1 / -1;
-}
-
-.form-grid .form-section h3 {
-    margin: 0 0 12px 0;
-    font-size: 1rem;
-    color: #333;
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 8px;
-    font-weight: 600;
-}
-
-/* Issue-013: estimate input is a horizontal row on wide screens
- * (number input + unit selector side by side) and stacks vertically
- * below 768px. */
-.estimate-input {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.estimate-input input[type="number"] {
-    min-width: 0;
-    flex: 1;
-}
-
-.estimate-input select {
-    width: auto;
-    min-width: 120px;
-    flex-shrink: 0;
 }
 
 /* Issue-013 (revised): page header is a two-column flex row so the
@@ -546,35 +212,6 @@ body {
     margin-bottom: 20px;
 }
 
-/* Issue-013 (revised): checkbox-label is a flex row so the
- * <input type="checkbox"> and its text label render on the same
- * line, vertically centered. Used by the issue-011 "Use sum of
- * sub-task hours" checkbox (and any future checkbox row). The
- * native <label> already makes the whole row clickable; the
- * cursor: pointer is a visual hint. */
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-weight: 500;
-    color: #333;
-    line-height: 1.4;
-}
-
-.checkbox-label input[type="checkbox"] {
-    flex: 0 0 auto;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    cursor: pointer;
-}
-
-.checkbox-label > span {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
 /* Status-specific tints for the Auto pill, kept subtle so the badge remains primary. */
 .derived-pill .fa-magic {
     color: #845ef7;
@@ -582,43 +219,6 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .navbar {
-        flex-direction: column;
-        padding: 15px;
-        gap: 15px;
-    }
-    
-    .nav-menu {
-        width: 100%;
-        justify-content: space-between;
-    }
-    
-    .form-row {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-
-    .form-row-3 {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-
-    /* Issue-013: collapse the 2-column form grid into a single column
-     * on phones and stack the estimate input vertically. */
-    .form-grid {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-
-    .estimate-input {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .estimate-input select {
-        width: 100%;
-    }
-
     /* Issue-013 (revised): on phones the page-header stacks the
      * title above the actions row, and the buttons inside
      * .page-actions share the row width equally. Pairs with the
@@ -646,108 +246,13 @@ body {
     .btn:last-child {
         margin-bottom: 0;
     }
-    
-    .table {
-        font-size: 14px;
-    }
-    
-    .table th,
-    .table td {
-        padding: 8px 10px;
-    }
 }
 
 @media (max-width: 480px) {
-    .navbar {
-        padding: 10px;
-    }
-    
-    .nav-brand {
-        font-size: 1rem;
-    }
-    
-    .nav-link {
-        padding: 8px 10px;
-        font-size: 14px;
-    }
-    
-    .card-body {
-        padding: 20px;
-    }
-    
     .btn {
         padding: 10px 20px;
         font-size: 14px;
     }
-}
-
-/* Shared page-layout + breadcrumb + form-actions helpers used by
- * task_edit.php, task_detail.php, contact_edit.php, project_edit.php.
- * Promoted from per-page <style> blocks in v1.6.0 (issue-014 §2).
- * Per-page blocks now only carry page-unique selectors (e.g. the
- * sub-task tree on task_detail, the delete-project dialog on
- * project_edit) plus explicit per-page overrides of the rules below. */
-.page-container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.breadcrumb {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 10px;
-}
-
-.breadcrumb a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-.breadcrumb span {
-    margin: 0 8px;
-}
-
-.form-layout {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    padding: 30px;
-    margin-top: 20px;
-}
-
-.field-help {
-    font-size: 0.85rem;
-    color: #666;
-    margin: 5px 0 0 0;
-    font-style: italic;
-}
-
-.form-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 20px;
-    border-top: 1px solid #f1f3f4;
-}
-
-.form-actions-left {
-    display: flex;
-    gap: 15px;
-}
-
-.form-actions-right {
-    display: flex;
-    gap: 15px;
-}
-
-.form-actions .btn {
-    padding: 12px 24px;
-    font-weight: 500;
 }
 
 .alert ul {
@@ -874,44 +379,11 @@ body {
     top: auto;
     bottom: calc(100% + 8px);
 }
-/* ============================================================================
- * Issue-034 (v1.8.0) — delayed / on-hold status reasons.
- *
- * Three rules:
- *   1. .task-line                — parent flex container, must declare
- *                                  flex-wrap:wrap so the chip's
- *                                  flex-basis:100% lands it on its own row.
- *   2. .task-reason              — base chip (yellow accent stripe + body)
- *   3. .task-reason.delay        — red accent  (past expected_completion_date)
- *   4. .task-reason.on-hold      — amber accent (status = on_hold)
- *
- * Used by: tasks.php (task card meta line), task_detail.php (sidebar
- * "Status Reason" card), and the parent Put-on-Hold form. The styles
- * are deliberately narrow so they share a visual lane with .status
- * badges already in the codebase. They never visually dominate the task
- * title (intentionally muted colour pair per spec §9).
- *
- * Cross-reference: docs/issues/issue-034.md §9 (CSS),
- * docs/issues/issue-034/tester-note-003.md §5 (round-3 fix).
- * ============================================================================ */
-.task-line {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    /* Issue-034 (v1.8.0) tester-note-003 Bug 9 (revised) — without
-     * `flex-wrap: wrap;` the chip's `flex-basis: 100%` is silently
-     * treated as a basis request inside a `nowrap` row, and the
-     * chip ends up on the same row as the task title, covering it.
-     * W3C CSS Flexible Box §9 — flex-basis only requests a main size;
-     * whether the item actually wraps depends on the parent's
-     * `flex-wrap`. This rule was MISSING entirely from style.css
-     * before round 3, which is why the same bug was latent on
-     * tasks.php even though the user only reported it on the client
-     * dashboard. The flex-basis / min-width / word-wrap fix on
-     * .task-reason below only takes effect once this rule is here. */
-    flex-wrap: wrap;
-}
+
+/* Issue-034 (v1.8.0) — delayed / on-hold status reason chips.
+   Rendered inline by assets/js/subtask-manager.js as
+   `<span class="task-reason delay|on-hold">`. The client portal has its
+   own scoped copies in client/assets/client.css. */
 .task-reason {
     margin: 6px 0 10px 0;
     padding: 8px 12px 8px 14px;
@@ -925,11 +397,11 @@ body {
     align-items: flex-start;
     gap: 8px;
     /* Issue-034 (v1.8.0) tester note Bug 9 — drop to own row inside
-     * the .task-line flex container so the chip never overlaps the
-     * title row. flex-basis: 100% forces full width, min-width: 0
-     * keeps the body content from forcing the row to overflow, and
-     * word-wrap: break-word prevents long un-spaced reasons from
-     * blowing out the layout on the manager dashboard. */
+     * the flex container so the chip never overlaps the title row.
+     * flex-basis: 100% forces full width, min-width: 0 keeps the body
+     * content from forcing the row to overflow, and word-wrap:
+     * break-word prevents long un-spaced reasons from blowing out the
+     * layout on the manager dashboard. */
     flex-basis: 100%;
     min-width: 0;
     word-wrap: break-word;
@@ -953,32 +425,4 @@ body {
     color: #dc3545;
     font-size: 0.85em;
     cursor: help;
-}
-
-/* Owner-app supplementary "backfill" banner shown at the top of
- * dashboard.php / tasks.php when the user owns delayed or on-hold tasks
- * that still need a reason. The banner is a single inline alert row —
- * no per-task iteration — and links to the pre-filtered tasks list
- * (tasks.php?status=delayed&missing_reason=1) so the project manager
- * can resolve them in one pass. */
-.owner-backfill-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 20px;
-    padding: 12px 18px;
-    border-radius: 8px;
-    background: #fff8ef;
-    border-left: 4px solid #fd7e14;
-    color: #4a3004;
-    font-size: 0.95rem;
-}
-.owner-backfill-banner a {
-    color: #b3500b;
-    font-weight: 600;
-    text-decoration: none;
-}
-.owner-backfill-banner a:hover {
-    text-decoration: underline;
 }

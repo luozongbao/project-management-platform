@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Project &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="">
+  <div class="landing">
+    <div class="landing__card">
+      <div class="landing__logo"><i class="fas fa-project-diagram"></i></div>
+      <h1>Project Tracking</h1>
+      <p class="text-muted text-sm" style="margin-bottom:1.5rem;">
+        Enter the project share code you received to view live progress.
+      </p>
+
+      <div class="alert alert--danger" role="alert">
+        <i class="fas fa-circle-exclamation"></i>
+        <div class="alert__body">
+          <div class="alert__title">Invalid share code</div>
+          The code you entered is not valid or has expired. Please check and try again.
+        </div>
+      </div>
+
+      <form action="#" method="post" style="text-align:left;">
+        <div class="field" style="margin-bottom:1rem;">
+          <label for="code">Project Code</label>
+          <input class="input landing__code-input" type="text" id="code" name="code"
+                 placeholder="AAAAA-AAAAA-AAAAA" maxlength="17" autocomplete="off" required
+                 autofocus
+                 pattern="[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"
+                 title="Format: 5-5-5 alphanumeric, e.g. AX498-99ZB2-92C3J"
+                 style="text-transform: uppercase; letter-spacing: 0.1em; font-family: monospace; font-size: 1.15rem;">
+          <span class="hint">Format: 5 characters, dash, 5, dash, 5.</span>
+        </div>
+        <button class="btn btn--primary btn--lg btn--block" type="submit">
+          <i class="fas fa-arrow-right"></i> View Project
+        </button>
+      </form>
+
+      <div class="auth-card__divider">or</div>
+
+      <a class="btn btn--secondary btn--block" href="login.html">
+        <i class="fas fa-user-lock"></i> Owner Sign In
+      </a>
+
+      <div class="landing__foot">
+        <div class="lang-switch" data-lang-switch role="group" aria-label="Language">
+          <button type="button" data-lang-set="en" class="is-active">ENG</button>
+          <button type="button" data-lang-set="zh">中文</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

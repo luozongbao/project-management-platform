@@ -1,4 +1,10 @@
 <?php
+// v2.0 (issue-035 C.2): the slug helpers are needed by the edit pages that
+// assign a slug on insert, by the detail pages that build canonical URLs, and
+// by the front controller. Requiring them from the one file every page already
+// loads means no page has to remember the include, and there is no way for a
+// page to call generateUniqueSlug() before the class it depends on exists.
+require_once __DIR__ . '/slug.php';
 /**
  * Common utility functions
  */
@@ -47,11 +53,122 @@ function isLoggedIn() {
 }
 
 // Require login - redirect to login if not authenticated
+//
+// The Location header MUST be an absolute path (leading slash). A
+// relative "login.php" is resolved against the CURRENT directory, so a
+// deep link such as /projects/1692/edit would send the browser to
+// /projects/1692/login.php - which does not exist and returns 404.
+//
+// The original URL is carried along in a ?redirect= parameter so the
+// user lands back on the page they asked for after logging in.
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: login.php');
+        $target = '/login';
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        // Only carry a same-origin path, never an absolute URL or a
+        // protocol-relative one ("//evil.example") - those would turn
+        // the login page into an open redirect.
+        if ($uri !== '' && is_safe_return_path($uri)) {
+            $target .= '?redirect=' . rawurlencode($uri);
+        }
+        header('Location: ' . $target);
         exit();
     }
+}
+
+/**
+ * Whether a string is safe to use as an in-app "return to" target.
+ *
+ * The rule is deliberately strict: the value MUST start with a single
+ * slash and MUST NOT start with "//" (protocol-relative) and MUST NOT
+ * contain a scheme or a backslash. That rules out every way an
+ * attacker could turn the login page into an open redirect:
+ *
+ *   https://evil.example/   (absolute URL)
+ *   //evil.example/         (protocol-relative)
+ *   javascript:alert(1)     (scheme)
+ *   /\evil.example          (backslash normalisation)
+ *
+ * @param string $path
+ * @return bool
+ */
+function is_safe_return_path($path) {
+    if (!is_string($path) || $path === '') {
+        return false;
+    }
+    // Must start with exactly one slash.
+    if ($path[0] !== '/' || (isset($path[1]) && $path[1] === '/')) {
+        return false;
+    }
+    // No scheme, no backslash, no control characters.
+    if (preg_match('#^/[A-Za-z0-9/_.\-~%?&=+:@]*$#', $path) !== 1) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Read the ?redirect= parameter of the current request and return it if
+ * it is safe to redirect to, otherwise the default dashboard path.
+ *
+ * @param string $default
+ * @return string
+ */
+function safe_return_target($default = '/dashboard') {
+    $candidate = $_GET['redirect'] ?? '';
+    if (is_safe_return_path($candidate)) {
+        return $candidate;
+    }
+    return $default;
+}
+
+/**
+ * Whether public registration is currently allowed.
+ *
+ * The flag lives in config.php as a single constant, so the same edit works
+ * on Docker and on plain shared hosting:
+ *
+ *   const APP_ALLOW_REGISTRATION = true;   // registration open
+ *   const APP_ALLOW_REGISTRATION = false;  // registration closed
+ *
+ * The default is permissive on purpose. A missing or misspelled constant must
+ * never lock every new user out of the system.
+ *
+ * The `static` cache below lasts for the lifetime of ONE request only, so a
+ * change to config.php takes effect on the very next page load -- there is
+ * nothing to clear and no restart to perform.
+ */
+function isRegistrationAllowed() {
+    static $allowed = null;
+    if ($allowed !== null) {
+        return $allowed;
+    }
+
+    if (!defined('APP_ALLOW_REGISTRATION')) {
+        // Not declared - default to open.
+        return $allowed = true;
+    }
+
+    $raw = APP_ALLOW_REGISTRATION;
+
+    if (is_bool($raw)) {
+        // The normal case: the constant is a real PHP boolean.
+        return $allowed = $raw;
+    }
+
+    // Tolerate a quoted string ("true" / "false") in case a hand-edit adds
+    // quotes, but treat anything unrecognised as permissive and log it so a
+    // typo is discoverable rather than invisible.
+    $parsed = filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($parsed === null) {
+        error_log(
+            'APP_ALLOW_REGISTRATION: unrecognised value "' . var_export($raw, true) .
+            '" - defaulting to allowed.'
+        );
+        return $allowed = true;
+    }
+
+    return $allowed = $parsed;
 }
 
 // Get current user ID
@@ -389,12 +506,15 @@ function syncProjectTaskCompletions($db, $projectId) {
         $newStatus = deriveParentStatusFromCompletion($currentStatus, (float)$storedCompletion);
 
         // Issue-012: align completion_date with the derived status.
-        // - new status 'completed' and no prior completion_date: set to NOW.
+        // - new status 'completed' and no prior completion_date: set to today.
         // - new status != 'completed' and a prior completion_date exists: clear it.
+        // Issue-055: completion_date is a SQL DATE column — CURDATE() gives
+        // day precision, matching task_edit.php and the AJAX endpoints.
+        // NOW() would be silently truncated by MariaDB.
         $setCompletionDate = '';
         $params = [$storedCompletion, $newStatus, $parentId, $storedCompletion, $newStatus];
         if ($newStatus === 'completed') {
-            $setCompletionDate = ', completion_date = COALESCE(completion_date, NOW())';
+            $setCompletionDate = ', completion_date = COALESCE(completion_date, CURDATE())';
         } elseif ($currentStatus === 'completed' && $newStatus !== 'completed') {
             $setCompletionDate = ', completion_date = NULL';
         }
@@ -455,6 +575,14 @@ function toUTC($datetime, $user_timezone = null) {
 
 // Redirect with message
 function redirect($url, $message = null, $type = 'info') {
+    // Guard against a relative target: "login.php" would resolve against
+    // the CURRENT directory, so a deep link like /projects/1692 would end
+    // up at /projects/login.php -> 404. Every caller in the codebase
+    // already passes an absolute path; this makes it impossible to
+    // regress.
+    if (!is_string($url) || $url === '' || $url[0] !== '/') {
+        $url = '/dashboard';
+    }
     if ($message) {
         startSession();
         $_SESSION['message'] = $message;
@@ -525,6 +653,51 @@ function parseCalendarDate($value) {
     return $date;
 }
 
+/**
+ * Parse a form date field into a canonical Y-m-d string.
+ *
+ * Strict: rejects anything that is not exactly Y-m-d, and rejects impossible
+ * calendar dates (2026-02-31). Returns null for an empty value; pushes a
+ * validation error and returns null for an invalid one.
+ *
+ * DateTime::createFromFormat() is deliberately NOT used here: it returns a
+ * DateTime carrying *warnings* (not false) for impossible dates such as
+ * 2026-02-31, so a plain `if (!$date)` guard never fires. checkdate() is the
+ * only reliable calendar validator.
+ *
+ * The return value is the value that must be stored, so validation and
+ * normalisation are the same step and cannot drift apart.
+ *
+ * @param mixed  $value  Raw $_POST value.
+ * @param string $label  Human-readable field label for the error message.
+ * @param array  $errors Error bag, by reference.
+ * @return string|null Canonical Y-m-d, or null when empty/invalid.
+ */
+function parseFormDate($value, string $label, array &$errors): ?string {
+    if (!is_string($value)) {
+        $errors[] = "$label must be a valid date.";
+        return null;
+    }
+
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        $errors[] = "$label must be a valid date.";
+        return null;
+    }
+
+    [$year, $month, $day] = array_map('intval', explode('-', $value));
+    if (!checkdate($month, $day, $year)) {
+        $errors[] = "$label must be a valid date.";
+        return null;
+    }
+
+    return $value;
+}
+
 function parseUtcDateTime($value) {
     $formats = [
         ['!Y-m-d H:i:s', 'Y-m-d H:i:s'],
@@ -548,6 +721,47 @@ function parseUtcDateTime($value) {
 // Escape output for HTML
 function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+// ---------------------------------------------------------------------------
+// Asset cache-busting (added 2026-10-24, issue-048)
+//
+// nginx serves .css/.js with `expires 30d` + `Cache-Control: public,
+// max-age=2592000`. That is right for images and fonts, but it means a
+// stylesheet fix does not reach a returning browser for up to 30 days —
+// during the v2.0 redesign that was actively harmful: a corrected form
+// kept rendering with the old rules.
+//
+// asset_url() appends the file's mtime as a query string. The URL changes
+// whenever the file changes, so the browser fetches the new bytes; the
+// cached copy stays valid for unchanged files.
+//
+// The mtime is read from disk on first use per request and memoised, so a
+// page that links 5 stylesheets only stats 5 files once.
+// ---------------------------------------------------------------------------
+function asset_url($path) {
+    static $mtimes = [];
+
+    // Only local, root-relative asset paths are versioned. Absolute URLs
+    // (the Font Awesome CDN) and non-root-relative paths are passed
+    // through untouched.
+    //
+    // Issue-050: the client portal's stylesheet reference moved from the
+    // client-relative "assets/client.css" to the root-absolute
+    // "/client/assets/client.css" (issue-035 §"every asset reference
+    // becomes root-absolute"), so it is now versioned like every other
+    // local asset.
+    if (!is_string($path) || $path === '' || $path[0] !== '/') {
+        return $path;
+    }
+
+    if (!array_key_exists($path, $mtimes)) {
+        $file = __DIR__ . '/..' . $path;
+        $mtimes[$path] = is_file($file) ? (string) filemtime($file) : '1';
+    }
+
+    $sep = strpos($path, '?') === false ? '?' : '&';
+    return $path . $sep . 'v=' . $mtimes[$path];
 }
 
 // ---------------------------------------------------------------------------
@@ -1114,5 +1328,39 @@ if (!function_exists('isShareCodeRateLimited')) {
 
         return false;
     }
+}
+
+/**
+ * v2.0 Phase 1.3: is a given sidebar destination the active one?
+ *
+ * Marks the nav item matching the current top-level section. Sub-resources
+ * inherit their parent's highlight, so /projects/some-slug and
+ * /projects/some-slug/edit light up "Projects".
+ *
+ * Deliberately reads $_SERVER directly rather than pmpRequestPath():
+ * header.php is included by every page, but includes/Router.php is only
+ * loaded by the index.php front controller, so the router helper is not
+ * guaranteed to exist here.
+ *
+ * @param string $section One of dashboard|projects|tasks|contacts.
+ * @return bool
+ */
+function navIsActive(string $section): bool
+{
+    $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+    $path = parse_url($uri, PHP_URL_PATH);
+    if (!is_string($path) || $path === '') {
+        return false;
+    }
+    // Normalise the legacy .php filenames too, so this stays correct for any
+    // page that has not yet been moved onto the slug routes (Phase 1.4).
+    $path = preg_replace('~\.php$~', '', $path);
+    $path = '/' . trim((string)$path, '/');
+
+    if ($path === '/' . $section) {
+        return true;
+    }
+    // /projects, /projects/new, /projects/<slug>, /projects/<slug>/edit …
+    return strpos($path, '/' . $section . '/') === 0;
 }
 ?>

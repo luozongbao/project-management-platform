@@ -104,30 +104,30 @@ $db->execute(
 $user_c_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, description, responsible_person_id, status, created_at)
-     VALUES (?, ?, ?, 'in_progress', NOW())",
-    [$marker . ' project A', 'seed for issue-022', $user_a_id]
+    "INSERT INTO projects (name, slug, description, responsible_person_id, status, created_at)
+     VALUES (?, ?, ?, ?, 'in_progress', NOW())",
+    [$marker . ' project A', 'idor-a-' . $marker, 'seed for issue-022', $user_a_id]
 );
 $project_a_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO projects (name, description, responsible_person_id, status, created_at)
-     VALUES (?, ?, ?, 'in_progress', NOW())",
-    [$marker . ' project B', 'seed for issue-022', $user_b_id]
+    "INSERT INTO projects (name, slug, description, responsible_person_id, status, created_at)
+     VALUES (?, ?, ?, ?, 'in_progress', NOW())",
+    [$marker . ' project B', 'idor-b-' . $marker, 'seed for issue-022', $user_b_id]
 );
 $project_b_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO contacts (name, email, created_at)
-     VALUES (?, ?, NOW())",
-    [$marker . ' contact on A', $marker . '-contact-a@example.test']
+    "INSERT INTO contacts (name, slug, email, created_at)
+     VALUES (?, ?, ?, NOW())",
+    [$marker . ' contact on A', 'idor-ca-' . $marker, $marker . '-contact-a@example.test']
 );
 $contact_a_id = (int)$db->lastInsertId();
 
 $db->execute(
-    "INSERT INTO contacts (name, email, created_at)
-     VALUES (?, ?, NOW())",
-    [$marker . ' contact on B', $marker . '-contact-b@example.test']
+    "INSERT INTO contacts (name, slug, email, created_at)
+     VALUES (?, ?, ?, NOW())",
+    [$marker . ' contact on B', 'idor-cb-' . $marker, $marker . '-contact-b@example.test']
 );
 $contact_b_id = (int)$db->lastInsertId();
 

@@ -20,5 +20,5 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // Redirect to login with message
-redirect('login.php', 'You have been logged out successfully.', 'success');
+redirect('/login', 'You have been logged out successfully.', 'success');
 ?>

@@ -244,9 +244,16 @@ ok("reset_password.php still calls isPasswordResetRateLimited (rate-limit gate)"
     strpos($resetCode, 'isPasswordResetRateLimited(') !== false);
 
 // ---------------------------------------------------------------------------
-// 6-9. Live HTTP: GET /reset_password.php
+// 6-9. Live HTTP: GET /reset-password
+//
+// issue-037: these URLs were repointed from the legacy /reset_password.php to
+// the canonical /reset-password slug. The 301 legacy redirect is correct and
+// intentional, but with FOLLOWLOCATION off the test was asserting against the
+// redirect response itself and every live-HTTP assertion failed on status=301.
+// The slug is what EmailService puts in real emails, so testing it here is
+// also strictly more faithful than testing the legacy alias.
 // ---------------------------------------------------------------------------
-section("6-9. Live HTTP: GET /reset_password.php");
+section("6-9. Live HTTP: GET /reset-password");
 
 $ch = curl_init();
 curl_setopt_array($ch, [
@@ -258,7 +265,7 @@ curl_setopt_array($ch, [
 ]);
 
 // 6. Valid token → 200 with form (no redirect).
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php?token=" . urlencode($testToken));
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password?token=" . urlencode($testToken));
 $body6 = curl_exec($ch);
 $info6 = curl_getinfo($ch);
 $status6 = (int)$info6['http_code'];
@@ -274,10 +281,10 @@ ok("GET /reset_password.php?token=VALID body does NOT show 'Invalid Reset Link'"
     is_string($body6) && strpos($body6, 'Invalid Reset Link') === false);
 
 // 7. Valid token called TWICE → 200 both times (the loop is gone).
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php?token=" . urlencode($testToken));
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password?token=" . urlencode($testToken));
 $body7a = curl_exec($ch);
 $status7a = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php?token=" . urlencode($testToken));
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password?token=" . urlencode($testToken));
 $body7b = curl_exec($ch);
 $status7b = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 ok("First GET /reset_password.php?token=VALID returns 200 (loop test)",
@@ -289,7 +296,7 @@ ok("Both GETs return a <form> tag (form is rendered, not a 302 chain)",
     && strpos((string)$body7b, '<form') !== false);
 
 // 8. Invalid token → 200 with "Invalid Reset Link" block.
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php?token=" . urlencode('this-token-does-not-exist'));
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password?token=" . urlencode('this-token-does-not-exist'));
 $body8 = curl_exec($ch);
 $status8 = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 ok("GET /reset_password.php?token=INVALID returns 200", $status8 === 200, "status=$status8");
@@ -301,7 +308,7 @@ ok("GET /reset_password.php?token=INVALID does NOT show a <form> tag",
 // 9. No token → 200 with the "Invalid Reset Link" H4 block (the
 // same template block as the invalid-token case; the error string
 // in $errors[] is not actually rendered to HTML — only the H4 is).
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php");
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password");
 $body9 = curl_exec($ch);
 $status9 = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 ok("GET /reset_password.php (no token) returns 200", $status9 === 200, "status=$status9");
@@ -337,7 +344,7 @@ curl_setopt_array($ch, [
 ]);
 
 // 10a. GET the form with the fresh token.
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php?token=" . urlencode($postToken));
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password?token=" . urlencode($postToken));
 $body10a = curl_exec($ch);
 $status10a = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 ok("10a. GET form with fresh token returns 200", $status10a === 200, "status=$status10a");
@@ -364,7 +371,7 @@ curl_setopt_array($ch, [
         'Content-Type: application/x-www-form-urlencoded',
         $cookieHeader !== '' ? 'Cookie: ' . $cookieHeader : null,
     ]),
-    CURLOPT_URL            => "http://pmp-web/reset_password.php?token=" . urlencode($postToken),
+    CURLOPT_URL            => "http://pmp-web/reset-password?token=" . urlencode($postToken),
 ]);
 $body10c = curl_exec($ch);
 $status10c = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -418,7 +425,7 @@ curl_setopt_array($ch, [
     CURLOPT_FOLLOWLOCATION => false,
     CURLOPT_TIMEOUT        => 5,
 ]);
-curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset_password.php?token=" . urlencode($postToken));
+curl_setopt($ch, CURLOPT_URL, "http://pmp-web/reset-password?token=" . urlencode($postToken));
 $body11 = curl_exec($ch);
 $status11 = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);

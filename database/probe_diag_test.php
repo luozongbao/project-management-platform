@@ -214,16 +214,19 @@ if (!$diagRejectsLoginRedirect) {
 //
 //    The 4 files we ship a <head> for, and the expected href path
 //    that must appear in that file:
-//      - includes/header.php   → 'assets/image/project-favicon.png'
-//        (root-relative; all pages that include header.php are
-//        served from the app root).
-//      - index.php             → 'assets/image/project-favicon.png'
-//        (served from the app root).
-//      - install.php           → 'assets/image/project-favicon.png'
+//      - includes/header.php   → '/assets/image/project-favicon.png'
+//        (root-absolute; all pages that include header.php are
+//        served from anywhere in the tree, e.g. /projects/<slug>).
+//      - includes/landing.php  → '/assets/image/project-favicon.png'
+//        (v2.0 issue-035: the landing HTML moved out of index.php
+//        into includes/landing.php so index.php could become the
+//        front controller; its assets are root-absolute).
+//      - install.php           → '/assets/image/project-favicon.png'
 //        (served from the app root, even when run as a CLI script,
 //        the head is rendered into the response).
-//      - client/dashboard.php  → '../assets/image/project-favicon.png'
-//        (served from /client/, so the href is one level up).
+//      - client/dashboard.php  → '/assets/image/project-favicon.png'
+//        (v2.0 issue-035: root-absolute like every other page, so
+//        the asset resolves regardless of the URL depth).
 //
 //    Each <head> must also carry the <link rel="icon" type="image/png">
 //    attribute prefix so the browser knows it is a PNG (and not the
@@ -232,10 +235,10 @@ if (!$diagRejectsLoginRedirect) {
 //    _diag.php is excluded — its <head> is in a .htaccess-denied
 //    file that the browser never requests.
 $favicon_files = [
-    'includes/header.php'    => 'assets/image/project-favicon.png',
-    'index.php'              => 'assets/image/project-favicon.png',
-    'install.php'            => 'assets/image/project-favicon.png',
-    'client/dashboard.php'   => '../assets/image/project-favicon.png',
+    'includes/header.php'    => '/assets/image/project-favicon.png',
+    'includes/landing.php'   => '/assets/image/project-favicon.png',
+    'install.php'            => '/assets/image/project-favicon.png',
+    'client/dashboard.php'   => '/assets/image/project-favicon.png',
 ];
 foreach ($favicon_files as $label => $expected_href) {
     $path = __DIR__ . '/../' . $label;
@@ -276,9 +279,9 @@ if (!is_readable($favicon_asset)) {
 //    The check specifically looks for '<script>' (with no src=
 //    attribute) as the inline-script indicator, allowing legitimate
 //    external <script src="…"> tags.
-$index_path = __DIR__ . '/../index.php';
+$index_path = __DIR__ . '/../includes/landing.php';
 if (!is_readable($index_path)) {
-    $failures[] = 'inline-script check: index.php is missing entirely (cannot verify no inline <script>)';
+    $failures[] = 'inline-script check: includes/landing.php is missing entirely (cannot verify no inline <script>)';
 } else {
     $index_src = file_get_contents($index_path);
     // The IIFE pattern '<script>(function' (with optional whitespace)
@@ -288,15 +291,15 @@ if (!is_readable($index_path)) {
     $has_inline_script = preg_match('#<script>\s*\(function#i', $index_src) === 1
         || preg_match('#<script>[^(<]*[A-Za-z0-9_]#s', $index_src) === 1;
     if ($has_inline_script) {
-        $failures[] = 'inline-script check: index.php still contains an inline <script>(function () { … })() block — the public landing is served with the client-portal CSP (no \'unsafe-inline\' in script-src) and the browser blocks it; the script must be externalised to assets/js/… and loaded via <script src="…"> (issue-032 v1.7.3.1)';
+        $failures[] = 'inline-script check: includes/landing.php still contains an inline <script>(function () { … })() block — the public landing is served with the client-portal CSP (no \'unsafe-inline\' in script-src) and the browser blocks it; the script must be externalised to assets/js/… and loaded via <script src="…"> (issue-032 v1.7.3.1)';
     }
     // The fix must also be in place: the externalised file must exist
     // and the page must reference it via <script src=…>. We don't pin
     // the exact filename (the dev may rename it) — we just assert
-    // there's a <script src="assets/js/…"> tag referencing the
+    // there's a <script src="/assets/js/…"> tag referencing the
     // assets/js/ directory.
-    if (strpos($index_src, '<script src="assets/js/') === false) {
-        $failures[] = 'inline-script check: index.php has no <script src="assets/js/…"> reference — the externalised share-code-format.js (or equivalent) must be loaded via <script src=…> (issue-032 v1.7.3.1)';
+    if (strpos($index_src, '<script src="/assets/js/') === false) {
+        $failures[] = 'inline-script check: includes/landing.php has no <script src="/assets/js/…"> reference — the externalised share-code-format.js (or equivalent) must be loaded via <script src=…> (issue-032 v1.7.3.1)';
     }
 }
 // 10. Issue-033 v1.7.3.2: _diag.php must contain the new §3.6

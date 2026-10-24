@@ -244,7 +244,7 @@ ok(
         $style_css_src
     )
 );
-// The init lines in index.php are: $code  = ''; and $error = '';
+// The init lines are: $code  = ''; and $error = '';
 // (Both are needed: a plain GET with no ?code= and no POST falls
 // through to the form render without entering either branch, so
 // the template reads `$code` and `$error` without the variables
@@ -253,14 +253,19 @@ ok(
 // PHP comments first so a literal in a doc-block does not fool
 // the assertion, and we accept either '' or "" as the empty
 // string literal.
-$index_stripped = strip_php_comments(file_get_contents($repo_root . '/index.php'));
+//
+// v2.0 (issue-035 C.2): this page moved from index.php to
+// includes/landing.php when index.php became the front controller.
+// The assertion follows the code, which is the whole point — the
+// initialisers still have to be there or the landing form warns.
+$landing_stripped = strip_php_comments(file_get_contents($repo_root . '/includes/landing.php'));
 ok(
-    'index.php declares $error at function scope (no undefined-variable warning on GET)',
-    (bool)preg_match('~\$error\s*=\s*(["\'])\1\s*;~', $index_stripped)
+    'includes/landing.php declares $error at function scope (no undefined-variable warning on GET)',
+    (bool)preg_match('~\$error\s*=\s*(["\'])\1\s*;~', $landing_stripped)
 );
 ok(
-    'index.php declares $code at function scope (no undefined-variable warning on GET)',
-    (bool)preg_match('~\$code\s*=\s*(["\'])\1\s*;~', $index_stripped)
+    'includes/landing.php declares $code at function scope (no undefined-variable warning on GET)',
+    (bool)preg_match('~\$code\s*=\s*(["\'])\1\s*;~', $landing_stripped)
 );
 
 // ---------------------------------------------------------------------------
@@ -271,7 +276,7 @@ ok(
 // ---------------------------------------------------------------------------
 echo "\n## 3c. tester-note-002 regression nets (parse error + Close bubble + 404 link)\n";
 
-// Bug 5: index.php source must not embed PHP open/close tags
+// Bug 5: the landing page source must not embed PHP open/close tags
 // inside any // line comment. PHP's tokenizer (php -l) treats
 // every PHP open tag as a script start regardless of comment
 // context, so a // line that "demonstrates" a control-flow
@@ -283,22 +288,28 @@ echo "\n## 3c. tester-note-002 regression nets (parse error + Close bubble + 404
 // character PHP close tag. We assert both halves of the
 // dangerous pattern are absent from any // line, then run
 // `php -l` as a final safety net.
-$index_full_src = file_get_contents($repo_root . '/index.php');
-$line_comment_with_php_open  = (bool)preg_match_all('~//[^\n]*<\?php~', $index_full_src, $_m1);
-$line_comment_with_php_close = (bool)preg_match_all('~//[^\n]*\?>~',   $index_full_src, $_m2);
+//
+// v2.0: follows the page to includes/landing.php, and additionally
+// lints the new front controller (index.php) which now sits in
+// front of it.
+$landing_full_src = file_get_contents($repo_root . '/includes/landing.php');
+$line_comment_with_php_open  = (bool)preg_match_all('~//[^\n]*<\?php~', $landing_full_src, $_m1);
+$line_comment_with_php_close = (bool)preg_match_all('~//[^\n]*\?>~',   $landing_full_src, $_m2);
 ok(
-    'index.php does NOT embed <?php inside any // line comment (tester-note-002 bug 5)',
+    'includes/landing.php does NOT embed <?php inside any // line comment (tester-note-002 bug 5)',
     !$line_comment_with_php_open && !$line_comment_with_php_close,
     'a // line containing <?php or ?> changes the file semantics — php -l will catch it but the regression test should too'
 );
-$lint_out = [];
-$lint_rc  = 0;
-exec('php -l ' . escapeshellarg($repo_root . '/index.php') . ' 2>&1', $lint_out, $lint_rc);
-ok(
-    'index.php lints cleanly via `php -l` (no parse errors)',
-    $lint_rc === 0,
-    $lint_rc !== 0 ? implode("\n", $lint_out) : ''
-);
+foreach (['/includes/landing.php', '/index.php'] as $lint_target) {
+    $lint_out = [];
+    $lint_rc  = 0;
+    exec('php -l ' . escapeshellarg($repo_root . $lint_target) . ' 2>&1', $lint_out, $lint_rc);
+    ok(
+        $lint_target . ' lints cleanly via `php -l` (no parse errors)',
+        $lint_rc === 0,
+        $lint_rc !== 0 ? implode("\n", $lint_out) : ''
+    );
+}
 
 // Bug 6: both Close buttons in includes/header.php must call
 // event.stopPropagation() before closing the <details>. Without it,
@@ -359,7 +370,7 @@ if (!defined('APP_VERSION')) {
     // require config.php; APP_VERSION is read via the const fallback
     // path in getLatestReleaseSummary(). We simulate it by
     // pre-declaring the constant via runkit-free define().
-    define('APP_VERSION', 'v1.8.0');
+    define('APP_VERSION', 'v2.0');
 }
 // Suppress any unrelated output (the helper itself echoes nothing).
 ob_start();
@@ -369,7 +380,7 @@ try {
     require_once $funcs_path;
     if (function_exists('getLatestReleaseSummary')) {
         $summary = getLatestReleaseSummary();
-        $ok_summary = is_string($summary) && $summary !== '' && strpos($summary, 'v1.8.0') === 0;
+        $ok_summary = is_string($summary) && $summary !== '' && strpos($summary, 'v2.0') === 0;
     }
 } catch (Throwable $t) {
     $summary = null;

@@ -36,6 +36,9 @@ const APP_NAME = 'Project Management System';
 const APP_URL  = '${APP_URL:-http://localhost}';
 const TIMEZONE = 'UTC';
 
+// Public registration (issue-039). false = /register is closed (403).
+const APP_ALLOW_REGISTRATION = ${APP_ALLOW_REGISTRATION:-true};
+
 const SESSION_LIFETIME      = 3600;
 const PASSWORD_RESET_EXPIRY = 3600;
 const ENCRYPTION_KEY        = '${ENCRYPTION_KEY:-please-change-this-32-char-key}';

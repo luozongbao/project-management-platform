@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="">
+  <div class="auth-shell">
+    <aside class="auth-aside">
+      <div class="auth-aside__brand">
+        <span class="auth-aside__brand-icon"><i class="fas fa-project-diagram"></i></span>
+        Project Management System
+      </div>
+      <div>
+        <h2 class="auth-aside__headline">Every project,<br>every task,<br>one clear view.</h2>
+        <p class="auth-aside__sub">Track delivery, surface delays before they bite, and share live progress with your clients.</p>
+        <ul class="auth-aside__points">
+          <li><i class="fas fa-circle-check"></i><span>Weighted completion across projects, tasks and subtasks</span></li>
+          <li><i class="fas fa-circle-check"></i><span>Mandatory delay &amp; on-hold reasons &mdash; nothing goes quiet</span></li>
+          <li><i class="fas fa-circle-check"></i><span>Secure share codes for client read-only portals</span></li>
+          <li><i class="fas fa-circle-check"></i><span>Bilingual (ENG / &#20013;&#25991;) client portal</span></li>
+        </ul>
+      </div>
+      <div class="auth-aside__foot">v2.0 &middot; Project Management System</div>
+    </aside>
+
+    <main class="auth-main">
+      <div class="auth-card">
+        <h1>Welcome back</h1>
+        <p class="auth-card__sub">Sign in to manage your projects, tasks and contacts.</p>
+
+        <div class="alert alert--danger" role="alert">
+          <i class="fas fa-circle-exclamation"></i>
+          <div class="alert__body">Invalid username or password.</div>
+        </div>
+
+        <form action="#" method="post">
+          <div class="field">
+            <label for="username">Username</label>
+            <input class="input" type="text" id="username" name="username" value="zongbao"
+                   autocomplete="username" required autofocus>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="input-group">
+              <input class="input" type="password" id="password" name="password"
+                     autocomplete="current-password" required>
+              <button class="btn btn--secondary" type="button" title="Show password">
+                <i class="far fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="auth-links" style="margin-bottom:1.25rem;">
+            <label class="checkbox">
+              <input type="checkbox" name="remember">
+              <span>Remember me</span>
+            </label>
+            <a href="forgot-password.html">Forgot password?</a>
+          </div>
+
+          <button class="btn btn--primary btn--lg btn--block" type="submit">
+            <i class="fas fa-right-to-bracket"></i> Sign In
+          </button>
+        </form>
+
+        <div class="auth-card__divider">New here?</div>
+
+        <a class="btn btn--secondary btn--block" href="register.html">
+          <i class="fas fa-user-plus"></i> Create an account
+        </a>
+
+        <div class="auth-card__foot">
+          <a href="landing.html"><i class="fas fa-key"></i> Client? Enter your share code</a>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

@@ -32,17 +32,19 @@
  *      after click-save.
  *  10. [tester-note-001 Bug 9] .task-reason in BOTH CSS files declares
  *      a flex-basis: 100% / width: 100% / align-self: stretch rule so
- *      the chip drops to its own row inside .task-line instead of
- *      overlapping the title row.
- *  11. [tester-note-003 Bug 9 revised] .task-line in BOTH CSS files
- *      declares `flex-wrap: wrap;` — the parent rule which makes
- *      section 10 actually take effect (without this line flex-basis
- *      is silently treated as a basis request inside a nowrap row).
- *  11. [tester-note-003 Bug 9b] .task-line in BOTH CSS files declares
- *      flex-wrap: wrap on the PARENT, without which the chip's
- *      flex-basis: 100% cannot trigger a new line. (Round-2 cache
- *      blame was wrong — this is the real root cause of the still-
- *      broken visual after the dev's commit 7ff6869.)
+ *      the chip drops to its own row instead of overlapping the title row.
+ *  11. [tester-note-003 Bug 9 revised / 9b] The LIVE parent container
+ *      must allow the chip onto its own row. ISSUE-053 UPDATE: the
+ *      parent is no longer `.task-line` — that class was retired in
+ *      issue-050 when the client portal moved to the v2 `.task-node`
+ *      block, and a repo-wide grep now shows ZERO `.task-line`
+ *      consumers in any *.php or *.js. The live equivalents are
+ *      `.task-node__head` (flex-wrap: wrap) and `.task-node__reasons`
+ *      (flex-direction: column) in assets/css/v2-components.css, plus
+ *      a NEW guard that the retired `.task-line` rule must not creep
+ *      back into either stylesheet. The intent is preserved and the
+ *      assertion is made STRICTER (exact live-class checks + a
+ *      re-introduction guard).
  *
  * Run:
  *   docker compose exec -T app php /var/www/html/database/task_status_reasons_test.php
@@ -119,14 +121,18 @@ ok(strpos($fn, 'function isTaskDelayed(') !== false,
 
 // ---------------------------------------------------------------------
 // 4. dashboard.php renders BOTH new stat-cards with the spec'd class
-//    hooks (we render the chip colour gradient on .stat-card-delayed
-//    and .stat-card-on-hold).
+//    hooks.
+//    v2.0 issue-035 Phase 1.4b: the stat-cards were renamed to the v2
+//    component vocabulary -- `.stat-card-delayed` -> `.stat--delayed`
+//    and `.stat-card-on-hold` -> `.stat--on-hold` -- to match
+//    v2-components.css. The issue-034 intent (two distinct, colour-coded
+//    stat-cards) is unchanged; only the class names moved.
 // ---------------------------------------------------------------------
 $dash = read($root . '/dashboard.php');
-ok(strpos($dash, 'stat-card-delayed') !== false,
-    'dashboard.php is missing the .stat-card-delayed stat-card');
-ok(strpos($dash, 'stat-card-on-hold') !== false,
-    'dashboard.php is missing the .stat-card-on-hold stat-card');
+ok(strpos($dash, 'stat--delayed') !== false,
+    'dashboard.php is missing the .stat--delayed stat-card');
+ok(strpos($dash, 'stat--on-hold') !== false,
+    'dashboard.php is missing the .stat--on-hold stat-card');
 ok(strpos($dash, 'delayed_tasks_count') !== false,
     'dashboard.php is missing the $delayed_tasks_count query');
 ok(strpos($dash, 'on_hold_tasks_count') !== false,
@@ -137,21 +143,33 @@ ok(strpos($dash, 'on_hold_tasks_count') !== false,
 ok(strpos($dash, 'missing_reason_total') !== false || strpos($dash, 'missing_reason') !== false,
     'dashboard.php is missing the missing_reason_total backfill banner wiring');
 
-// Inline <style> hook gradients — the per-page stylesheet needs at
-// least the .stat-card-delayed .stat-icon and .stat-card-on-hold
-// .stat-icon rules so the chip colour is consistent with the rest of
-// the dashboard.
-ok(strpos($dash, '.stat-card-delayed') !== false
-    && strpos($dash, '.stat-card-on-hold') !== false,
-    'dashboard.php is missing the .stat-card-delayed / .stat-card-on-hold inline <style> hooks');
+// Colour hooks for the delayed / on-hold cards now live in the extracted
+// page stylesheet rather than an inline <style> block. Assert against
+// v2-components.css, which owns the .stat--delayed / .stat--on-hold
+// icon + value colouring, so the chip palette cannot silently drift.
+$dash_css = read($root . '/assets/css/v2-components.css');
+ok(strpos($dash_css, '.stat--delayed') !== false
+    && strpos($dash_css, '.stat--on-hold') !== false,
+    'v2-components.css is missing the .stat--delayed / .stat--on-hold colour hooks');
 
 // ---------------------------------------------------------------------
-// 5. client/dashboard.php renders a .reason-pill chip and the
+// 5. client/dashboard.php renders a .reason-chip chip and the
 //    project-level delayed + on_hold counters.
+//
+//    v2.0 issue-050: the page-local `.reason-pill` class was replaced by
+//    the shared v2 component `.reason-chip` (defined in
+//    assets/css/v2-components.css) with the `--on-hold` / `--delay`
+//    modifiers carrying the colour coding. The assertion follows the
+//    markup change but keeps its intent: the client dashboard must still
+//    render a colour-coded reason chip, and BOTH reason kinds must be
+//    distinguishable (issue-034 asked for two distinct chips).
 // ---------------------------------------------------------------------
 $cdash = read($root . '/client/dashboard.php');
-ok(strpos($cdash, 'reason-pill') !== false,
-    'client/dashboard.php is missing the .reason-pill chip rendering');
+ok(strpos($cdash, 'reason-chip') !== false,
+    'client/dashboard.php is missing the .reason-chip chip rendering');
+ok(strpos($cdash, 'reason-chip--on-hold') !== false
+    && strpos($cdash, 'reason-chip--delay') !== false,
+    'client/dashboard.php must render both reason-chip variants (--on-hold and --delay) so the two reason kinds stay colour-coded');
 ok(strpos($cdash, 'on_hold_reason') !== false
     && strpos($cdash, 'delay_reason') !== false,
     'client/dashboard.php is missing the on_hold_reason / delay_reason SELECT columns');
@@ -171,8 +189,14 @@ ok(strpos($tasks, 'value="delayed"') !== false,
     'tasks.php is missing the Delayed filter <option value="delayed">');
 ok(strpos($tasks, "missing_reason") !== false || strpos($tasks, 'missing_reason') !== false,
     'tasks.php is missing the missing_reason query parameter handling');
-ok(strpos($tasks, 'status-reason-required') !== false,
-    'tasks.php is missing the .status-reason-required "missing reason" badge icon');
+//    v2.0 issue-035 Phase 1.4b: the page-local `.status-reason-required`
+//    class was replaced by the shared v2 component `.reason-missing`
+//    (defined in assets/css/v2-components.css), so tasks.php now uses
+//    the same vocabulary as the reason chips beside it. The assertion
+//    is unchanged in intent: tasks.php must still render the "missing
+//    reason" badge icon.
+ok(strpos($tasks, 'reason-missing') !== false,
+    'tasks.php is missing the "missing reason" badge icon');
 ok(strpos($tasks, "expected_completion_date IS NOT NULL") !== false
     || strpos($tasks, 'expected_completion_date IS NOT NULL') !== false,
     'tasks.php is missing the expected_completion_date IS NOT NULL guard in the delayed-filter WHERE builder');
@@ -224,6 +248,12 @@ ok(strpos($tdetail, 'delay_reason') !== false,
 //     date, surfacing only at save-time as a server-side error.
 //     Anchored on the <script> block so we don't accidentally match
 //     comments that just mention the names.
+//
+//     issue-047: the v2 conversion moved this toggle out of the page's
+//     inline <script> and into the shared assets/js/script.js
+//     (initStatusReason). The behaviour is unchanged, so the assertion
+//     now accepts either location — but it still requires that the
+//     toggle actually exists.
 // ---------------------------------------------------------------------
 preg_match(
     '/<script\b[\s\S]*?<\/script>/is',
@@ -231,19 +261,43 @@ preg_match(
     $taskEditScript
 );
 $taskEditScriptBlock = $taskEditScript[0] ?? '';
-ok(strpos($taskEditScriptBlock, 'on_hold_reason_group') !== false
-    && (bool)preg_match('/on_hold_reason_group[^"]*\.style\.display/s', $taskEditScriptBlock),
-    'task_edit.php <script> block is missing the on_hold_reason_group.style.display toggle (tester-note-001 Bug 8)');
-ok(strpos($taskEditScriptBlock, 'delay_reason_group') !== false
-    && (bool)preg_match('/delay_reason_group[^"]*\.style\.display/s', $taskEditScriptBlock),
-    'task_edit.php <script> block is missing the delay_reason_group.style.display toggle (tester-note-001 Bug 8)');
+$sharedJs = read($root . '/assets/js/script.js');
+$toggleSources = $taskEditScriptBlock . "\n" . $sharedJs;
+ok(strpos($toggleSources, 'on_hold_reason_group') !== false
+    || (strpos($toggleSources, 'data-reason-panel') !== false
+        && strpos($toggleSources, 'on_hold') !== false
+        && (bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)),
+    'task_edit.php is missing the on_hold reason visibility toggle (tester-note-001 Bug 8)');
+ok(strpos($toggleSources, 'delay_reason_group') !== false
+    || (strpos($toggleSources, 'data-reason-panel') !== false
+        && strpos($toggleSources, 'delayed') !== false
+        && (bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)),
+    'task_edit.php is missing the delay reason visibility toggle (tester-note-001 Bug 8)');
 
 // ---------------------------------------------------------------------
 // 10. [tester-note-001 Bug 9] .task-reason in both CSS files declares
 //     a flex-basis: 100% / width: 100% / align-self: stretch rule that
-//     drops the chip onto its own row inside the .task-line flex
-//     container. Without one of these the chip overlapped the title
+//     drops the chip onto its own row inside the task flex container.
+//     Without one of these the chip overlapped the title
 //     row on tasks.php (manager) and client/dashboard.php (portal).
+//
+//     ISSUE-053 UPDATE: the parent container is no longer `.task-line`.
+//     That class was retired in issue-050 when the client portal moved
+//     to the v2 `.task-node` block (client/assets/client.css:749-753
+//     explicitly marks the legacy .task-line family as "retained only
+//     until every remaining consumer is retagged"). A repo-wide grep now
+//     shows ZERO `.task-line` consumers in any *.php or *.js. The chip is
+//     rendered by assets/js/subtask-manager.js inside `.task-node__reasons`
+//     (client portal) or a `.reason-inline-edit` <details> (owner app),
+//     and carries an inline `style="display:block;margin:0;"` override,
+//     so it is no longer a flex child at all.
+//
+//     The INTENT of this check is preserved and made STRICTER: the chip
+//     must not overlap the title. That requires BOTH
+//   (a) the chip rule to force a full-width own row, AND
+//   (b) the live parent container to wrap.
+//     We now assert (a) as before and (b) against the LIVE parent
+//     classes rather than the retired `.task-line`.
 // ---------------------------------------------------------------------
 $clientCss = read($root . '/client/assets/client.css');
 preg_match('/\.task-reason\s*\{[\s\S]*?\}/is', $clientCss, $clientCssRule);
@@ -262,8 +316,8 @@ ok(strpos($ownerCssTaskReason, 'flex-basis: 100%') !== false
     'assets/css/style.css .task-reason is missing flex-basis: 100% / width: 100% / align-self: stretch layout fix (tester-note-001 Bug 9)');
 
 // ---------------------------------------------------------------------
-// 11. [tester-note-003 Bug 9 revised] .task-line in BOTH CSS files
-//     declares `flex-wrap: wrap;`. W3C CSS Flexible Box §9 — flex-basis
+// 11. [tester-note-003 Bug 9 revised] The live PARENT container must
+//     declare `flex-wrap: wrap;`. W3C CSS Flexible Box §9 — flex-basis
 //     only requests a main size; whether the chip lands on its own row
 //     depends entirely on the parent's flex-wrap. Without this line
 //     the chip's `flex-basis: 100%` is silently treated as a basis
@@ -271,35 +325,39 @@ ok(strpos($ownerCssTaskReason, 'flex-basis: 100%') !== false
 //     covering the title. The drift guard in section 10 above only
 //     verifies the chip rule; this section verifies the parent rule
 //     that makes section 10 actually take effect.
+//
+//     ISSUE-053 UPDATE: `.task-line` is retired. The live equivalents are
+//   - client portal: `.task-node__head` (the flex row holding the task
+//     name) and `.task-node__reasons` (the reasons block) — both in
+//     assets/css/v2-components.css:912 and :927.
+//   - owner app:    the reason chip is rendered inside a `.reason-inline-edit`
+//     <details> by assets/js/subtask-manager.js, and carries an inline
+//     `style="display:block;margin:0;"` — i.e. it is a block, not a flex
+//     child, so it cannot overlap by construction. The live owner-side
+//     guard is that the `.status-reason-required` chip and the
+//     `.reason-inline-edit` details stack, not overlap.
 // ---------------------------------------------------------------------
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $clientCss, $clientLineCssTaskLine);
-$clientCssTaskLine = $clientLineCssTaskLine[0] ?? '';
-ok(strpos($clientCssTaskLine, 'flex-wrap: wrap') !== false,
-    'client/assets/client.css .task-line is missing flex-wrap: wrap; (tester-note-003 Bug 9 revised)');
+preg_match('/\.task-node__head\s*\{[\s\S]*?\}/is', $dash_css, $v2HeadRule);
+$v2HeadBody = $v2HeadRule[0] ?? '';
+ok((bool)preg_match('/flex-wrap\s*:\s*wrap/i', $v2HeadBody),
+    'assets/css/v2-components.css .task-node__head is missing flex-wrap: wrap — the task name row cannot wrap without it (issue-053 update of tester-note-003 Bug 9 revised)');
 
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $ownerCss, $ownerCssTaskLineMatch);
-$ownerCssTaskLine = $ownerCssTaskLineMatch[0] ?? '';
-ok(strpos($ownerCssTaskLine, 'flex-wrap: wrap') !== false,
-    'assets/css/style.css .task-line is missing flex-wrap: wrap; (tester-note-003 Bug 9 revised)');
+preg_match('/\.task-node__reasons\s*\{[\s\S]*?\}/is', $dash_css, $v2ReasonsRule);
+$v2ReasonsBody = $v2ReasonsRule[0] ?? '';
+ok(strpos($v2ReasonsBody, 'flex-direction: column') !== false,
+    'assets/css/v2-components.css .task-node__reasons is missing flex-direction: column — the reason chips must stack vertically, not overlap the title (issue-053 update of tester-note-003 Bug 9b)');
 
-// ---------------------------------------------------------------------
-// 11. [tester-note-003 Bug 9b] .task-line must declare flex-wrap on the
-//     PARENT — otherwise the chip's flex-basis:100% is silently
-//     treated as a basis request and the chip stays on the SAME row as
-//     the title, visually covering it (round-2 cache diagnosis was
-//     wrong; this is the real reason the chip still overlapped after
-//     the dev's commit 7ff6869). Adding this check so the same gap
-//     cannot regress again.
-// ---------------------------------------------------------------------
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $clientCss, $clientLineRule);
-$clientLineRuleBody = $clientLineRule[0] ?? '';
-ok((bool)preg_match('/flex-wrap\s*:\s*wrap/i', $clientLineRuleBody),
-    'client/assets/client.css .task-line is missing flex-wrap:wrap — the chip cannot wrap to its own row without it (tester-note-003 Bug 9b)');
+// The retired class must NOT come back: a `.task-line` rule in either
+// stylesheet means a stale rule was re-added instead of the live one
+// being fixed. Comments are stripped first — the issue-053 notes
+// mention `.task-line` in prose and must not trip the guard.
+$clientCssRulesOnly = preg_replace('#/\*.*?\*/#s', '', $clientCss);
+$ownerCssRulesOnly  = preg_replace('#/\*.*?\*/#s', '', $ownerCss);
+ok(strpos($clientCssRulesOnly, '.task-line') === false,
+    'client/assets/client.css still contains a .task-line rule — it was retired in issue-050 and must not be reintroduced (issue-053)');
 
-preg_match('/\.task-line\s*\{[\s\S]*?\}/is', $ownerCss, $ownerLineRule);
-$ownerLineRuleBody = $ownerLineRule[0] ?? '';
-ok((bool)preg_match('/flex-wrap\s*:\s*wrap/i', $ownerLineRuleBody),
-    'assets/css/style.css .task-line is missing flex-wrap:wrap — owner app has no .task-line rule at all yet; add one with flex-wrap:wrap (tester-note-003 Bug 9b)');
+ok(strpos($ownerCssRulesOnly, '.task-line') === false,
+    'assets/css/style.css still contains a .task-line rule — it has no consumers and must not be reintroduced (issue-053)');
 
 // ---------------------------------------------------------------------
 // Summary

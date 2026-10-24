@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <span class="sidebar__brand-icon"><i class="fas fa-project-diagram"></i></span>
+        <span class="sidebar__brand-text">Project Management System<small>v2.0 redesign</small></span>
+      </div>
+      <nav class="sidebar__nav" aria-label="Main navigation">
+        <a class="sidebar__link is-active" href="dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+        <a class="sidebar__link" href="projects.html"><i class="fas fa-folder-open"></i><span>Projects</span></a>
+        <a class="sidebar__link" href="tasks.html"><i class="fas fa-tasks"></i><span>Tasks</span><span class="badge-count">3</span></a>
+        <a class="sidebar__link" href="contacts.html"><i class="fas fa-address-book"></i><span>Contacts</span></a>
+        <div class="sidebar__section-label">Account</div>
+        <a class="sidebar__link" href="profile.html"><i class="fas fa-user-edit"></i><span>My Profile</span></a>
+        <a class="sidebar__link" href="index.html"><i class="fas fa-palette"></i><span>Design Index</span></a>
+      </nav>
+      <div class="sidebar__footer">
+        <span class="sidebar__avatar">ZM</span>
+        <span class="sidebar__user">
+          <span class="sidebar__user-name">Zongbao M.</span>
+          <span class="sidebar__user-role">Owner</span>
+        </span>
+      </div>
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <button class="topbar__toggle" type="button" data-sidebar-toggle aria-label="Toggle navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar__search">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="search" placeholder="Search projects, tasks, contacts&hellip;" aria-label="Global search">
+        </div>
+        <div class="topbar__actions">
+          <button class="topbar__icon-btn" type="button" title="Notifications" data-toast="3 notifications" data-toast-kind="warning">
+            <i class="far fa-bell"></i><span class="dot" aria-hidden="true"></span>
+          </button>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" title="About" style="list-style:none;">
+              <i class="far fa-circle-question"></i>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <div style="padding:.6rem .75rem;border-bottom:1px solid var(--gray-100);">
+                <div class="text-sm fw-semibold">Version v2.0</div>
+                <div class="text-xs text-muted">Built by: Me</div>
+                <div class="text-xs text-muted">Vibe coding with AI agent</div>
+              </div>
+              <div class="dropdown__divider"></div>
+              <a class="dropdown__item" href="index.html"><i class="fas fa-rocket"></i> What&rsquo;s new in v2.0</a>
+            </div>
+          </details>
+          <details class="dropdown">
+            <summary class="topbar__icon-btn" style="list-style:none;">
+              <span class="avatar">ZM</span>
+            </summary>
+            <div class="dropdown__menu" role="menu">
+              <a class="dropdown__item" href="profile.html"><i class="fas fa-user-edit"></i> Profile</a>
+              <a class="dropdown__item" href="login.html"><i class="fas fa-right-from-bracket"></i> Logout</a>
+            </div>
+          </details>
+        </div>
+      </header>
+      <main class="content">
+        <div class="page-header">
+          <div class="page-header__text">
+            <h1><i class="fas fa-gauge-high"></i> Dashboard</h1>
+            <p class="page-header__sub">Overview of every project, task and deadline &mdash; updated live.</p>
+          </div>
+          <div class="page-actions">
+            <a class="btn btn--secondary" href="projects.html"><i class="fas fa-folder-open"></i> Projects</a>
+            <a class="btn btn--primary" href="project-form.html"><i class="fas fa-plus"></i> New Project</a>
+          </div>
+        </div>
+
+        <div class="alert alert--warning" role="alert">
+          <i class="fas fa-triangle-exclamation"></i>
+          <div class="alert__body">
+            <div class="alert__title">3 delayed tasks have no reason recorded</div>
+            Delayed and on-hold tasks must carry a reason. Review and add the missing reasons so your
+            client view stays accurate.
+            <div style="margin-top:.6rem;">
+              <a class="btn btn--sm btn--warning" href="tasks.html">Review delayed tasks</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+        <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-chart-pie"></i></div>
+          <div>
+            <div class="stat__value">62.4%</div>
+            <div class="stat__label">Overall Completion</div>
+            <div class="stat__meta">Weighted across all projects</div>
+          </div>
+        </div>
+        <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-folder-open"></i></div>
+          <div>
+            <div class="stat__value">7</div>
+            <div class="stat__label">Total Projects</div>
+            <div class="stat__meta">3 completed</div>
+          </div>
+        </div>
+        <div class="stat ">
+          <div class="stat__icon"><i class="fas fa-list-check"></i></div>
+          <div>
+            <div class="stat__value">19</div>
+            <div class="stat__label">Pending Tasks</div>
+            <div class="stat__meta">38 total</div>
+          </div>
+        </div>
+        <div class="stat stat--delayed">
+          <div class="stat__icon"><i class="fas fa-clock-rotate-left"></i></div>
+          <div>
+            <div class="stat__value">3</div>
+            <div class="stat__label">Delayed Tasks</div>
+            <div class="stat__meta">Past expected completion</div>
+          </div>
+        </div>
+        <div class="stat stat--on-hold">
+          <div class="stat__icon"><i class="fas fa-pause"></i></div>
+          <div>
+            <div class="stat__value">2</div>
+            <div class="stat__label">On Hold Tasks</div>
+            <div class="stat__meta">Reason recorded</div>
+          </div>
+        </div>
+        <div class="stat stat--info">
+          <div class="stat__icon"><i class="fas fa-calendar-day"></i></div>
+          <div>
+            <div class="stat__value">5</div>
+            <div class="stat__label">Upcoming Deadlines</div>
+            <div class="stat__meta">Next 14 days</div>
+          </div>
+        </div>
+        </div>
+
+        <div class="grid-sidebar--wide">
+          <div>
+            <div class="card">
+              <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-folder-open"></i> Recent Projects</h2>
+                <div class="card__actions">
+                  <a class="btn btn--sm btn--ghost" href="projects.html">View all <i class="fas fa-arrow-right"></i></a>
+                </div>
+              </div>
+              <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr><th>Project</th><th>Status</th><th>Progress</th><th>Tasks</th><th>Due</th></tr>
+                    </thead>
+                    <tbody>
+              <tr>
+                <td><a href="project-detail.html"><strong>Harbour Point Renovation</strong></a></td>
+                <td><span class="status status--in_progress">In Progress</span></td>
+                <td style="min-width:130px;">
+                  <div class="progress"><div class="progress__fill" style="width:64"></div></div>
+                </td>
+                <td class="text-sm text-muted nowrap">12 / 18 tasks</td>
+                <td class="text-sm nowrap">Nov 30, 2026</td>
+              </tr>
+              <tr>
+                <td><a href="project-detail.html"><strong>Bangkok Office Fit-out</strong></a></td>
+                <td><span class="status status--in_progress">In Progress</span></td>
+                <td style="min-width:130px;">
+                  <div class="progress"><div class="progress__fill" style="width:38"></div></div>
+                </td>
+                <td class="text-sm text-muted nowrap">5 / 14 tasks</td>
+                <td class="text-sm nowrap">Dec 18, 2026</td>
+              </tr>
+              <tr>
+                <td><a href="project-detail.html"><strong>Siam Retail Kiosk</strong></a></td>
+                <td><span class="status status--completed">Completed</span></td>
+                <td style="min-width:130px;">
+                  <div class="progress"><div class="progress__fill" style="width:100"></div></div>
+                </td>
+                <td class="text-sm text-muted nowrap">9 / 9 tasks</td>
+                <td class="text-sm nowrap">Oct 2, 2026</td>
+              </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-clock-rotate-left"></i> Recent Tasks</h2>
+                <div class="card__actions">
+                  <a class="btn btn--sm btn--ghost" href="tasks.html">View all <i class="fas fa-arrow-right"></i></a>
+                </div>
+              </div>
+              <div class="card__body card__body--flush">
+                <div class="table-wrap">
+                  <table class="table table--compact table--fit">
+                    <thead>
+                      <tr><th>Task</th><th>Project</th><th>Status</th><th>Progress</th><th>Owner</th></tr>
+                    </thead>
+                    <tbody>
+              <tr>
+                <td><a href="task-detail.html"><strong>Electrical wiring inspection</strong></a></td>
+                <td class="text-sm text-muted">Harbour Point Renovation</td>
+                <td><span class="status status--in_progress">In Progress</span></td>
+                <td style="min-width:110px;">
+                  <div class="progress"><div class="progress__fill" style="width:45"></div></div>
+                </td>
+                <td class="text-sm nowrap">Nok Chantarak</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>Update signage mockups</strong></a></td>
+                <td class="text-sm text-muted">Siam Retail Kiosk</td>
+                <td><span class="status status--completed">Completed</span></td>
+                <td style="min-width:110px;">
+                  <div class="progress"><div class="progress__fill" style="width:100"></div></div>
+                </td>
+                <td class="text-sm nowrap">Zongbao M.</td>
+              </tr>
+              <tr>
+                <td><a href="task-detail.html"><strong>Deep-clean lobby floor</strong></a></td>
+                <td class="text-sm text-muted">Bangkok Office Fit-out</td>
+                <td><span class="status status--on_hold">On Hold</span></td>
+                <td style="min-width:110px;">
+                  <div class="progress"><div class="progress__fill" style="width:0"></div></div>
+                </td>
+                <td class="text-sm nowrap">Somchai P.</td>
+              </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title-icon"><i class="fas fa-calendar-day"></i> Upcoming Deadlines</h2>
+            </div>
+            <div class="card__body card__body--flush">
+              <div class="table-wrap">
+                <table class="table table--compact">
+                  <tbody>
+              <tr>
+                <td><strong>Site handover drawings</strong></td>
+                <td class="text-sm text-muted">Harbour Point Renovation</td>
+                <td class="text-sm nowrap text-danger">Oct 24, 2026</td>
+                <td class="text-xs text-muted nowrap">2 days overdue</td>
+              </tr>
+              <tr>
+                <td><strong>Electrical sign-off</strong></td>
+                <td class="text-sm text-muted">Bangkok Office Fit-out</td>
+                <td class="text-sm nowrap text-warning">Oct 26, 2026</td>
+                <td class="text-xs text-muted nowrap">due soon</td>
+              </tr>
+              <tr>
+                <td><strong>Supplier delivery</strong></td>
+                <td class="text-sm text-muted">Harbour Point Renovation</td>
+                <td class="text-sm nowrap text-warning">Oct 29, 2026</td>
+                <td class="text-xs text-muted nowrap">due soon</td>
+              </tr>
+              <tr>
+                <td><strong>Structural inspection</strong></td>
+                <td class="text-sm text-muted">Chiang Mai Warehouse</td>
+                <td class="text-sm nowrap text-muted">Nov 04, 2026</td>
+                <td class="text-xs text-muted nowrap">on track</td>
+              </tr>
+              <tr>
+                <td><strong>Final handover</strong></td>
+                <td class="text-sm text-muted">Siam Retail Kiosk</td>
+                <td class="text-sm nowrap text-muted">Nov 12, 2026</td>
+                <td class="text-xs text-muted nowrap">on track</td>
+              </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer class="footer">
+        &copy; 2026 Project Management System. All rights reserved.
+      </footer>
+    </div>
+  </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

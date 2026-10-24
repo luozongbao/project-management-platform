@@ -1,0 +1,104 @@
+/* filepath: assets/css/pages/tasks.css */
+/* Layer 3 for tasks.php. Loaded after style.css and v2-components.css.
+ *
+ * Phase 1.4b originally kept the v1.8.0 card list, on the theory that the
+ * description, progress bar and reason chips could not survive 9 columns. That
+ * turned out to be wrong: every one of those has a real column or a real home
+ * (see the mapping comment in tasks.php), and the card list was the single
+ * largest remaining divergence from tasks.html.
+ *
+ * So this file now holds ONLY the task-specific row treatments. Table chrome,
+ * status chips, reason sub-rows, row actions, badges, buttons, empty state and
+ * the filter bar all come from v2-components.css and are not redefined here. *
+ * Deliberately NOT reproduced from tasks.html:
+ * - The mockup's `Export` button. It is `data-toast="Export queued (demo)"` —
+ *   a stub, and no export endpoint exists anywhere in the codebase. A control
+ *   that does nothing is worse than no control; it stays out until real
+ *   export exists.
+ * - The mockup has no type glyph in the Task column, so neither does the
+ *   markup. Subtask-ness is conveyed by the tk-row--subtask accent + indent. */
+
+/* Tasks list table — 9 columns per docs/design/2.0/tasks.html.
+ *
+ * The task list is now the mockup's table: Task / Project / Status /
+ * Responsible / Contact / Due / Completed / Subtasks / actions. Everything
+ * structural (.table, .table-wrap, .status, .reason-row, .reason-chip,
+ * .row-actions, .badge, .empty-state) comes from v2-components.css — only the
+ * row-level bits that are specific to tasks live here.
+ *
+ * Row accents replace the old card border-left accents. A table cell can't
+ * carry a border-left that reads as a row marker, so the tint goes on the
+ * first cell of the row instead.
+ */
+
+/* First-cell accent bar + row tint, per task state. */
+.tk-row > td:first-child { position: relative; }
+
+.tk-row--delayed > td:first-child { box-shadow: inset 3px 0 0 var(--danger-500); }
+.tk-row--on-hold > td:first-child { box-shadow: inset 3px 0 0 var(--warning-500); }
+.tk-row--completed > td:first-child { box-shadow: inset 3px 0 0 var(--success-500); }
+.tk-row--subtask > td:first-child { box-shadow: inset 3px 0 0 var(--gray-300); }
+
+/* A subtask that is ALSO delayed/on-hold must keep the state colour — the
+ * state accent wins, and the subtask indent is carried by the cell padding
+ * instead so the two signals don't fight over one box-shadow. */
+.tk-row--delayed.tk-row--subtask > td:first-child,
+.tk-row--on-hold.tk-row--subtask > td:first-child { padding-left: calc(var(--sp-4) + var(--sp-2)); }
+.tk-row--subtask:not(.tk-row--delayed):not(.tk-row--on-hold):not(.tk-row--completed) > td:first-child {
+  padding-left: calc(var(--sp-4) + var(--sp-2));
+}
+
+/* DELETED: `.tk-row--completed td { opacity }`.
+ *
+ * Ported from the old card's `.tk-card--completed { opacity: .78 }`, but a
+ * translucent card read as "recessive" whereas the same opacity on a table row
+ * dims the text itself — the row just looked broken, and it fought the
+ * Completed status badge sitting in its own Status cell. The mockup does not
+ * dim completed rows. Completed-ness is already carried by the status chip and
+ * by the green accent bar, so the tint was redundant as well as harmful. */
+
+/* Overdue due-date. */
+.tk-due--overdue { color: var(--danger-700); font-weight: var(--fw-semibold); }
+
+/* Resolved estimate line under the subtask count. */
+.tk-est {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--gray-500);
+  white-space: normal;
+}
+.tk-est i { color: var(--gray-400); }
+/* "Auto-calculated from sub-tasks" affordance next to an inherited estimate. */
+.tk-inherit {
+  font-size: .9em;
+  color: var(--gray-400);
+  cursor: help;
+}
+
+/* Filter bar: DELETED the former .tk-filter-form rules.
+ *
+ * The filter form now uses the shared .filter-bar component from
+ * v2-components.css (line ~646), which is a flex row with align-items:end and
+ * .filter-bar .field { flex: 1 1 180px } -- the same auto-fitting behaviour the
+ * old repeat(auto-fit, minmax(190px,1fr)) grid provided, so the layout is
+ * unchanged while now matching tasks.html and costing no page CSS.
+ *
+ * .tk-filter-form__actions became .filter-bar__actions, which the shared layer
+ * already styles (display:flex; gap:var(--sp-2)) -- identical, so nothing was
+ * lost by deleting the local copy.
+ *
+ * The @media (max-width:640px) stack rule went with it: .filter-bar already
+ * wraps via flex-wrap, so it degrades to one field per row on its own. */
+
+/* Project-scoped context chip next to the H1 */
+.tk-context {
+  color: var(--gray-600);
+  font-weight: var(--fw-normal);
+}
+
+/* Narrow screens: the former .tk-card--subtask indent rule was DELETED with the
+ * card list. Subtask indent is now cell padding on the row, which needs no
+ * breakpoint, and .table already scrolls horizontally inside .table-wrap. */

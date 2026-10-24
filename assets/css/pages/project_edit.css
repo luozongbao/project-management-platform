@@ -1,0 +1,41 @@
+/* Project edit page (project_edit.php)
+ *
+ * Page-scoped rules for the v2 "Project information" form and its sidebar.
+ * The shared form vocabulary (.form-grid, .field, .input, .select,
+ * .textarea, .card, .grid-sidebar, .modal*) comes from
+ * assets/css/v2-components.css; only rules that are unique to this page
+ * live here.
+ *
+ * This file replaced the inline <style> block that used to sit at the
+ * bottom of project_edit.php.
+ */
+
+/* The "Client share" card shows the share code in a copyable box. The
+ * .share-box rule itself is shared with the project detail page; the
+ * page-specific bits below only tune spacing inside the edit sidebar. */
+.pe-meta {
+    margin: 0.75rem 0 1rem;
+}
+
+/* The rotate form holds a single full-width button, so it only needs to
+ * reset the default block margin of a <form>. */
+.pe-rotate-form {
+    margin: 0;
+}
+
+.pe-rotate-form + .hint {
+    display: block;
+    margin-top: 0.5rem;
+}
+
+/* The project-code confirmation field sits between the Danger zone copy
+ * and the delete button. */
+.pe-danger-field {
+    margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+    .pe-danger-field {
+        margin-top: 0.75rem;
+    }
+}

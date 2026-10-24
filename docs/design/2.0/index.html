@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Index &mdash; Project Management System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="v2-tokens.css">
+</head>
+<body class="spec-page">
+      <div class="spec-hero">
+        <h1>Project Management System &mdash; v2.0 UI Kit</h1>
+        <p>Complete, non-lossy frontend redesign of every screen in the platform.
+        This browsable mockup is the visual contract for the v2.0 implementation:
+        no current feature is dropped, and every field, action, state and
+        empty/error condition has a designed counterpart.</p>
+        <div class="spec-hero__meta">
+          <div><strong>18</strong> screens designed</div>
+          <div><strong>18</strong> legacy routes mapped</div>
+          <div><strong>AA</strong> WCAG contrast target</div>
+          <div><strong>ENG / 中文</strong> bilingual ready</div>
+        </div>
+      </div>
+
+      <div class="page-header">
+        <div class="page-header__text">
+          <h1><i class="fas fa-layer-group"></i> Screen gallery</h1>
+          <p class="page-header__sub">Every screen is a standalone static HTML file &mdash; click through to review.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn--secondary" href="components.html"><i class="fas fa-palette"></i> Design system</a>
+          <a class="btn btn--primary" href="docs-design-notes.html"><i class="fas fa-file-lines"></i> Design notes</a>
+        </div>
+      </div>
+
+      <div class="screen-grid">
+        <a class="screen-card" href="landing.html">
+          <div class="screen-card__thumb"><i class="fas fa-key"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Public Landing / Share Code Entry</h3>
+            <p class="screen-card__desc">Public entry point. Share-code form, language switch, owner sign-in link.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Public</span><span class="badge badge--outline">Code entry</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="login.html">
+          <div class="screen-card__thumb"><i class="fas fa-right-to-bracket"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Sign In</h3>
+            <p class="screen-card__desc">Username + password. Rate-limit message, forgot-password link.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Public</span><span class="badge badge--outline">Auth</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="register.html">
+          <div class="screen-card__thumb"><i class="fas fa-user-plus"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Create Account</h3>
+            <p class="screen-card__desc">Name, username, email. First-run account creation.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Public</span><span class="badge badge--outline">Auth</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="forgot-password.html">
+          <div class="screen-card__thumb"><i class="fas fa-key"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Forgot Password</h3>
+            <p class="screen-card__desc">Email-based reset request with attempt throttling.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Public</span><span class="badge badge--outline">Auth</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="reset-password.html">
+          <div class="screen-card__thumb"><i class="fas fa-lock-open"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Set New Password</h3>
+            <p class="screen-card__desc">New password + confirmation, token-validated.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Public</span><span class="badge badge--outline">Auth</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="dashboard.html">
+          <div class="screen-card__thumb"><i class="fas fa-gauge-high"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Dashboard</h3>
+            <p class="screen-card__desc">6 stat cards incl. delayed / on-hold, 3 widgets, v1.8.0 backfill banner.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Overview</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="projects.html">
+          <div class="screen-card__thumb"><i class="fas fa-folder-open"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Projects</h3>
+            <p class="screen-card__desc">Project cards, status filter, typed-confirmation delete.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Projects</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="project-detail.html">
+          <div class="screen-card__thumb"><i class="fas fa-folder-open"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Project Detail</h3>
+            <p class="screen-card__desc">Share code block, 4 stats, project contacts, project tasks.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Projects</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="project-form.html">
+          <div class="screen-card__thumb"><i class="fas fa-pen-to-square"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Project Create / Edit</h3>
+            <p class="screen-card__desc">Full project form, share-code rotation, destructive delete.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Projects</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="tasks.html">
+          <div class="screen-card__thumb"><i class="fas fa-tasks"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Tasks</h3>
+            <p class="screen-card__desc">4 stat cards, search + project + status filters, reason chips.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Tasks</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="task-detail.html">
+          <div class="screen-card__thumb"><i class="fas fa-list-check"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Task Detail</h3>
+            <p class="screen-card__desc">Page actions, overview, parent, subtasks, details, reason, activity.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Tasks</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="task-form.html">
+          <div class="screen-card__thumb"><i class="fas fa-list-check"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Task Create / Edit</h3>
+            <p class="screen-card__desc">Full task form incl. dual reason textareas + completion slider.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Tasks</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="contacts.html">
+          <div class="screen-card__thumb"><i class="fas fa-address-book"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Contacts</h3>
+            <p class="screen-card__desc">4 stat cards, search + project filter, contact cards.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Contacts</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="contact-detail.html">
+          <div class="screen-card__thumb"><i class="fas fa-user"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Contact Detail</h3>
+            <p class="screen-card__desc">3 stats, recent tasks, contact info, social links, projects.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Contacts</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="contact-form.html">
+          <div class="screen-card__thumb"><i class="fas fa-address-card"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Contact Create / Edit</h3>
+            <p class="screen-card__desc">12 contact fields + project assignment checkboxes.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Contacts</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="profile.html">
+          <div class="screen-card__thumb"><i class="fas fa-user-edit"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">My Profile</h3>
+            <p class="screen-card__desc">4 stats, profile form, change-password form, action buttons.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Internal</span><span class="badge badge--outline">Account</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="client-dashboard.html">
+          <div class="screen-card__thumb"><i class="fas fa-share-nodes"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Client Portal</h3>
+            <p class="screen-card__desc">Public read-only project view. Info grid, hero %, task tree, reason pills.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Public</span><span class="badge badge--outline">Client</span></div>
+          </div>
+        </a>
+        <a class="screen-card" href="components.html">
+          <div class="screen-card__thumb"><i class="fas fa-palette"></i></div>
+          <div class="screen-card__body">
+            <h3 class="screen-card__title">Design System</h3>
+            <p class="screen-card__desc">Tokens, buttons, forms, badges, alerts, tables — the reference sheet.</p>
+            <div class="screen-card__tags"><span class="badge badge--outline">Reference</span></div>
+          </div>
+        </a>
+      </div>
+
+      <div class="card" style="margin-top:2rem;">
+        <div class="card__header"><h2 class="card__title-icon"><i class="fas fa-shield-halved"></i> Red line &mdash; feature completeness</h2></div>
+        <div class="card__body">
+          <p class="text-sm">The v2.0 redesign is a <strong>restyle and re-layout only</strong>. It must not
+          introduce, remove, rename or merge any business capability. The authoritative
+          mapping from every v1.8.0 field and action to its v2.0 location lives in
+          <a href="../../issues/issue-035.md">docs/issues/issue-035.md</a> &sect;9 (Traceability Matrix).</p>
+          <div class="chip-row" style="margin-top:1rem;">
+            <span class="badge badge--success"><i class="fas fa-check"></i> 18/18 routes covered</span>
+            <span class="badge badge--success"><i class="fas fa-check"></i> 0 fields dropped</span>
+            <span class="badge badge--success"><i class="fas fa-check"></i> 0 actions dropped</span>
+            <span class="badge badge--success"><i class="fas fa-check"></i> v1.8.0 delayed/on-hold reasons carried forward</span>
+            <span class="badge badge--success"><i class="fas fa-check"></i> Share-code security flow preserved</span>
+          </div>
+        </div>
+      </div>
+  <script src="v2-mockup.js"></script>
+</body>
+</html>

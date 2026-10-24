@@ -1,0 +1,186 @@
+/* ==========================================================================
+   Projects list — Phase 1.4b (issue-035)
+   --------------------------------------------------------------------------
+   Replaces the 318-line inline <style> block that used to live at the
+   bottom of projects.php.
+
+   v2-components.css already owns .card, .status--*, .progress, .btn--*,
+   .empty-state and .filter-bar, so those are not re-declared here. This
+   file supplies the project-card anatomy from
+   docs/design/2.0/projects.html.
+
+   The card was rebuilt against the mockup in this release. The previous
+   version used a .proj-* prefix and a different anatomy; the mockup calls
+   the block .project-card*, no page outside this one ever used either
+   name, and the mockup's version was never implemented. The classes were
+   renamed rather than aliased, so no stale duplicate is left behind.
+
+   Two deliberate departures from the mockup:
+
+   1. No delete button. The mockup's card footer has a trash icon opening a
+      type-the-code confirmation dialog. project_delete.php requires POST +
+      a CSRF token + the project's share_code typed as confirmation, and
+      that flow lives on project_edit.php, not the list. The data-modal-open
+      machinery the mockup's icon depends on does not exist in this codebase.
+      A trash icon here would imply a one-click delete the app deliberately
+      does not offer, so it is omitted rather than faked.
+
+   2. The start_date and completion_date rows were dropped, along with the
+      tasks/contacts stat icons. The mockup's meta row carries only due date
+      and task count. Matching the mockup was requested explicitly. This is
+      visible data loss on the list page, though both dates remain on
+      project_detail.php.
+
+      The contact count was dropped for the same reason and then reinstated
+      by request as a third __stats block. It is the one stat on this card
+      that the mockup does not have. It comes from project_stats.contact_count,
+      which the page's SELECT ps.* already fetches, so it costs no extra
+      query, and it renders at zero as well so the card shape stays
+      consistent across a row.
+
+   The description and its empty placeholder also share one element now; the
+   old markup wrapped the text in a <p> inside a div and styled the
+   placeholder separately.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Card grid
+   350px min column, matching the v1.8.0 rule. Collapses to a single
+   column on narrow screens via the auto-fill/minmax behaviour below.
+   -------------------------------------------------------------------------- */
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--sp-5);
+}
+
+/* --------------------------------------------------------------------------
+   Project card
+   Mockup anatomy, in order:
+     head     -> title + meta row on the left, status pill on the right
+     desc     -> one clamped line of muted text
+     progress
+     stats    -> Progress % and Pending, as label-above-value pairs
+     foot     -> Open and Edit buttons
+   -------------------------------------------------------------------------- */
+.project-card {
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    transition: box-shadow var(--dur-fast) var(--ease),
+                transform var(--dur-fast) var(--ease);
+}
+.project-card:hover {
+    box-shadow: var(--sh-md);
+    transform: translateY(-2px);
+}
+
+.project-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-3);
+}
+/* The mockup inlines style="flex:1;min-width:0;" on this wrapper. Kept as a
+   class so the value is not repeated per card, and so the title can
+   actually shrink inside the flex row. */
+.project-card__id { flex: 1; min-width: 0; }
+
+.project-card__title {
+    margin: 0;
+    /* issue-038: explicit colour; never inherit (see tasks.css .tk-title). */
+    color: var(--gray-900);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    line-height: 1.4;
+}
+.project-card__title a { color: var(--gray-900); text-decoration: none; }
+.project-card__title a:hover { color: var(--brand-600); }
+
+/* Meta row: due date and completed/total tasks, under the title. */
+.project-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    margin-top: var(--sp-2);
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+}
+.project-card__meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.project-card__meta i { width: 14px; text-align: center; flex: 0 0 14px; }
+
+.project-card__desc {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--gray-600);
+    line-height: 1.5;
+}
+/* The page renders an italic "No description provided" placeholder. Kept as a
+   distinct tone rather than inheriting the description colour. */
+.project-card__desc--empty { color: var(--gray-400); font-style: italic; }
+
+/* Stat block: label above value, on a muted inset panel. Wraps rather than
+   overflowing: the grid floor is 350px, which is tight for three columns
+   once "4 pending" and a two-digit percentage are set at --fs-base. */
+.project-card__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4) var(--sp-5);
+    padding: var(--sp-3);
+    background: var(--gray-50);
+    border-radius: var(--r-md);
+}
+.project-card__stat-label {
+    font-size: var(--fs-xs);
+    color: var(--gray-500);
+}
+.project-card__stat-value {
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    color: var(--gray-900);
+}
+/* Keeps the urgent tone the old icon-row stat carried. */
+.project-card__stat-value--urgent { color: var(--danger-700); }
+
+/* Footer: Open and Edit, pinned to the bottom so cards in a row line up even
+   when one has a longer description. */
+.project-card__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-top: auto;
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--gray-100);
+}
+
+/* --------------------------------------------------------------------------
+   Empty state
+   The v1.8.0 empty state was a raised white panel with a large grey folder
+   glyph. v2-components ships .empty-state__icon already; this only supplies
+   the panel treatment so it reads as a card like the grid above.
+   -------------------------------------------------------------------------- */
+.proj-empty {
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--r-lg);
+    padding: var(--sp-12) var(--sp-6);
+}
+.proj-empty h3 { margin-bottom: var(--sp-2); }
+.proj-empty p { margin-bottom: var(--sp-5); }
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .project-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
+    .project-card { padding: var(--sp-4); }
+    .project-card__foot { flex-wrap: wrap; }
+}

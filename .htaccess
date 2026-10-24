@@ -11,6 +11,24 @@ DirectoryIndex index.php index.html
 
 RewriteEngine On
 
+# v2.0 legacy .php -> slug 301s (issue-035 Appendix C.2 R11/R12).
+#
+# These entry points still exist and are still what the slug URLs dispatch
+# to, but their own URLs must 301 to the canonical slug form. Apache would
+# otherwise serve the real file directly, rendering the page at the old URL
+# and leaving it in the address bar - which R11 forbids.
+#
+# The rewrite runs them through the front controller, which emits the 301 with
+# the correct Location. Rules are evaluated top-down and [L] stops at the first
+# match, so this must come before the catch-all below.
+#
+# Deliberately narrow: it names the legacy entry points explicitly instead of
+# matching \.php$, so no other PHP file changes behaviour. It is placed after
+# RewriteEngine On and before the catch-all, and it does not shadow any of the
+# deny rules further down - those are <FilesMatch>/<DirectoryMatch> directives,
+# not rewrites, so they are unaffected by this block.
+RewriteRule ^(dashboard|projects|tasks|contacts|profile|login|register|logout|forgot_password|reset_password|project_detail|project_edit|project_delete|task_detail|task_edit|task_delete|contact_detail|contact_edit|contact_delete)\.php$ index.php [QSA,L]
+
 # Redirect to index.php if file doesn't exist
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

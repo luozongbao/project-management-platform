@@ -10,7 +10,7 @@ $user_id = getCurrentUserId();
 $project_id = $_GET['id'] ?? null;
 
 if (!$project_id) {
-    redirect('projects.php', 'Invalid project ID.', 'danger');
+    redirect('/projects', 'Invalid project ID.', 'danger');
 }
 
 // Get project details with statistics
@@ -25,7 +25,7 @@ $project = $db->fetchOne(
 );
 
 if (!$project) {
-    redirect('projects.php', 'Project not found or access denied.', 'danger');
+    redirect('/projects', 'Project not found or access denied.', 'danger');
 }
 
 $taskCompletion = getProjectTaskCompletionMap($db, $project_id);
@@ -90,871 +90,428 @@ $recent_activity = $db->fetchAll(
 
 $title = "Project: " . $project['name'];
 $show_nav = true;
+// v2.0: without this the page rendered outside the .app-shell, so it had no
+// sidebar and every v2 component below lost its layout context. Every other v2
+// page (dashboard, projects, tasks, contacts) sets it; this page did not,
+// which is why it looked unstyled. See includes/header.php line ~94.
+$use_v2_shell = true;
 ?>
 
 <?php include 'includes/header.php'; ?>
+<link rel="stylesheet" href="<?= e(asset_url('/assets/css/pages/project_detail.css')) ?>">
 
-<div class="project-detail-container">
-    <!-- Project Header -->
-    <div class="project-header">
-        <div class="project-info">
-            <div class="project-breadcrumb">
-                <a href="projects.php"><i class="fas fa-folder-open"></i> Projects</a>
-                <span>/</span>
-                <span><?= e($project['name']) ?></span>
-            </div>
-            <h1><?= e($project['name']) ?></h1>
-            <?php if ($project['description']): ?>
-                <p class="project-description"><?= e($project['description']) ?></p>
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/dashboard">Dashboard</a>
+    <span aria-hidden="true">/</span>
+    <a href="/projects">Projects</a>
+    <span aria-hidden="true">/</span>
+    <span><?= e($project['name']) ?></span>
+</nav>
+
+<div class="page-header">
+    <div class="page-header__text">
+        <h1><i class="fas fa-folder-open"></i> <?= e($project['name']) ?></h1>
+        <?php if ($project['description']): ?>
+            <p class="page-header__sub"><?= e($project['description']) ?></p>
+        <?php endif; ?>
+        <div class="chip-row">
+            <span class="status status--<?= e($project['status']) ?>"><?= ucfirst(str_replace('_', ' ', $project['status'])) ?></span>
+            <?php if (!empty($project['share_code'])): ?>
+                <span class="badge badge--outline">Code <?= e($project['share_code']) ?></span>
             <?php endif; ?>
-            
-            <div class="project-meta">
-                <span class="status status-<?= $project['status'] ?>">
-                    <?= ucfirst(str_replace('_', ' ', $project['status'])) ?>
+            <?php if (!empty($project['expected_completion_date'])): ?>
+                <span class="badge badge--outline">
+                    <i class="fas fa-calendar"></i>
+                    Due <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?>
                 </span>
-                <span class="responsible-person">
-                    <i class="fas fa-user"></i>
-                    <?= e($project['responsible_person_name']) ?>
-                </span>
-                <?php if (!empty($project['start_date'])): ?>
-                    <span class="start-date">
-                        <i class="fas fa-flag"></i>
-                        Started: <?= formatDateTime($project['start_date'], 'M j, Y') ?>
-                    </span>
-                <?php endif; ?>
-                <?php if ($project['expected_completion_date']): ?>
-                    <span class="expected-date">
-                        <i class="fas fa-calendar"></i>
-                        Due: <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?>
-                    </span>
-                <?php endif; ?>
-            </div>
-        </div>
-        
-        <div class="project-actions">
-            <a href="project_edit.php?id=<?= $project['id'] ?>" class="btn btn-primary">
-                <i class="fas fa-edit"></i>
-                Edit Project
-            </a>
+            <?php endif; ?>
         </div>
     </div>
-
-    <!-- Client Sharing + Scope/Budget info (added 2026-10-03) -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <div class="project-info-grid">
-                <div>
-                    <h3 class="info-heading"><i class="fas fa-list-check"></i> Project Scope</h3>
-                    <?php if (!empty($project['scope'])): ?>
-                        <ul class="scope-list">
-                            <?php foreach (preg_split('/\r\n|\r|\n/', (string)$project['scope']) as $line):
-                                $line = trim($line);
-                                if ($line === '') continue; ?>
-                                <li><?= e($line) ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php else: ?>
-                        <p class="text-muted"><em>No scope / requirements defined yet. Add some on the edit page.</em></p>
-                    <?php endif; ?>
-                </div>
-                <div>
-                    <h3 class="info-heading"><i class="fas fa-coins"></i> Budget</h3>
-                    <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
-                        <p class="budget-amount"><?= e(formatMoney($project['budget_amount'], $project['currency'])) ?></p>
-                    <?php else: ?>
-                        <p class="text-muted"><em>No budget set.</em></p>
-                    <?php endif; ?>
-                </div>
-                <div>
-                    <h3 class="info-heading"><i class="fas fa-share-nodes"></i> Client Share</h3>
-                    <?php if (!empty($project['share_code'])):
-                        $share_url = buildClientShareUrl($project['share_code']); ?>
-                        <p class="share-code-label">Project Code</p>
-                        <p class="share-code"><code id="shareCode"><?= e($project['share_code']) ?></code></p>
-                        <p class="share-url-label">Direct Link</p>
-                        <div class="share-url-row">
-                            <input type="text" id="shareUrl" readonly value="<?= e($share_url) ?>" class="share-input">
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="copyShareUrl()" title="Copy link">
-                                <i class="fas fa-copy"></i> Copy
-                            </button>
-                        </div>
-                        <p class="share-hint text-muted"><small>Anyone with this link can view a read-only progress dashboard for this project.</small></p>
-                    <?php else: ?>
-                        <p class="text-muted"><em>No share code (older project). Recreate the project to generate one.</em></p>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+    <div class="page-actions">
+        <a href="/projects/<?= (int)$project['id'] ?>/edit" class="btn btn--secondary">
+            <i class="fas fa-pen"></i> Edit Project
+        </a>
+        <a href="/tasks/new?project_id=<?= (int)$project['id'] ?>" class="btn btn--primary">
+            <i class="fas fa-plus"></i> Add Task
+        </a>
     </div>
+</div>
 
-    <!-- Project Statistics -->
-    <div class="project-stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon bg-primary">
-                <i class="fas fa-chart-pie"></i>
+<div class="grid-sidebar">
+    <div>
+        <!-- Client share code -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-share-nodes"></i> Client share code</h2>
             </div>
-            <div class="stat-content">
-                <h3><?= number_format($project['avg_completion_percentage'] ?? 0, 1) ?>%</h3>
-                <p>Completion</p>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon bg-success">
-                <i class="fas fa-tasks"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= $project['total_tasks'] ?? 0 ?></h3>
-                <p>Total Tasks</p>
-                <?php if ($project['completed_tasks'] > 0): ?>
-                    <small><?= $project['completed_tasks'] ?> completed</small>
+            <div class="card__body">
+                <?php if (!empty($project['share_code'])):
+                    $share_url = buildClientShareUrl($project['share_code']); ?>
+                    <div class="share-box">
+                        <code id="shareCode"
+                              data-share-url="<?= e($share_url) ?>"><?= e($project['share_code']) ?></code>
+                        <button type="button" class="btn btn--sm btn--secondary" onclick="copyShareUrl(this)" title="Copy link">
+                            <i class="far fa-copy"></i> Copy link
+                        </button>
+                    </div>
+                    <p class="text-xs text-muted pd-share-hint">
+                        <i class="fas fa-globe"></i>
+                        Client view:
+                        <a href="<?= e($share_url) ?>" class="text-mono"><?= e($share_url) ?></a>
+                    </p>
+                    <p class="text-xs text-muted pd-share-note">
+                        Anyone with this link can view a read-only progress dashboard for this project.
+                        Rotating the code invalidates the current link &mdash; that action lives on the
+                        <a href="/projects/<?= (int)$project['id'] ?>/edit">edit page</a>.
+                    </p>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="fas fa-share-nodes"></i>
+                        <p>No share code (older project). Recreate the project to generate one.</p>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon bg-warning">
-                <i class="fas fa-clock"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= $project['uncompleted_tasks'] ?? 0 ?></h3>
-                <p>Pending Tasks</p>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon bg-info">
-                <i class="fas fa-address-book"></i>
-            </div>
-            <div class="stat-content">
-                <h3><?= $project['contact_count'] ?? 0 ?></h3>
-                <p>Contacts</p>
-            </div>
-        </div>
-    </div>
 
-    <div class="project-content-grid">
-        <!-- Tasks Section -->
-        <div class="content-section">
-            <div class="section-header">
-                <h2>
-                    <i class="fas fa-tasks"></i>
-                    Tasks
-                    <span class="count">(<?= count($tasks) ?>)</span>
+        <!-- Project tasks -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title-icon">
+                    <i class="fas fa-list-check"></i> Project Tasks
+                    <span class="badge badge--neutral"><?= count($tasks) ?></span>
                 </h2>
-                <div class="section-actions">
-                    <a href="task_edit.php?project_id=<?= $project['id'] ?>" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i>
-                        Add Task
+                <div class="card__actions">
+                    <a href="/tasks?project_id=<?= (int)$project['id'] ?>" class="btn btn--sm btn--ghost">
+                        View all <i class="fas fa-arrow-right"></i>
                     </a>
-                    <a href="tasks.php?project_id=<?= $project['id'] ?>" class="btn btn-secondary btn-sm">
-                        <i class="fas fa-list"></i>
-                        View All
+                    <a href="/tasks/new?project_id=<?= (int)$project['id'] ?>" class="btn btn--sm btn--primary">
+                        <i class="fas fa-plus"></i> Add Task
                     </a>
                 </div>
             </div>
-            
-            <div class="tasks-list">
+            <div class="card__body card__body--flush">
                 <?php if (empty($tasks)): ?>
                     <div class="empty-state">
-                        <i class="fas fa-tasks"></i>
-                        <p>No tasks yet. <a href="task_edit.php?project_id=<?= $project['id'] ?>">Create your first task</a></p>
+                        <i class="fas fa-list-check"></i>
+                        <p>No tasks yet. <a href="/tasks/new?project_id=<?= (int)$project['id'] ?>">Create your first task</a></p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($tasks as $task): ?>
-                        <div class="task-item">
-                            <div class="task-info">
-                                <h4>
-                                    <a href="task_detail.php?id=<?= $task['id'] ?>">
-                                        <?= e($task['name']) ?>
-                                    </a>
-                                </h4>
-                                <div class="task-meta">
-                                    <span class="status status-<?= $task['status'] ?>">
-                                        <?= ucfirst(str_replace('_', ' ', $task['status'])) ?>
-                                    </span>
-                                    <span class="responsible">
-                                        <i class="fas fa-user"></i>
-                                        <?= e($task['responsible_person_name']) ?>
-                                    </span>
-                                    <?php if ($task['contact_person_name']): ?>
-                                        <span class="contact">
-                                            <i class="fas fa-address-card"></i>
-                                            <?= e($task['contact_person_name']) ?>
-                                        </span>
-                                    <?php endif; ?>
-                                    <?php if ($task['expected_completion_date']): ?>
-                                        <span class="deadline">
-                                            <i class="fas fa-calendar"></i>
-                                            <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
-                                        </span>
-                                    <?php endif; ?>
+                    <div class="table-wrap">
+                        <table class="table table--fit pd-table">
+                            <thead>
+                                <tr>
+                                    <th>Task</th>
+                                    <th>Status</th>
+                                    <th>Progress</th>
+                                    <th>Owner</th>
+                                    <th class="text-right">%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($tasks as $task): ?>
                                     <?php
                                     // Issue-011: render Total Time using the shared helper
                                     // so the project surface agrees with task detail + tasks + client portal.
                                     $child_estimates_for_task = $childEstimatesByParent[(int)$task['id']] ?? [];
                                     $resolved_total = resolveTaskEstimateHours($task, $child_estimates_for_task);
                                     $inherit_active = !empty($task['inherit_subtask_hours']) && (int)$task['subtask_count'] > 0;
+                                    $pct = (int)round((float)$task['completion_percentage']);
                                     ?>
-                                    <?php if ($resolved_total !== null): ?>
-                                        <span class="task-estimate">
-                                            <i class="fas fa-clock"></i>
-                                            Total Time: <?= e(formatTaskEstimate($resolved_total)) ?>
-                                            <?php if ($inherit_active): ?>
-                                                <i class="fas fa-link inherit-indicator"
-                                                   title="Auto-calculated from sub-tasks"
-                                                   aria-label="Auto-calculated from sub-tasks"></i>
+                                    <tr>
+                                        <td>
+                                            <a href="/tasks/<?= (int)$task['id'] ?>"><strong><?= e($task['name']) ?></strong></a>
+                                            <?php if ($task['contact_person_name'] || $task['expected_completion_date'] || $resolved_total !== null || $inherit_active || (int)$task['subtask_count'] > 0): ?>
+                                                <div class="pd-task-sub">
+                                                    <?php if ($task['contact_person_name']): ?>
+                                                        <span class="text-xs text-muted">
+                                                            <i class="fas fa-address-card"></i> <?= e($task['contact_person_name']) ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ($task['expected_completion_date']): ?>
+                                                        <span class="text-xs text-muted">
+                                                            <i class="fas fa-calendar"></i>
+                                                            <?= formatDateTime($task['expected_completion_date'], 'M j, Y') ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ($resolved_total !== null): ?>
+                                                        <span class="text-xs text-muted">
+                                                            <i class="fas fa-clock"></i> <?= e(formatTaskEstimate($resolved_total)) ?>
+                                                            <?php if ($inherit_active): ?>
+                                                                <i class="fas fa-link inherit-indicator"
+                                                                   title="Auto-calculated from sub-tasks"
+                                                                   aria-label="Auto-calculated from sub-tasks"></i>
+                                                            <?php endif; ?>
+                                                        </span>
+                                                    <?php elseif ($inherit_active): ?>
+                                                        <?php // Spec issue-011 § "Validation edge cases":
+                                                              // inherit-on with no positive child estimates
+                                                              // must render the literal "Not estimated
+                                                              // (no sub-task estimates)" copy
+                                                              // (issue-011 tester-note-001). ?>
+                                                        <span class="text-xs not-estimated">
+                                                            <i class="fas fa-clock"></i> Not estimated (no sub-task estimates)
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ((int)$task['subtask_count'] > 0): ?>
+                                                        <span class="text-xs text-muted">
+                                                            <i class="fas fa-sitemap"></i> <?= (int)$task['subtask_count'] ?> subtasks
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
                                             <?php endif; ?>
-                                        </span>
-                                    <?php elseif ($inherit_active): ?>
-                                        <?php // Spec issue-011 § "Validation edge cases":
-                                              // inherit-on with no positive child estimates
-                                              // must render the literal "Not estimated
-                                              // (no sub-task estimates)" copy
-                                              // (issue-011 tester-note-001). ?>
-                                        <span class="task-estimate not-estimated">
-                                            <i class="fas fa-clock"></i>
-                                            Total Time: Not estimated (no sub-task estimates)
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if ($task['subtask_count'] > 0): ?>
-                                    <div class="subtask-info">
-                                        <i class="fas fa-sitemap"></i>
-                                        <?= $task['subtask_count'] ?> subtasks
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="task-progress">
-                                <div class="progress-circle" data-percentage="<?= $task['completion_percentage'] ?>">
-                                    <span><?= number_format($task['completion_percentage'], 0) ?>%</span>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+                                        </td>
+                                        <td><span class="status status--<?= e($task['status']) ?>"><?= ucfirst(str_replace('_', ' ', $task['status'])) ?></span></td>
+                                        <td style="min-width:120px;">
+                                            <?php
+                                            // Tone is derived from the value in CSS via the modifier
+                                            // classes, so no JS reads or rewrites a percentage here.
+                                            $tone = $pct >= 80 ? 'success' : ($pct >= 50 ? 'warning' : 'danger');
+                                            ?>
+                                            <div class="progress progress--<?= $tone ?>">
+                                                <div class="progress__fill" style="width:<?= $pct ?>"></div>
+                                            </div>
+                                        </td>
+                                        <td class="text-sm nowrap"><?= e($task['responsible_person_name']) ?></td>
+                                        <td class="text-sm nowrap text-right"><?= $pct ?>%</td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
 
-        <!-- Contacts Section -->
-        <div class="content-section">
-            <div class="section-header">
-                <h2>
-                    <i class="fas fa-address-book"></i>
-                    Project Contacts
-                    <span class="count">(<?= count($project_contacts) ?>)</span>
+        <!-- Project contacts -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title-icon">
+                    <i class="fas fa-address-book"></i> Project Contacts
+                    <span class="badge badge--neutral"><?= count($project_contacts) ?></span>
                 </h2>
-                <div class="section-actions">
-                    <a href="contact_edit.php?project_id=<?= $project['id'] ?>" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i>
-                        Add Contact
+                <div class="card__actions">
+                    <a href="/contacts?project_id=<?= (int)$project['id'] ?>" class="btn btn--sm btn--ghost">
+                        View all <i class="fas fa-arrow-right"></i>
                     </a>
-                    <a href="contacts.php?project_id=<?= $project['id'] ?>" class="btn btn-secondary btn-sm">
-                        <i class="fas fa-list"></i>
-                        View All
+                    <a href="/contacts/new?project_id=<?= (int)$project['id'] ?>" class="btn btn--sm btn--primary">
+                        <i class="fas fa-plus"></i> Add contact
                     </a>
                 </div>
             </div>
-            
-            <div class="contacts-list">
+            <div class="card__body card__body--flush">
                 <?php if (empty($project_contacts)): ?>
                     <div class="empty-state">
                         <i class="fas fa-address-book"></i>
-                        <p>No contacts assigned. <a href="project_contact_edit.php?project_id=<?= $project['id'] ?>">Add a contact</a></p>
+                        <p>No contacts assigned. <a href="/contacts/new?project_id=<?= (int)$project['id'] ?>">Add a contact</a></p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($project_contacts as $contact): ?>
-                        <div class="contact-item">
-                            <div class="contact-avatar">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="contact-info">
-                                <h5>
-                                    <a href="contact_detail.php?id=<?= $contact['id'] ?>">
-                                        <?= e($contact['name']) ?>
-                                    </a>
-                                </h5>
-                                <?php if ($contact['description']): ?>
-                                    <p class="contact-description"><?= e(substr($contact['description'], 0, 100)) ?><?= strlen($contact['description']) > 100 ? '...' : '' ?></p>
-                                <?php endif; ?>
-                                <div class="contact-methods">
-                                    <?php if ($contact['email']): ?>
-                                        <a href="mailto:<?= e($contact['email']) ?>" class="contact-method" title="Email">
-                                            <i class="fas fa-envelope"></i>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if ($contact['mobile']): ?>
-                                        <a href="tel:<?= e($contact['mobile']) ?>" class="contact-method" title="Phone">
-                                            <i class="fas fa-phone"></i>
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if ($contact['wechat']): ?>
-                                        <span class="contact-method" title="WeChat: <?= e($contact['wechat']) ?>">
-                                            <i class="fab fa-weixin"></i>
-                                        </span>
-                                    <?php endif; ?>
-                                    <?php if ($contact['linkedin']): ?>
-                                        <a href="<?= e($contact['linkedin']) ?>" class="contact-method" title="LinkedIn" target="_blank">
-                                            <i class="fab fa-linkedin"></i>
-                                        </a>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+                    <div class="table-wrap">
+                        <table class="table table--fit pd-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Company</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($project_contacts as $contact): ?>
+                                    <tr>
+                                        <td><a href="/contacts/<?= (int)$contact['id'] ?>"><strong><?= e($contact['name']) ?></strong></a></td>
+                                        <td class="text-sm text-muted"><?= e($contact['position'] ?: '—') ?></td>
+                                        <td class="text-sm text-muted"><?= e($contact['company'] ?: '—') ?></td>
+                                        <td class="wrap-anywhere">
+                                            <?php if ($contact['email']): ?>
+                                                <a href="mailto:<?= e($contact['email']) ?>"><i class="fas fa-envelope"></i> <?= e($contact['email']) ?></a>
+                                            <?php else: ?><span class="text-muted">—</span><?php endif; ?>
+                                        </td>
+                                        <td class="text-sm nowrap">
+                                            <?php if ($contact['mobile']): ?>
+                                                <a href="tel:<?= e($contact['mobile']) ?>"><i class="fas fa-phone"></i> <?= e($contact['mobile']) ?></a>
+                                            <?php else: ?><span class="text-muted">—</span><?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="content-section full-width">
-            <div class="section-header">
-                <h2>
-                    <i class="fas fa-history"></i>
-                    Recent Activity
-                </h2>
+        <!-- Recent activity -->
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-history"></i> Recent Activity</h2>
             </div>
-            
-            <div class="activity-list">
+            <div class="card__body">
                 <?php if (empty($recent_activity)): ?>
                     <div class="empty-state">
                         <i class="fas fa-history"></i>
                         <p>No recent activity</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($recent_activity as $activity): ?>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-edit"></i>
-                            </div>
-                            <div class="activity-content">
-                                <p>
-                                    <strong><?= e($activity['responsible_person_name']) ?></strong>
-                                    updated task
-                                    <a href="task_detail.php?id=<?= $activity['id'] ?>"><?= e($activity['name']) ?></a>
-                                    to <span class="status status-<?= $activity['status'] ?>"><?= ucfirst(str_replace('_', ' ', $activity['status'])) ?></span>
-                                </p>
-                                <time><?= formatDateTime($activity['updated_at'], 'M j, Y g:i A') ?></time>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+                    <ul class="timeline">
+                        <?php foreach ($recent_activity as $activity): ?>
+                            <li>
+                                <span class="timeline__icon"><i class="fas fa-edit"></i></span>
+                                <div class="timeline__body">
+                                    <div>
+                                        <strong><?= e($activity['responsible_person_name']) ?></strong>
+                                        updated task
+                                        <a href="/tasks/<?= (int)$activity['id'] ?>"><?= e($activity['name']) ?></a>
+                                        to <span class="status status--<?= e($activity['status']) ?>"><?= ucfirst(str_replace('_', ' ', $activity['status'])) ?></span>
+                                    </div>
+                                    <div class="timeline__meta"><?= formatDateTime($activity['updated_at'], 'M j, Y g:i A') ?></div>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+        <div class="stat-grid pd-stats">
+            <div class="stat">
+                <div class="stat__icon"><i class="fas fa-chart-pie"></i></div>
+                <div>
+                    <div class="stat__value"><?= number_format($project['avg_completion_percentage'] ?? 0, 1) ?>%</div>
+                    <div class="stat__label">Avg Completion</div>
+                </div>
+            </div>
+            <div class="stat">
+                <div class="stat__icon"><i class="fas fa-list-check"></i></div>
+                <div>
+                    <div class="stat__value"><?= (int)($project['total_tasks'] ?? 0) ?></div>
+                    <div class="stat__label">Total Tasks</div>
+                    <?php if ((int)($project['completed_tasks'] ?? 0) > 0): ?>
+                        <div class="stat__meta"><?= (int)$project['completed_tasks'] ?> completed</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="stat<?= (int)($project['uncompleted_tasks'] ?? 0) > 0 ? ' stat--on-hold' : '' ?>">
+                <div class="stat__icon"><i class="fas fa-hourglass-half"></i></div>
+                <div>
+                    <div class="stat__value"><?= (int)($project['uncompleted_tasks'] ?? 0) ?></div>
+                    <div class="stat__label">Uncompleted</div>
+                </div>
+            </div>
+            <div class="stat">
+                <div class="stat__icon"><i class="fas fa-address-book"></i></div>
+                <div>
+                    <div class="stat__value"><?= (int)($project['contact_count'] ?? 0) ?></div>
+                    <div class="stat__label">Contacts</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title-icon"><i class="fas fa-sitemap"></i> Project details</h2>
+            </div>
+            <div class="card__body">
+                <div class="detail-list">
+                    <div class="detail-row">
+                        <span class="detail-row__k">Status</span>
+                        <span class="detail-row__v"><span class="status status--<?= e($project['status']) ?>"><?= ucfirst(str_replace('_', ' ', $project['status'])) ?></span></span>
+                    </div>
+                    <?php if (!empty($project['scope'])): ?>
+                        <div class="detail-row detail-row--stacked">
+                            <span class="detail-row__k">Scope</span>
+                            <span class="detail-row__v">
+                                <ul class="pd-scope-list">
+                                    <?php foreach (preg_split('/\r\n|\r|\n/', (string)$project['scope']) as $line):
+                                        $line = trim($line);
+                                        if ($line === '') continue; ?>
+                                        <li><?= e($line) ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </span>
+                        </div>
+                    <?php endif; ?>
+                    <div class="detail-row">
+                        <span class="detail-row__k">Budget</span>
+                        <span class="detail-row__v">
+                            <?php if ($project['budget_amount'] !== null && $project['currency']): ?>
+                                <?= e(formatMoney($project['budget_amount'], $project['currency'])) ?>
+                            <?php else: ?>
+                                <span class="text-muted">Not set</span>
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-row__k">Start date</span>
+                        <span class="detail-row__v">
+                            <?php if (!empty($project['start_date'])): ?>
+                                <?= formatDateTime($project['start_date'], 'M j, Y') ?>
+                            <?php else: ?>
+                                <span class="text-muted">Not set</span>
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-row__k">Due date</span>
+                        <span class="detail-row__v">
+                            <?php if (!empty($project['expected_completion_date'])): ?>
+                                <?= formatDateTime($project['expected_completion_date'], 'M j, Y') ?>
+                            <?php else: ?>
+                                <span class="text-muted">Not set</span>
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-row__k">Owner</span>
+                        <span class="detail-row__v"><?= e($project['responsible_person_name']) ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-row__k">Created</span>
+                        <span class="detail-row__v"><?= formatDateTime($project['created_at'], 'M j, Y') ?></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.project-detail-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.project-header {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    margin-bottom: 30px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-}
-
-.project-breadcrumb {
-    margin-bottom: 15px;
-    color: #666;
-    font-size: 14px;
-}
-
-.project-breadcrumb a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.project-breadcrumb span {
-    margin: 0 8px;
-    color: #ccc;
-}
-
-.project-header h1 {
-    margin: 0 0 10px 0;
-    color: #333;
-    font-size: 2rem;
-}
-
-.project-description {
-    margin: 0 0 20px 0;
-    color: #666;
-    font-size: 1.1rem;
-    line-height: 1.6;
-}
-
-.project-meta {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.project-meta > span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.9rem;
-}
-
-.project-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.stat-card {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.stat-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    color: white;
-}
-
-.stat-icon.bg-primary { background: linear-gradient(45deg, #007bff, #0056b3); }
-.stat-icon.bg-success { background: linear-gradient(45deg, #28a745, #1e7e34); }
-.stat-icon.bg-warning { background: linear-gradient(45deg, #ffc107, #e0a800); }
-.stat-icon.bg-info { background: linear-gradient(45deg, #17a2b8, #117a8b); }
-
-.stat-content h3 {
-    margin: 0 0 5px 0;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #333;
-}
-
-.stat-content p {
-    margin: 0;
-    color: #666;
-    font-weight: 500;
-}
-
-.stat-content small {
-    display: block;
-    margin-top: 5px;
-    color: #999;
-    font-size: 0.8rem;
-}
-
-.project-content-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-}
-
-.content-section.full-width {
-    grid-column: 1 / -1;
-}
-
-.content-section {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    overflow: hidden;
-}
-
-.section-header {
-    padding: 20px 25px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.section-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.count {
-    font-size: 0.9rem;
-    color: #666;
-    font-weight: normal;
-}
-
-.section-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.tasks-list, .contacts-list, .activity-list {
-    padding: 0;
-}
-
-.task-item, .contact-item, .activity-item {
-    padding: 20px 25px;
-    border-bottom: 1px solid #f1f3f4;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.task-item:last-child, .contact-item:last-child, .activity-item:last-child {
-    border-bottom: none;
-}
-
-.task-info h4 {
-    margin: 0 0 10px 0;
-    font-size: 1.1rem;
-}
-
-.task-info h4 a {
-    color: #333;
-    text-decoration: none;
-}
-
-.task-info h4 a:hover {
-    color: #007bff;
-}
-
-.task-meta, .contact-methods {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    margin-top: 8px;
-}
-
-.task-meta > span, .contact-methods > span, .contact-methods > a {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.subtask-info {
-    margin-top: 8px;
-    color: #666;
-    font-size: 0.85rem;
-}
-
-.progress-circle {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border: 3px solid #e9ecef;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #007bff;
-    position: relative;
-}
-
-.progress-circle[data-percentage]:before {
-    content: '';
-    position: absolute;
-    top: -3px;
-    left: -3px;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border: 3px solid transparent;
-    border-top-color: #007bff;
-    transform: rotate(calc(var(--percentage, 0) * 3.6deg));
-}
-
-.contact-item {
-    align-items: flex-start;
-}
-
-.contact-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 15px;
-    color: #666;
-}
-
-.contact-info {
-    flex: 1;
-}
-
-.contact-info h5 {
-    margin: 0 0 8px 0;
-    font-size: 1rem;
-}
-
-.contact-info h5 a {
-    color: #333;
-    text-decoration: none;
-}
-
-.contact-info h5 a:hover {
-    color: #007bff;
-}
-
-.contact-description {
-    margin: 0 0 10px 0;
-    color: #666;
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-
-.contact-method {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-    text-decoration: none;
-    transition: all 0.3s;
-}
-
-.contact-method:hover {
-    background: #007bff;
-    color: white;
-}
-
-.activity-item {
-    align-items: flex-start;
-}
-
-.activity-icon {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 15px;
-    color: #666;
-    font-size: 14px;
-}
-
-.activity-content {
-    flex: 1;
-}
-
-.activity-content p {
-    margin: 0 0 5px 0;
-    line-height: 1.4;
-}
-
-.activity-content time {
-    color: #999;
-    font-size: 0.85rem;
-}
-
-.empty-state {
-    padding: 40px 25px;
-    text-align: center;
-    color: #666;
-}
-
-.empty-state i {
-    font-size: 2.5rem;
-    margin-bottom: 15px;
-    color: #dee2e6;
-}
-
-.empty-state p {
-    margin: 0;
-}
-
-.empty-state a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.empty-state a:hover {
-    text-decoration: underline;
-}
-
-@media (max-width: 768px) {
-    .project-detail-container {
-        padding: 15px;
-    }
-    
-    .project-header {
-        flex-direction: column;
-        gap: 20px;
-        align-items: stretch;
-    }
-    
-    .project-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-    }
-    
-    .project-content-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    
-    .section-header {
-        flex-direction: column;
-        gap: 15px;
-        align-items: stretch;
-    }
-    
-    .task-item, .contact-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
-    
-    .progress-circle {
-        align-self: flex-end;
-    }
-}
-</style>
-
-<style>
-/* Client sharing section (added 2026-10-03) */
-.project-info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 30px;
-}
-.info-heading {
-    margin: 0 0 12px 0;
-    color: #333;
-    font-size: 1.05rem;
-    border-bottom: 2px solid #f1f3f5;
-    padding-bottom: 8px;
-}
-.info-heading i {
-    color: #007bff;
-    margin-right: 8px;
-}
-.scope-list {
-    margin: 0;
-    padding-left: 18px;
-    color: #444;
-}
-.scope-list li {
-    margin: 4px 0;
-    line-height: 1.5;
-}
-.budget-amount {
-    margin: 0;
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: #28a745;
-}
-.share-code-label, .share-url-label {
-    margin: 0 0 4px 0;
-    font-size: 0.85rem;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.share-code {
-    margin: 0 0 14px 0;
-}
-.share-code code {
-    font-size: 1.15rem;
-    background: #f1f3f5;
-    padding: 6px 12px;
-    border-radius: 6px;
-    letter-spacing: 0.04em;
-    color: #007bff;
-    font-weight: 600;
-}
-.share-url-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-.share-input {
-    flex: 1;
-    font-family: monospace;
-    font-size: 0.85rem;
-    padding: 8px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    background: #f8f9fa;
-}
-.share-hint {
-    margin: 0;
-}
-@media (max-width: 768px) {
-    .project-info-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-}
-</style>
-
 <script>
-// Set progress circle percentages
-document.addEventListener('DOMContentLoaded', function() {
-    const progressCircles = document.querySelectorAll('.progress-circle[data-percentage]');
+// Copy the client share URL. Kept as a named function because the button calls
+// it inline; nothing else on this page needs JS. The v1.8.0 progress-circle
+// script is gone — the bar's width and tone are plain CSS now.
+//
+// Issue-055: the copy now goes through the shared pmpCopyText() helper in
+// assets/js/script.js, which owns the Clipboard API -> execCommand fallback
+// chain. The previous inline version reported "Copied" unconditionally, even
+// when both mechanisms failed — the button lied to the user. It is also the
+// only copy implementation in the codebase now.
+function copyShareUrl(btn) {
+    var code = document.getElementById('shareCode');
+    if (!code) return;
+    // The URL is no longer rendered in an <input>, so it lives on the code
+    // element as data-share-url. One source of truth, nothing to keep in sync.
+    var url = code.getAttribute('data-share-url') || code.textContent.trim();
+    if (!url) return;
+    if (!btn) return;
 
-    progressCircles.forEach(circle => {
-        const percentage = circle.getAttribute('data-percentage');
-        circle.style.setProperty('--percentage', percentage);
-
-        // Add color based on percentage
-        if (percentage >= 80) {
-            circle.style.borderColor = '#28a745';
-            circle.style.color = '#28a745';
-        } else if (percentage >= 50) {
-            circle.style.borderColor = '#ffc107';
-            circle.style.color = '#ffc107';
-        } else {
-            circle.style.borderColor = '#dc3545';
-            circle.style.color = '#dc3545';
-        }
+    var original = btn.innerHTML;
+    pmpCopyText(url).then(function () {
+        btn.innerHTML = '<i class="far fa-check"></i> Copied';
+        btn.disabled = true;
+    }).catch(function () {
+        btn.innerHTML = '<i class="fas fa-circle-exclamation"></i> Copy failed';
+        btn.disabled = true;
+    }).then(function () {
+        setTimeout(function () {
+            btn.innerHTML = original;
+            btn.disabled = false;
+        }, 1500);
     });
-});
-
-// Copy the client share URL (added 2026-10-03)
-function copyShareUrl() {
-    var input = document.getElementById('shareUrl');
-    if (!input) return;
-    input.select();
-    input.setSelectionRange(0, 99999);
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) {}
-    if (navigator.clipboard && !ok) {
-        navigator.clipboard.writeText(input.value).catch(function(){});
-    }
-    // Tiny visual feedback
-    var btn = document.activeElement;
-    if (btn && btn.tagName === 'BUTTON') {
-        var original = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Copied';
-        setTimeout(function() { btn.innerHTML = original; }, 1500);
-    }
 }
 </script>
+
 
 <?php include 'includes/footer.php'; ?>

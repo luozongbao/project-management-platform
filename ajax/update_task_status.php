@@ -88,7 +88,10 @@ try {
     
     if ($status === 'completed') {
         $completion_percentage = 100;
-        $completion_date = date('Y-m-d H:i:s');
+        // Issue-055: completion_date is a SQL DATE column — a timestamp would
+        // be silently truncated by MariaDB, so store day precision to match
+        // task_edit.php.
+        $completion_date = date('Y-m-d');
     } elseif ($status === 'not_started') {
         $completion_percentage = 0;
     }

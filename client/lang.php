@@ -39,6 +39,7 @@ function client_translations() {
             'landing.try_again'      => 'Try another code',
             'landing.lang_label'     => 'Language',
             'landing.owner_login'    => 'Owner sign in',
+            'landing.divider_or'     => 'or',
             // About / version disclosure (issue-028). The attribution
             // string is the same in both locales per the issue's NG6
             // non-goal (no extra localization for the dev attribution).
@@ -127,6 +128,7 @@ function client_translations() {
             'landing.try_again'      => '重新输入代码',
             'landing.lang_label'     => '语言',
             'landing.owner_login'    => '管理员登录',
+            'landing.divider_or'     => '或',
             // 关于 / 版本披露 (issue-028)。归属声明在两种语言中
             // 保持一致(issue-028 的非目标 NG6:不为开发者署名做额外
             // 本地化)。
@@ -266,6 +268,19 @@ function t_status($status) {
         return ucfirst(str_replace('_', ' ', (string)$status));
     }
     return $translated;
+}
+
+// Display labels for every supported locale.
+function client_lang_labels() {
+    return ['en' => 'ENG', 'zh' => '中文'];
+}
+
+// All locales for the language switcher (current locale included).
+// The v2.0 mockup renders every locale and marks the active one with
+// .is-active, so the landing page needs the full list, not just the
+// "other" ones.
+function client_all_langs() {
+    return client_lang_labels();
 }
 
 // Other locales for the language switcher.
