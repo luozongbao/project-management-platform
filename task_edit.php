@@ -617,9 +617,26 @@ $use_v2_shell = true;
                 $show_delay_reason = $current_status !== 'completed'
                     && !empty($expected_for_render)
                     && strtotime((string)$expected_for_render) < strtotime(date('Y-m-d'));
+
+                // issue-056: the two reasons are INDEPENDENT. A task can be
+                // on hold AND past its due date at the same time, and the
+                // database stores the two explanations in two separate
+                // nullable columns. The delay panel's visibility is
+                // therefore driven by the DUE DATE, not by the status --
+                // hiding it merely because the status is on_hold produced a
+                // dead-end form (hidden + disabled textarea => not submitted
+                // => the server rejected the save for a missing delay reason).
+                //
+                // PHP stays the single source of truth for the delayed
+                // predicate and publishes the answer to the JS as
+                // data-reason-show. The JS reads that attribute instead of
+                // re-deriving the date rule a third time, and only rewrites
+                // it when the user actually changes the due date.
+                $show_on_hold_reason = ($current_status === 'on_hold');
                 ?>
                 <div class="field form-section" data-reason-panel="on_hold"
-                     <?= $current_status === 'on_hold' ? '' : 'hidden' ?>>
+                     data-reason-show="<?= $show_on_hold_reason ? '1' : '0' ?>"
+                     <?= $show_on_hold_reason ? '' : 'hidden' ?>>
                     <label for="on_hold_reason">On-hold reason <span class="req" aria-hidden="true">*</span></label>
                     <textarea class="textarea" id="on_hold_reason" name="on_hold_reason" rows="3"
                               maxlength="2000"
@@ -628,6 +645,7 @@ $use_v2_shell = true;
                 </div>
 
                 <div class="field form-section" data-reason-panel="delayed"
+                     data-reason-show="<?= $show_delay_reason ? '1' : '0' ?>"
                      <?= $show_delay_reason ? '' : 'hidden' ?>>
                     <label for="delay_reason">Delay reason <span class="req" aria-hidden="true">*</span></label>
                     <textarea class="textarea" id="delay_reason" name="delay_reason" rows="3"
