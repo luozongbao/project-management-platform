@@ -1547,8 +1547,17 @@ covers production** — see the table below.
 | **nginx (dev / Docker)** | `docker/nginx.conf` | `location / { try_files $uri $uri/ /index.php?$query_string; }` already forwards unknown paths to `index.php`, so the front controller can dispatch. But the `location ~ \.php$` block and the `/client/` blocks must keep working unchanged — see R21. |
 | **Production `.htaccess` blocks** | `.htaccess` | `<DirectoryMatch "/(includes\|database\|docs\|vendor)/">` must keep denying those directories, and the `.md`/`.sql` deny rules must stay. The slug rules must not weaken any deny rule. |
 
+> **⚠️ Corrected after implementation (2026-10).** The `<DirectoryMatch>` directive
+> named above is **illegal in `.htaccess`** — Apache 2.4 gives it the context
+> "server config, virtual host" only, so Apache rejects the whole file and
+> answers **500 for every request**. The directory denies are now expressed as
+> `RewriteRule ^(?:includes|database|docs|vendor|docker|tmpdiag)(?:/|$) - [R=404,L]`.
+> See the "Apache 2.4 constraints" table in [AGENTS.md](../../AGENTS.md) and
+> `database/apache_nginx_parity_test.php`, which keeps `.htaccess` and
+> `docker/nginx.conf` in step.
+
 **Order matters in `.htaccess`:** the slug rules must come **before** the
-catch-all, and the existing security denies (`<DirectoryMatch>`,
+catch-all, and the existing security denies (`RewriteRule … [R=404,L]`,
 `<FilesMatch>`) must keep applying. A slug rule that shadows a deny rule is a
 security regression.
 

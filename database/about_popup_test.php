@@ -248,7 +248,7 @@ ok(
 // (Both are needed: a plain GET with no ?code= and no POST falls
 // through to the form render without entering either branch, so
 // the template reads `$code` and `$error` without the variables
-// being in scope — without the initialisers, PHP 8.3 emits
+// being in scope — without the initialisers, PHP 8.5 emits
 // "Undefined variable" warnings into the response body.) We strip
 // PHP comments first so a literal in a doc-block does not fool
 // the assertion, and we accept either '' or "" as the empty
