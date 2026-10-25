@@ -603,6 +603,43 @@ function initRangeSync() {
 /* ------------------------------------------------------------------ */
 /* Conditional fields: task status -> reason textarea                  */
 /* ------------------------------------------------------------------ */
+/**
+ * Show / hide the Status Reason panels on the Task -> Edit form.
+ *
+ * There are TWO independent reasons and they are NOT mutually exclusive:
+ *
+ *   - "on_hold"  -- driven by the status alone.
+ *   - "delayed"  -- driven by the DUE DATE (a task is delayed when its
+ *                   expected completion date is in the past and it is not
+ *                   completed).
+ *
+ * A task can be on hold AND delayed at the same time: it is blocked on an
+ * external dependency and it also blew its deadline. The database models
+ * these as two separate nullable columns (tasks.on_hold_reason and
+ * tasks.delay_reason), task_detail.php renders both editors side by side,
+ * and includes/functions.php isTaskDelayed() explicitly does NOT exclude
+ * on_hold from the delayed set.
+ *
+ * issue-056: the delay panel's visibility used to be derived from the
+ * STATUS alone ("hide it when the status is on_hold"). That coupling made
+ * the form a dead end for on-hold + delayed tasks -- the delay textarea was
+ * hidden AND disabled, a disabled control is not submitted, so the server
+ * saw an empty delay_reason and rejected the save with "A delay reason is
+ * required...". The user could never satisfy the rule.
+ *
+ * The fix keeps PHP as the single source of truth for the delayed
+ * predicate: the server computes it and renders it into the panel's
+ * data-reason-show attribute. The JS reads that attribute instead of
+ * re-deriving the date rule on the initial render.
+ *
+ * Once the user edits EITHER input (the status or the due date) the
+ * predicate has to be recomputed live, because both feed it:
+ *   - due date in the past   => delayed
+ *   - status != 'completed'  => still delayed
+ * A completed task is never delayed, so switching the status to
+ * 'completed' must close the delay panel even though the due date is
+ * still in the past.
+ */
 function initStatusReason() {
     var statusSel = document.querySelector('[data-status-select]');
     if (!statusSel) return;
@@ -612,26 +649,90 @@ function initStatusReason() {
         delayed: document.querySelector('[data-reason-panel="delayed"]')
     };
     var delayHint = document.querySelector('[data-delay-hint]');
+    var dateInput = document.querySelector('#expected_completion_date');
+
+    // The server owns the "is this task delayed?" rule (it knows the due
+    // date and the status). Read its answer from the data attribute.
+    function isDelayed() {
+        if (!panels.delayed) return false;
+        return panels.delayed.getAttribute('data-reason-show') === '1';
+    }
+
+    // Recompute the delayed predicate the same way PHP does:
+    //   expected_completion_date < today AND status != 'completed'
+    // Note the status clause: 'completed' is the ONLY status that is
+    // never delayed. 'on_hold' DOES still count as delayed -- that is the
+    // whole point of issue-056.
+    function computeDelayed() {
+        if (!dateInput || !dateInput.value) return false;
+        var ts = Date.parse(dateInput.value + 'T00:00:00');
+        if (isNaN(ts)) return false;
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return ts < today.getTime() && statusSel.value !== 'completed';
+    }
+
+    // Push a freshly computed predicate back into the flag the server set.
+    function refreshDelayedFlag() {
+        if (!panels.delayed) return;
+        panels.delayed.setAttribute(
+            'data-reason-show', computeDelayed() ? '1' : '0'
+        );
+    }
 
     function sync() {
         var v = statusSel.value;
+
+        // On-hold panel: shown exactly when the status is on_hold.
+        if (panels.on_hold) {
+            panels.on_hold.hidden = (v !== 'on_hold');
+        }
+
+        // Delay panel: shown exactly when the task is delayed. A task that
+        // is on_hold AND past its due date shows BOTH panels.
+        if (panels.delayed) {
+            panels.delayed.hidden = !isDelayed();
+        }
+
+        // Apply required / disabled consistently to whichever panels are
+        // open. A disabled control is NOT submitted, so this is what turns
+        // a hidden panel into a failed save -- it must follow the visible
+        // state exactly.
         Object.keys(panels).forEach(function(key) {
-            if (!panels[key]) return;
-            var show = (key === 'on_hold' && v === 'on_hold') ||
-                       (key === 'delayed' && v !== 'completed' && v !== 'on_hold');
-            panels[key].hidden = !show;
-            var ta = panels[key].querySelector('textarea');
-            var lab = panels[key].querySelector('.req');
+            var p = panels[key];
+            if (!p) return;
+            var show = !p.hidden;
+            var ta = p.querySelector('textarea');
+            var lab = p.querySelector('.req');
             if (ta) {
                 ta.required = show;
-                if (!show) { ta.disabled = true; } else { ta.disabled = false; }
+                ta.disabled = !show;
             }
             if (lab) { lab.hidden = !show; }
         });
-        if (delayHint) { delayHint.hidden = statusSel.value === 'completed'; }
+
+        if (delayHint) { delayHint.hidden = !isDelayed(); }
     }
 
-    statusSel.addEventListener('change', sync);
+    statusSel.addEventListener('change', function() {
+        // The status feeds the delayed predicate too: a completed task is
+        // never delayed.
+        refreshDelayedFlag();
+        sync();
+    });
+
+    // Keep the delay panel in step with the due date: the user can move the
+    // expected completion date, which changes whether the task is delayed.
+    // Without this, an on-hold task with a future due date would keep the
+    // delay panel hidden after the user moves the date into the past -- and
+    // the next save would fail with the same dead-end error.
+    if (dateInput && panels.delayed) {
+        dateInput.addEventListener('change', function() {
+            refreshDelayedFlag();
+            sync();
+        });
+    }
+
     sync();
 }
 
