@@ -841,8 +841,29 @@ check('055-03', 'the copy helper shows a failure state ("Copy failed" / "Failed"
     (bool)preg_match('/copy\s*fail/i', $js));
 check('055-04', 'the copy helper restores the original label/icon after the timeout',
     (bool)preg_match('/setTimeout/i', $js) && (bool)preg_match('/textContent|innerHTML/i', $js));
-check('055-05', 'the copy helper re-enables the button after copying',
-    (bool)preg_match('/disabled\s*=\s*false/i', $js));
+// issue-056 UPDATE: this check used to grep the whole of script.js for
+// /disabled\s*=\s*false/i. It matched the Status-Reason panel code
+// ("ta.disabled = false") and NEVER touched the copy helper — a false
+// positive. The copy helper (initCopy) does not disable its button at
+// all: it swaps the label to "Copied" / "Copy failed" and restores the
+// original label + classes on a timeout.
+//
+// The INTENT of the check is "the copy button does not get stuck in a
+// disabled state after a copy attempt". Assert that directly against
+// the initCopy function body, and also assert the restore path exists —
+// the button must be usable again (same label, no leftover state class)
+// once the copy settles.
+$initCopyBody = '';
+if (preg_match('/function\s+initCopy\s*\([^)]*\)\s*\{(.*?)\n\}/s', $js, $icm)) {
+    $initCopyBody = $icm[1] ?? '';
+}
+check('055-05', 'the copy helper never disables its button (it restores the label and clears the state classes)',
+    $initCopyBody !== ''
+        && !preg_match('/\bbtn\.disabled\s*=/', $initCopyBody)
+        && (bool)preg_match('/setTimeout/', $initCopyBody)
+        && (bool)preg_match('/innerHTML\s*=\s*label/', $initCopyBody)
+        && (bool)preg_match('/classList\.remove\(/', $initCopyBody),
+    'initCopy() body not found, or it disables the button without restoring the label/classes');
 
 $pdet = src('project_detail.php');
 // strip PHP / JS / CSS comments before looking for a second copy implementation

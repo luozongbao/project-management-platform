@@ -266,12 +266,14 @@ $toggleSources = $taskEditScriptBlock . "\n" . $sharedJs;
 ok(strpos($toggleSources, 'on_hold_reason_group') !== false
     || (strpos($toggleSources, 'data-reason-panel') !== false
         && strpos($toggleSources, 'on_hold') !== false
-        && (bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)),
+        && ((bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)
+            || (bool)preg_match('/panels\.on_hold\.hidden/', $toggleSources))),
     'task_edit.php is missing the on_hold reason visibility toggle (tester-note-001 Bug 8)');
 ok(strpos($toggleSources, 'delay_reason_group') !== false
     || (strpos($toggleSources, 'data-reason-panel') !== false
         && strpos($toggleSources, 'delayed') !== false
-        && (bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)),
+        && ((bool)preg_match('/panels\[key\]\.hidden/', $toggleSources)
+            || (bool)preg_match('/panels\.delayed\.hidden/', $toggleSources))),
     'task_edit.php is missing the delay reason visibility toggle (tester-note-001 Bug 8)');
 
 // ---------------------------------------------------------------------
@@ -358,6 +360,124 @@ ok(strpos($clientCssRulesOnly, '.task-line') === false,
 
 ok(strpos($ownerCssRulesOnly, '.task-line') === false,
     'assets/css/style.css still contains a .task-line rule — it has no consumers and must not be reintroduced (issue-053)');
+
+// =====================================================================
+// 12. [issue-056] A task that is On Hold AND past its due date must be
+//     editable. The two reasons are INDEPENDENT: the DB has two separate
+//     nullable columns, task_detail.php renders both editors at once, and
+//     isTaskDelayed() does not exclude on_hold from the delayed set.
+//
+//     The bug was in assets/js/script.js initStatusReason(): the delay
+//     panel's visibility was derived from the STATUS ("hide it when the
+//     status is on_hold") instead of from the DUE DATE. The panel was then
+//     hidden AND its textarea disabled — a disabled control is not
+//     submitted — so the server received an empty delay_reason and
+//     rejected the save with "A delay reason is required...". The user
+//     could never satisfy the rule. A dead-end form.
+//
+//     The server-side rule is CORRECT and must stay strict; these checks
+//     guard the BROWSER behaviour.
+// =====================================================================
+
+// 12a. The old buggy exclusion must be gone. The exact expression
+//      "v !== 'completed' && v !== 'on_hold'" was the bug: it made the
+//      status (not the due date) drive the delay panel's visibility.
+ok(strpos($sharedJs, "v !== 'completed' && v !== 'on_hold'") === false,
+    'assets/js/script.js still excludes on_hold from the delay-reason panel — an on-hold + delayed task is unsavable (issue-056)');
+
+// 12b. The JS must read the server-computed visibility flag rather than
+//      re-deriving the delayed predicate from the status alone.
+ok(strpos($sharedJs, 'data-reason-show') !== false,
+    'assets/js/script.js does not read the server-computed reason-panel visibility flag (issue-056)');
+ok((bool)preg_match(
+    '/getAttribute\(\s*[\'"]data-reason-show[\'"]\s*\)\s*===\s*[\'"]1[\'"]/',
+    $sharedJs
+), 'assets/js/script.js does not derive the delayed predicate from data-reason-show === "1" (issue-056)');
+
+// 12c. The on-hold panel and the delay panel must be decided
+//      SEPARATELY. A single combined boolean per key is what allowed the
+//      two conditions to be coupled in the first place.
+ok((bool)preg_match('/panels\.on_hold\.hidden\s*=/', $sharedJs),
+    'assets/js/script.js does not toggle the on-hold panel independently (issue-056)');
+ok((bool)preg_match('/panels\.delayed\.hidden\s*=/', $sharedJs),
+    'assets/js/script.js does not toggle the delay panel independently (issue-056)');
+
+// 12d. The due-date listener. Without it, moving the expected completion
+//      date into the past would not reveal the delay panel until a full
+//      round-trip — and the re-render would still leave the field
+//      unusable, reproducing the dead end.
+ok((bool)preg_match(
+    '~dateInput\.addEventListener\(\s*[\'"]change[\'"]~',
+    $sharedJs
+), 'assets/js/script.js has no change listener on the expected-completion-date input — moving the due date into the past would not reveal the delay panel (issue-056)');
+ok((bool)preg_match(
+    '~querySelector\(\s*[\'"]#expected_completion_date[\'"]\s*\)~',
+    $sharedJs
+), 'assets/js/script.js does not look up #expected_completion_date — the due date cannot drive the delay panel (issue-056)');
+
+// 12d-bis. The STATUS also feeds the delayed predicate: a completed task is
+//      never delayed, so switching the status to 'completed' must close the
+//      delay panel even when the due date is still in the past. The
+//      server-side flag is only the INITIAL value; once the user changes
+//      the status the JS has to recompute the predicate. Without this the
+//      delay panel stays open (and required) on a completed task, and the
+//      next save fails with a spurious delay-reason error.
+ok((bool)preg_match(
+    '~statusSel\.addEventListener\(\s*[\'"]change[\'"][\s\S]{0,400}?refreshDelayedFlag~',
+    $sharedJs
+), 'assets/js/script.js does not recompute the delayed predicate on a status change — a completed task would keep the delay panel open and fail to save (issue-056)');
+
+// The predicate must exclude ONLY 'completed'. Re-introducing the on_hold
+// exclusion here would reintroduce the original bug in the browser.
+ok((bool)preg_match(
+    '/computeDelayed[\s\S]{0,600}?statusSel\.value\s*!==\s*[\'"]completed[\'"]/',
+    $sharedJs
+), 'assets/js/script.js does not exclude only "completed" from the delayed predicate (issue-056)');
+ok(!preg_match(
+    '/computeDelayed[\s\S]{0,600}?statusSel\.value\s*!==\s*[\'"]completed[\'"][\s\S]{0,80}?on_hold/s',
+    $sharedJs
+), 'assets/js/script.js excludes on_hold from the delayed predicate — an on-hold + delayed task is unsavable (issue-056)');
+
+// 12e. task_edit.php must publish the server-computed flags for BOTH
+//      panels. PHP stays the single source of truth for the delayed
+//      predicate, so the JS does not re-derive the date rule a third time.
+ok((bool)preg_match('/data-reason-panel="on_hold"[\s\S]{0,200}?data-reason-show=/', $edit),
+    'task_edit.php does not emit data-reason-show on the on_hold reason panel (issue-056)');
+ok((bool)preg_match('/data-reason-panel="delayed"[\s\S]{0,200}?data-reason-show=/', $edit),
+    'task_edit.php does not emit data-reason-show on the delay reason panel (issue-056)');
+
+// 12f. The server-computed delayed predicate must NOT exclude on_hold.
+//      This is the authoritative half of the fix: if PHP reintroduced
+//      the exclusion, the JS flag would be wrong no matter what the JS
+//      does. Mirror of the render block in task_edit.php.
+ok((bool)preg_match(
+    '/\$show_delay_reason\s*=\s*\$current_status\s*!==\s*[\'"]completed[\'"]/',
+    $edit
+), 'task_edit.php no longer computes $show_delay_reason from the status (issue-056)');
+ok(!preg_match(
+    '/\$show_delay_reason\s*=[^;]{0,300}?on_hold/s',
+    $edit
+), 'task_edit.php excludes on_hold from $show_delay_reason — an on-hold + delayed task is unsavable (issue-056)');
+
+// 12g. The server-side rules must stay STRICT. The trap to avoid is
+//      "fixing" the symptom by relaxing the validation so the save goes
+//      through; the server rule is correct and is mirrored in
+//      task_detail.php and ajax/update_task_status.php.
+ok(strpos($edit, 'An on-hold reason is required when status is On Hold.') !== false,
+    'task_edit.php lost the on-hold reason requirement — it must stay strict (issue-056)');
+ok(strpos($edit, 'A delay reason is required when the task is past its expected completion date.') !== false,
+    'task_edit.php lost the delay reason requirement — it must stay strict (issue-056)');
+
+// 12h. The canonical predicate must keep treating on_hold as delayed.
+//      isTaskDelayed() is the shared helper; if someone "fixed" the bug
+//      by excluding on_hold there, task_detail.php and the filters would
+//      start disagreeing with each other.
+preg_match('/function\s+isTaskDelayed\s*\([^)]*\)\s*:\s*bool\s*\{(.*?)\n\}/s', $fn, $isDelayedM);
+$isDelayedBody = $isDelayedM[1] ?? '';
+ok(strpos($isDelayedBody, 'isTaskDelayed') !== false || strpos($isDelayedBody, 'status') !== false,
+    'could not locate the isTaskDelayed() body (issue-056)');
+ok(!preg_match('/status[^\n;]{0,80}?!==\s*[\'"]completed[\'"][^\n;]{0,80}?&&\s*[^\n;]{0,40}?on_hold/s', $isDelayedBody),
+    'isTaskDelayed() excludes on_hold from the delayed set — on_hold tasks past their due date must still count as delayed (issue-056)');
 
 // ---------------------------------------------------------------------
 // Summary
