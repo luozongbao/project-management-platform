@@ -232,8 +232,8 @@ class SubtaskManager {
                 </span>
                 <details class="reason-inline-edit" open>
                     <summary>Add reason</summary>
-                    <textarea data-update-reason data-task-id="${taskId}" data-field="${field}" rows="2" maxlength="2000" placeholder="Add reason..."></textarea>
-                    <button type="button" data-save-reason data-task-id="${taskId}" data-field="${field}">Save</button>
+                    <textarea class="textarea" data-update-reason data-task-id="${taskId}" data-field="${field}" rows="2" maxlength="2000" placeholder="Add reason..."></textarea>
+                    <button class="btn btn--sm btn--primary" type="button" data-save-reason data-task-id="${taskId}" data-field="${field}">Save</button>
                     <span data-save-status aria-live="polite"></span>
                 </details>
             `;
@@ -242,8 +242,8 @@ class SubtaskManager {
             <span class="task-reason ${kindClass}" style="display:block;margin:0;">${escapedValue}</span>
             <details class="reason-inline-edit">
                 <summary>Edit</summary>
-                <textarea data-update-reason data-task-id="${taskId}" data-field="${field}" rows="2" maxlength="2000">${escapedValue}</textarea>
-                <button type="button" data-save-reason data-task-id="${taskId}" data-field="${field}">Save</button>
+                <textarea class="textarea" data-update-reason data-task-id="${taskId}" data-field="${field}" rows="2" maxlength="2000">${escapedValue}</textarea>
+                <button class="btn btn--sm btn--primary" type="button" data-save-reason data-task-id="${taskId}" data-field="${field}">Save</button>
                 <span data-save-status aria-live="polite"></span>
             </details>
         `;

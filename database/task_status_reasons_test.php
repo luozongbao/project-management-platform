@@ -45,6 +45,18 @@
  *      back into either stylesheet. The intent is preserved and the
  *      assertion is made STRICTER (exact live-class checks + a
  *      re-introduction guard).
+ *  13. [issue-057] The Status Reason inline editor on task_detail.php
+ *      must CARRY the presentation classes the stylesheet selects on.
+ *      The markup was behaviourally correct (the JS finds the elements
+ *      by their data attributes) but the <textarea> and <button>
+ *      carried no class attribute at all, so every class-based rule
+ *      (.textarea, .btn) missed them and the editor rendered as raw UA
+ *      defaults. Checks: every reason textarea carries class="textarea",
+ *      every reason Save button carries a .btn class, the counts are 4
+ *      and 4, the JS renderer in assets/js/subtask-manager.js carries
+ *      the same classes on BOTH of its branches, a whole-app sweep
+ *      asserts no <textarea> anywhere lacks class="textarea", and the
+ *      CSS was NOT "fixed" with a masking element selector.
  *
  * Run:
  *   docker compose exec -T app php /var/www/html/database/task_status_reasons_test.php
@@ -478,6 +490,109 @@ ok(strpos($isDelayedBody, 'isTaskDelayed') !== false || strpos($isDelayedBody, '
     'could not locate the isTaskDelayed() body (issue-056)');
 ok(!preg_match('/status[^\n;]{0,80}?!==\s*[\'"]completed[\'"][^\n;]{0,80}?&&\s*[^\n;]{0,40}?on_hold/s', $isDelayedBody),
     'isTaskDelayed() excludes on_hold from the delayed set — on_hold tasks past their due date must still count as delayed (issue-056)');
+
+// =====================================================================
+// 13. [issue-057] The Status Reason inline editor must CARRY the
+//     presentation classes the stylesheet selects on.
+//
+//     The markup was correct in every behavioural respect (the JS finds
+//     the elements by data-update-reason / data-save-reason), but the
+//     <textarea> and <button> elements carried NO class attribute at
+//     all. Every rule that should style them (.input/.select/.textarea
+//     and .btn in assets/css/v2-components.css) is class-based, so the
+//     elements fell back to the UA defaults — a small white box with a
+//     tiny native button.
+//
+//     The CSS is correct and must NOT be touched: adding an element
+//     selector to mask the missing class would leave the markup wrong.
+//
+//     The existing check 8 above only asserts the DATA attributes, so a
+//     class-less textarea satisfied every one of them. These checks
+//     close that gap.
+// =====================================================================
+
+// 13a. Every reason textarea in task_detail.php carries class="textarea".
+//      The COUNT assertion matters as much as the class assertion: it
+//      prevents a future refactor from silently dropping an editor.
+preg_match_all('/<textarea\b([^>]*)>/i', $tdetail, $taM);
+$reasonTextareas = 0;
+foreach ($taM[1] as $attrs) {
+    if (stripos($attrs, 'data-update-reason') === false) { continue; }
+    $reasonTextareas++;
+    ok((bool)preg_match('/class\s*=\s*["\'][^"\']*\btextarea\b[^"\']*["\']/i', $attrs),
+        'a reason inline-edit textarea in task_detail.php is missing class="textarea" (issue-057)');
+}
+ok($reasonTextareas === 4,
+    'expected 4 reason inline-edit textareas in task_detail.php, found ' . $reasonTextareas . ' (issue-057)');
+
+// 13b. Every reason Save button in task_detail.php carries a .btn class.
+//      The spec'd combination is "btn btn--sm btn--primary", matching the
+//      app's convention for compact primary actions.
+preg_match_all('/<button\b([^>]*)>/i', $tdetail, $btnM);
+$reasonButtons = 0;
+foreach ($btnM[1] as $attrs) {
+    if (stripos($attrs, 'data-save-reason') === false) { continue; }
+    $reasonButtons++;
+    ok((bool)preg_match('/class\s*=\s*["\'][^"\']*\bbtn\b[^"\']*["\']/i', $attrs),
+        'a reason inline-edit Save button in task_detail.php is missing the .btn class (issue-057)');
+}
+ok($reasonButtons === 4,
+    'expected 4 reason inline-edit Save buttons in task_detail.php, found ' . $reasonButtons . ' (issue-057)');
+
+// 13c. The JavaScript renderer must carry the SAME classes. Fixing only
+//      the PHP would leave the page correct on first load and revert to
+//      the broken appearance after any client-side re-render of the
+//      reason block (renderReasonBlock() in assets/js/subtask-manager.js).
+//
+//      WATCH THE ATTRIBUTE ORDER: the JS templates put class first and
+//      the data attributes after, but the PHP also puts class first —
+//      however the two files are independent, so the assertions match
+//      the class and the data attribute independently rather than
+//      assuming one combined order.
+$subtaskJs = read($root . '/assets/js/subtask-manager.js');
+ok((bool)preg_match('/<textarea[^>]*class="textarea"[^>]*data-update-reason/i', $subtaskJs),
+    'subtask-manager.js injects a reason textarea without class="textarea" (issue-057)');
+ok((bool)preg_match('/<button[^>]*class="btn[^"]*"[^>]*data-save-reason/i', $subtaskJs),
+    'subtask-manager.js injects a reason Save button without the .btn class (issue-057)');
+
+// Both JS branches (the "Add reason" / empty branch and the "Edit" /
+// populated branch) must be covered — one branch is not enough.
+ok(substr_count($subtaskJs, '<textarea class="textarea" data-update-reason') === 2,
+    'expected 2 class-carrying reason textareas in subtask-manager.js renderReasonBlock(), found '
+        . substr_count($subtaskJs, '<textarea class="textarea" data-update-reason') . ' (issue-057)');
+ok(substr_count($subtaskJs, '<button class="btn btn--sm btn--primary" type="button" data-save-reason') === 2,
+    'expected 2 class-carrying reason Save buttons in subtask-manager.js renderReasonBlock(), found '
+        . substr_count($subtaskJs, '<button class="btn btn--sm btn--primary" type="button" data-save-reason') . ' (issue-057)');
+
+// 13d. A whole-app sweep. This is the check that would have caught the
+//      original defect at the moment it was introduced: EVERY <textarea>
+//      in every routed PHP file must carry class="textarea". The CSS is
+//      class-based, so a textarea without the class renders unstyled.
+//
+//      Only the routed root-level pages are swept (plus the client
+//      portal) — the test harness files themselves contain <textarea>
+//      inside string literals and regex patterns, which are not markup.
+$sweepFiles = glob($root . '/*.php') ?: [];
+foreach (array_merge($sweepFiles, glob($root . '/client/*.php') ?: []) as $phpFile) {
+    $src = read($phpFile);
+    if ($src === '' || strpos($src, '<textarea') === false) { continue; }
+    preg_match_all('/<textarea\b([^>]*)>/i', $src, $sweepM);
+    foreach ($sweepM[1] as $attrs) {
+        ok((bool)preg_match('/class\s*=\s*["\'][^"\']*\btextarea\b[^"\']*["\']/i', $attrs),
+            basename($phpFile) . ' contains a <textarea> without class="textarea" (issue-057)');
+    }
+}
+
+// 13e. The CSS must NOT have been "fixed" by adding an element selector
+//      that would mask a missing class. The component rules must still
+//      be the mechanism.
+$v2css = read($root . '/assets/css/v2-components.css');
+ok((bool)preg_match('/\.input,\s*\.select,\s*\.textarea\s*\{/', $v2css),
+    'assets/css/v2-components.css lost the .input/.select/.textarea component rule (issue-057)');
+ok((bool)preg_match('/\.textarea\s*\{[^}]*min-height:\s*88px/i', $v2css),
+    'assets/css/v2-components.css lost the .textarea min-height: 88px rule (issue-057)');
+ok(!preg_match('/\.reason-inline-edit\s+textarea\s*\{/i', $v2css),
+    'assets/css/v2-components.css styles the reason editor via an element selector — that would mask the missing class and leave the markup wrong (issue-057)');
 
 // ---------------------------------------------------------------------
 // Summary
