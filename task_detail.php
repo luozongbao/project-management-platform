@@ -496,11 +496,11 @@ $use_v2_shell = true;
                                 <p class="td-reason__text td-reason__text--hold"><?= e($detail_on_hold) ?></p>
                                 <details class="reason-inline-edit">
                                     <summary>Edit</summary>
-                                    <textarea data-update-reason
+                                    <textarea class="textarea" data-update-reason
                                               data-task-id="<?= (int)$task_id ?>"
                                               data-field="on_hold_reason"
                                               rows="2" maxlength="2000"><?= e($detail_on_hold) ?></textarea>
-                                    <button type="button"
+                                    <button class="btn btn--sm btn--primary" type="button"
                                             data-save-reason
                                             data-task-id="<?= (int)$task_id ?>"
                                             data-field="on_hold_reason">Save</button>
@@ -513,12 +513,12 @@ $use_v2_shell = true;
                                 </p>
                                 <details class="reason-inline-edit" open>
                                     <summary>Add reason</summary>
-                                    <textarea data-update-reason
+                                    <textarea class="textarea" data-update-reason
                                               data-task-id="<?= (int)$task_id ?>"
                                               data-field="on_hold_reason"
                                               rows="2" maxlength="2000"
                                               placeholder="Why is this task on hold?"></textarea>
-                                    <button type="button"
+                                    <button class="btn btn--sm btn--primary" type="button"
                                             data-save-reason
                                             data-task-id="<?= (int)$task_id ?>"
                                             data-field="on_hold_reason">Save</button>
@@ -534,11 +534,11 @@ $use_v2_shell = true;
                                 <p class="td-reason__text td-reason__text--delay"><?= e($detail_delay) ?></p>
                                 <details class="reason-inline-edit">
                                     <summary>Edit</summary>
-                                    <textarea data-update-reason
+                                    <textarea class="textarea" data-update-reason
                                               data-task-id="<?= (int)$task_id ?>"
                                               data-field="delay_reason"
                                               rows="2" maxlength="2000"><?= e($detail_delay) ?></textarea>
-                                    <button type="button"
+                                    <button class="btn btn--sm btn--primary" type="button"
                                             data-save-reason
                                             data-task-id="<?= (int)$task_id ?>"
                                             data-field="delay_reason">Save</button>
@@ -551,12 +551,12 @@ $use_v2_shell = true;
                                 </p>
                                 <details class="reason-inline-edit" open>
                                     <summary>Add reason</summary>
-                                    <textarea data-update-reason
+                                    <textarea class="textarea" data-update-reason
                                               data-task-id="<?= (int)$task_id ?>"
                                               data-field="delay_reason"
                                               rows="2" maxlength="2000"
                                               placeholder="Why is this task past its expected completion date?"></textarea>
-                                    <button type="button"
+                                    <button class="btn btn--sm btn--primary" type="button"
                                             data-save-reason
                                             data-task-id="<?= (int)$task_id ?>"
                                             data-field="delay_reason">Save</button>

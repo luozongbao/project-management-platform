@@ -9,9 +9,9 @@ portal** that lets stakeholders view read-only progress without logging in.
 >
 > **v2.0 is the front-end redesign.** Every page of the internal console, the
 > install wizard and the public client portal has been rebuilt on a shared v2
-> design system: a **103-token** layer (`assets/css/v2-tokens.css`), a
+> design system: an **80-token** layer (`assets/css/v2-tokens.css`), a
 > **component library** (`.card`, `.btn`, `.modal`, `.toast`, `.stat-grid`,
-> `.task-tree`, `.form-grid`, … in `assets/css/v2-components.css`) and **14
+> `.task-tree`, `.form-grid`, … in `assets/css/v2-components.css`) and **13
 > per-page stylesheets** (`assets/css/pages/`). All inline `<style>` and
 > inline `<script>` blocks are gone; shared behaviour now lives in
 > `assets/js/script.js`. The superseded v1 CSS was swept out (90 dead
@@ -21,7 +21,7 @@ portal** that lets stakeholders view read-only progress without logging in.
 > (`includes/Router.php`) and a `slug` migration replace the old
 > `.php`-suffixed URLs with clean ones, and the canonical detail URLs use
 > **numeric IDs** (`/projects/1692`, `/tasks/935`, `/contacts/249`) because
-> slugs are mutable — every legacy `.php` and slug URL 301s to the new form.
+> slugs are immutable — every legacy `.php` and slug URL 301s to the new form.
 >
 > Other notable additions: **public registration can be closed** with a single
 > `const APP_ALLOW_REGISTRATION` line in `config.php` (the `register.php`
@@ -48,9 +48,9 @@ The complete v2.0 surface. Full detail is in
 
 | Area | What changed |
 |---|---|
-| **Design tokens** | `assets/css/v2-tokens.css` — 103 tokens for colour, spacing, radius, typography, shadow and duration. Semantic tints use `-100` / `-500` / `-700`. |
+| **Design tokens** | `assets/css/v2-tokens.css` — 80 tokens for colour, spacing, radius, typography, shadow and duration. Semantic tints use `-100` / `-500` / `-700`. |
 | **Components** | `assets/css/v2-components.css` — the shared vocabulary: `.card`, `.btn`, `.status`, `.badge`, `.modal`, `.toast`, `.stat-grid`, `.detail-list`, `.table`, `.task-tree`, `.form-grid`, `.field`, `.alert`. |
-| **Page stylesheets** | `assets/css/pages/` — 14 per-page files. Page styling no longer lives in inline `<style>` blocks. |
+| **Page stylesheets** | `assets/css/pages/` — 13 per-page files. Page styling no longer lives in inline `<style>` blocks. |
 | **Routing** | `includes/Router.php` front controller; clean URLs replace `.php` suffixes; canonical detail URLs use numeric IDs; legacy `.php` and slug URLs 301 to the new form. |
 | **Client-side JS** | `assets/js/script.js` — `initModals()`, `initRangeSync()`, `initStatusReason()`, `initCopy()` and `pmpToast()`, moved out of per-page inline scripts. |
 | **Dead CSS sweep** | 90 selectors removed from `style.css` (984 → 428 lines), 11 from the client portal CSS. |
@@ -118,9 +118,10 @@ it back to `true` to re-open registration.
 
 - Clean URLs replace `.php` suffixes (`/login`, `/projects`, `/dashboard`).
 - Detail URLs use **numeric IDs** — `/projects/<id>`, `/tasks/<id>`,
-  `/contacts/<id>` — because slugs are mutable and renaming an entity used
-  to break its links. The `slug` columns are retained so historical slug URLs
-  still resolve.
+  `/contacts/<id>`. Slugs are **immutable** (assigned once on insert, never
+  regenerated on rename) and are no longer the public URL, so a rename can
+  no longer break a link. The `slug` columns are retained so historical slug
+  URLs still resolve (they 301 to the ID form).
 - `GET /reset-password` and `/reset-password/<token>` were declared in the
   router but returned **404**, so every emailed password-reset link was dead.
 - Unauthenticated deep links now redirect to the login page with a
@@ -736,9 +737,14 @@ and `issue-035.md` — not the rest of `docs/issues/`.
 
 ---
 
-## Quick start (Docker)
+## Quick start (Docker — development only)
 
-The fastest path. Requires Docker 24+ and Docker Compose v2.
+Docker Compose is a **developer convenience**. The application itself does not
+require Docker and is installed the same way on a normal LAMP / shared-hosting
+box — see [Installing without Docker](#installing-without-docker-production)
+below.
+
+The fastest path for local development. Requires Docker 24+ and Docker Compose v2.
 
 ```bash
 git clone <your-fork-or-this-repo> project-management-platform
@@ -842,6 +848,82 @@ cd docs/design/2.0 && python3 -m http.server 8080
 See `docs/issues/issue-035.md` for the full design specification and
 `docs/issues/issue-036.md` for the ops notes.
 
+---
+
+## Installing without Docker (production)
+
+**Docker is not required to run this application.** Docker Compose exists only
+to make local development convenient; the production install path never touches
+it. The application reads its configuration from `config.php` and nothing else —
+there is no `.env` parsing, no `getenv()` lookup, and no container requirement
+anywhere in the application code.
+
+This is the path used on the production host (Hostinger / cPanel, Apache,
+`public_html`).
+
+### Requirements
+
+| Requirement | Value |
+|---|---|
+| PHP | **8.5 or higher** (8.3/8.4 carry unpatched vulnerabilities) |
+| Database | MySQL 8.0+ or MariaDB 10.4+ |
+| Web server | Apache with `mod_rewrite` **enabled**, or Nginx |
+| PHP extensions | `pdo_mysql`, `mbstring`, `intl`, `zip`, `json`, `session` |
+| Mail | An SMTP server for the notifications |
+
+> **`mod_rewrite` is mandatory on the Apache target.** Without it the
+> front controller and every deny rule are dead, and Apache answers
+> `Invalid command 'RewriteEngine'` — a 500 on *every* URL, including
+> `/login`. Shared hosts (Hostinger / cPanel) normally have it on; if yours
+> does not, ask the provider to enable it, or use the Nginx rules from
+> `docker/nginx.conf` instead. For a local Apache container:
+>
+> ```sh
+> a2enmod rewrite && apache2ctl -k restart
+> ```
+>
+> The official `php:apache` Docker image does **not** enable `mod_rewrite`
+> by default — the one-liner above is required there too.
+
+### Steps
+
+1. **Upload** the repository to the web root (`public_html` on shared hosting).
+2. **Point the domain's document root** at it and make sure **`mod_rewrite`
+   is enabled** (see the note above). The front-controller rewrite ships in
+   `.htaccess` — on Apache it then just works. On Nginx, copy the equivalent
+   `try_files` / `location` rules from `docker/nginx.conf`.
+3. **Make the application directory writable** — `install.php` writes
+   `config.php` into it. (Tighten the permissions again afterwards.)
+4. **Create an empty database and a database user** with rights on it.
+5. **Run the installer**: browse to `https://<your-domain>/install.php`. The
+   wizard validates the DB connection, creates the schema from
+   `database/schema.sql`, collects the SMTP settings, and writes `config.php`.
+6. **Delete or lock `install.php`** afterwards. (The wizard refuses to run
+   again once `config.php` exists, but removing it is safer.)
+7. **Apply pending migrations** newer than the schema the wizard created —
+   see the migration list in the Docker section above; the `docker compose exec
+   db mariadb …` commands translate to your host's `mysql`/`mariadb` client.
+8. **Verify** with the read-only diagnostic from a shell on the server:
+   `php /path/to/_diag.php`. It checks the PHP version, the 5 pinned md5sums,
+   the security headers, and the landing page.
+
+### Configuration without Docker
+
+`config.php` is the single source of truth for settings on every target. To
+configure by hand instead of using the wizard, copy `config.template.php` to
+`config.php` and fill in the values — it declares the same **21 constants**
+the wizard writes:
+
+```php
+const APP_NAME = 'Project Management System';
+const APP_VERSION = 'v2.0';
+const APP_URL  = 'https://your-domain';
+```
+
+`.env` / `docker-compose.yml` are **development conveniences only**. The Docker
+entrypoint translates environment variables into `config.php` before the app
+starts; on a non-Docker host you edit `config.php` directly.
+
 ### v2.0 release status
 
 **v2.0 is released** (2026-10-25). `APP_VERSION` is `v2.0` and the v2.0
@@ -899,13 +981,13 @@ When you add or move a stylesheet or script, link it with:
 
 | Layer       | Choice                                              |
 | ----------- | --------------------------------------------------- |
-| Language    | PHP 8.3 (procedural, per-page)                      |
+| Language    | PHP 8.5 (procedural, per-page) — **8.5 is the minimum**; 8.3/8.4 carry unpatched vulnerabilities |
 | DB          | MariaDB 10.11 (MySQL-compatible)                     |
-| Web server  | nginx (alpine), reverse-proxied to php-fpm          |
+| Web server  | nginx (alpine) in development; Apache + `.htaccess` (or nginx) in production |
 | Email       | PHPMailer 6.8 (SMTP)                                |
 | Composer    | One dependency (`phpmailer/phpmailer`)              |
 | Auth        | Argon2id password hashing, server-side sessions     |
-| Containers  | `pmp-app` (php-fpm), `pmp-web` (nginx), `pmp-db` (mariadb) |
+| Containers  | **Development only** — `pmp-app` (php-fpm), `pmp-web` (nginx), `pmp-db` (mariadb) |
 
 ---
 
@@ -919,7 +1001,7 @@ When you add or move a stylesheet or script, link it with:
 │   │   ├── v2-tokens.css      Design tokens (colour, spacing, radius, type, …)
 │   │   ├── v2-components.css  Shared component library
 │   │   ├── style.css          Base / layout stylesheet
-│   │   └── pages/             14 per-page stylesheets
+│   │   └── pages/             13 per-page stylesheets
 │   ├── js/
 │   │   ├── script.js          Shared client-side behaviour
 │   │   └── subtask-manager.js Sub-task add / delete
@@ -989,18 +1071,58 @@ const APP_NAME = 'Project Management System';
 const APP_URL  = 'http://localhost';
 ```
 
-Database credentials come from `.env` (see `.env.example`). Mail settings
-are read at runtime by `includes/EmailService.php` and configured through
-the admin UI after install.
+Database credentials live in `config.php` on **every** target — the
+application never reads `.env`, `$_ENV` or `getenv()` directly. In
+development, `docker/entrypoint.sh` translates the environment variables into
+`config.php` before the app starts; in production you edit `config.php`
+yourself (or let `install.php` write it). `.env` and `docker-compose.yml` are
+**development conveniences only**.
+
+Mail settings are read at runtime by `includes/EmailService.php` and configured
+through the admin UI after install.
 
 ## Web access boundaries
 
-The Docker deployment uses Nginx; `.htaccess` rules are not applied. The Nginx
-site configuration blocks direct HTTP access to dotfiles, configuration and
-deployment files, documentation, database scripts, dependencies, and internal
-source directories. Keep those deny rules ahead of PHP routing rules when
-changing `docker/nginx.conf`, because the first matching Nginx regex location
-is selected.
+The application ships **two** web-server configurations and they must stay in
+step:
+
+| Target | Server | Config |
+|---|---|---|
+| Development | Nginx | `docker/nginx.conf` |
+| Production (shared hosting) | Apache | `.htaccess` |
+
+Both block direct HTTP access to dotfiles, configuration and deployment
+files, documentation, database scripts, dependencies, internal source
+directories (`includes/`, `database/`, `docs/`, `vendor/`, `docker/`) and the
+diagnostic scripts (`_diag.php`, `_smtp_test.php`). Both keep
+`client/index.php` and `client/dashboard.php` reachable and everything else
+under `client/` closed — `client/lang.php` is an include, not an endpoint.
+
+**Every deny rule added to one file must be added to the other.** The
+regression test `database/apache_nginx_parity_test.php` extracts the deny
+patterns from both files, evaluates them against a list of paths, and fails
+if the two servers disagree — or if both silently stop blocking something.
+Run it after touching either config:
+
+```sh
+docker exec project-management-platform-app-1 \
+    php /var/www/html/database/apache_nginx_parity_test.php
+```
+
+Two Apache-specific constraints bite hard, and both have cost time:
+
+- **`<DirectoryMatch>` is illegal in `.htaccess`.** Apache 2.4 gives it the
+  context "server config, virtual host" only. Apache rejects the *whole*
+  file and answers 500 for every request. Express directory denies as
+  `RewriteRule … [R=404,L]` instead.
+- **`<FilesMatch>` authorization runs before the rewrite phase.** Leaving a
+  `<FilesMatch>Require all denied</FilesMatch>` block unconditional turns
+  every intended 404 into a 403 and breaks status-code parity. The
+  `<FilesMatch>` blocks are therefore wrapped in `<IfModule !mod_rewrite.c>`
+  and act only as a backstop for hosts with `mod_rewrite` disabled.
+
+Keep the Nginx deny rules ahead of its PHP routing rules, because the first
+matching Nginx regex location is selected.
 
 Intentionally public PHP entry points are the authentication and first-run
 pages and the client portal (`client/index.php` and
@@ -1026,6 +1148,10 @@ for path in .env .env.example .htaccess config.php config.template.php \
 done
 curl -fsS -o /dev/null http://localhost/assets/css/style.css
 ```
+
+> Apache answers **403** for `/.htaccess` rather than 404 — that is Apache's
+> own core protection of the file and cannot be overridden from `.htaccess`.
+> The file is not served either way.
 
 ---
 

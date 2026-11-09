@@ -25,8 +25,8 @@ RewriteEngine On
 # Deliberately narrow: it names the legacy entry points explicitly instead of
 # matching \.php$, so no other PHP file changes behaviour. It is placed after
 # RewriteEngine On and before the catch-all, and it does not shadow any of the
-# deny rules further down - those are <FilesMatch>/<DirectoryMatch> directives,
-# not rewrites, so they are unaffected by this block.
+# deny rules further down - those are <FilesMatch> directives and rewrite
+# rules, not the catch-all below, so they are unaffected by this block.
 RewriteRule ^(dashboard|projects|tasks|contacts|profile|login|register|logout|forgot_password|reset_password|project_detail|project_edit|project_delete|task_detail|task_edit|task_delete|contact_detail|contact_edit|contact_delete)\.php$ index.php [QSA,L]
 
 # Redirect to index.php if file doesn't exist
@@ -42,28 +42,109 @@ RewriteRule ^(.*)$ index.php [QSA,L]
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-# Deny access to sensitive files
-<FilesMatch "\.(ini|log|conf|sql|md)$">
+# ---------------------------------------------------------------------------
+# Deny rules
+#
+# Every path denied here MUST also be denied in docker/nginx.conf, and the
+# other way round (see AGENTS.md).
+#
+# The primary mechanism is mod_rewrite with [R=404,L], which answers 404 —
+# exactly like nginx, and without confirming whether the file exists.
+#
+# <IfModule !mod_rewrite.c> holds the <FilesMatch>Require all denied</FilesMatch>
+# backstops. They answer 403 and are skipped whenever mod_rewrite IS loaded,
+# so the normal response is 404 on both targets. They exist for the case
+# where a host disables mod_rewrite: the front controller would be broken
+# then, but the sensitive files must still not be served.
+#
+# NOTE on ordering: <FilesMatch> authorization runs in the authz phase,
+# BEFORE the per-directory rewrite (fixup) phase. Leaving the
+# <FilesMatch> blocks unconditional therefore turns every 404 into a 403.
+# ---------------------------------------------------------------------------
+
+# Deny access to sensitive files.
+# Extension list mirrors the nginx deny exactly:
+#   location ~* \.(?:sql|log|ini|conf|ya?ml|md|dist|bak|backup|old|orig|swp|tmp|dump|db|sqlite3?|pem|key|crt|cache|lock|sh)$
+# `.sh` is included — shell scripts have no business being web-readable.
+# `docker/` is denied as a directory anyway.
+RewriteRule \.(?:sql|log|ini|conf|ya?ml|md|dist|bak|backup|old|orig|swp|tmp|dump|db|sqlite3?|pem|key|crt|cache|lock|sh)$ - [R=404,L]
+
+# Deny access to configuration files, deployment descriptors and dotfiles.
+# Mirrors the nginx deny:
+#   location ~* (?:^|/)(?:\.env(?:\.[^/]*)?|\.htaccess|\.htpasswd|config[^/]*|composer\.(?:json|lock)|package(?:\.(?:json|lock)|-lock\.json)|npm-shrinkwrap\.json|docker-compose(?:\.[^/]*)?|Dockerfile|README(?:\.[^/]*)?|RELEASE(?:\.[^/]*)?)$
+#
+# Without this rule a shared-hosting install serves /.env — which holds the
+# database password — over plain HTTP.
+RewriteRule (?:^|/)(?:\.env(?:\.[^/]*)?|\.htaccess|\.htpasswd|config[^/]*|composer\.(?:json|lock)|package(?:\.(?:json|lock)|-lock\.json)|npm-shrinkwrap\.json|docker-compose(?:\.[^/]*)?|Dockerfile|README(?:\.[^/]*)?|RELEASE(?:\.[^/]*)?)$ - [R=404,L]
+
+# Issue-029 v1.7.2.2: deny public HTTP access to the prod sanity probe and
+# the SMTP test script (the dev runs them from the shell, not a browser).
+# Mirrors the nginx deny:
+#   location ~* ^/(?:_diag|_smtp_test)\.php$ { return 404; }
+RewriteRule ^_diag\.php$ - [R=404,L]
+RewriteRule ^_smtp_test\.php$ - [R=404,L]
+
+<IfModule !mod_rewrite.c>
+<FilesMatch "\.(ini|log|conf|sql|md|ya?ml|sh|dist|bak|backup|old|orig|swp|tmp|dump|db|sqlite3?|pem|key|crt|cache|lock)$">
     Require all denied
 </FilesMatch>
-
-# Deny access to specific directories
-<DirectoryMatch "/(includes|database|docs|vendor)/">
-    Require all denied
-</DirectoryMatch>
-
-# Deny access to configuration files
-<FilesMatch "^(config|composer|package)\.">
+<FilesMatch "^(config|composer|package)[-.]">
     Require all denied
 </FilesMatch>
-
-# Issue-029 v1.7.2.2: deny public HTTP access to the prod sanity probe
-# (the dev runs it from the shell, not from a browser). The file is
-# safe to leave in public_html permanently because the deny rule
-# blocks it from any non-shell request.
+<FilesMatch "^(Dockerfile|docker-compose)">
+    Require all denied
+</FilesMatch>
 <FilesMatch "^_diag\.php$">
     Require all denied
 </FilesMatch>
+<FilesMatch "^_smtp_test\.php$">
+    Require all denied
+</FilesMatch>
+
+# Deny dotfiles (.env, .env.example, .gitignore, …).
+# <FilesMatch> matches the file's basename.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+</IfModule>
+
+# Deny access to non-public directories.
+#
+# NOTE: <DirectoryMatch> is NOT allowed in .htaccess — Apache 2.4 gives it the
+# context "server config, virtual host" only. Leaving it here makes Apache
+# reject the whole .htaccess ("<DirectoryMatch not allowed here"), which
+# 500s EVERY request. mod_rewrite may be used in .htaccess, so the directory
+# deny is expressed as a rewrite rule instead.
+#
+# In per-directory (.htaccess) context the pattern is matched against the
+# URL path relative to this directory, without the leading slash.
+#
+# `docker` holds the dev-only entrypoint and nginx configs. It is not
+# web-reachable under Docker (the directory is not bind-mounted), but a
+# shared-hosting install copies the whole tree into public_html, so it MUST
+# be denied here too.
+RewriteRule ^(?:includes|database|docs|vendor|docker|tmpdiag)(?:/|$) - [R=404,L]
+
+# Deny access to dot-directories (.git/, .github/, .vscode/) and to dotfiles
+# (.env, .env.example, …). Mirrors the nginx rule:
+#   location ~* /\.(?!well-known(?:/|$)) { return 404; }
+# The ACME challenge directory (/.well-known/) stays reachable so a TLS
+# renewal can still write its token.
+RewriteRule (?:^|/)\.(?!well-known(?:/|$)) - [R=404,L]
+
+# No directory listings. Without this Apache serves a browsable index of
+# any directory that has no index file — a second way to read the tree.
+Options -Indexes
+
+# Permit only the client dashboard under /client/. This mirrors the nginx
+# rule:
+#   location ~ ^/client/(?!index\.php$|dashboard\.php$).+\.php$ { return 404; }
+#
+# client/lang.php is an include, not a public endpoint — serving it directly
+# leaks the translation catalog and bypasses the dashboard's rate limiting.
+# client/index.php is a redirect shim (issue-004) and client/dashboard.php is
+# the public read-only portal; both stay reachable.
+RewriteRule ^client/(?!index\.php$|dashboard\.php$).+\.php$ - [R=404,L]
 
 # Enable compression
 <IfModule mod_deflate.c>
@@ -93,3 +174,5 @@ RewriteRule ^(.*)$ index.php [QSA,L]
     ExpiresByType image/x-icon "access plus 1 year"
     ExpiresDefault "access plus 2 days"
 </IfModule>
+# --- TEMP DEBUG: exact combined pattern ---
+RewriteRule (?:^|/)(?:\.env(?:\.[^/]*)?|\.htaccess|\.htpasswd|config[^/]*|composer\.(?:json|lock)|package\.(?:json|lock)|docker-compose(?:\.[^/]*)?|Dockerfile|README(?:\.[^/]*)?|RELEASE(?:\.[^/]*)?)$ - [R=404,L]
