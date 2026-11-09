@@ -6,6 +6,15 @@ ENV COMPOSER_HOME=/tmp/composer \
 
 # System packages needed at build-time (icu-dev, libzip-dev, oniguruma-dev) AND
 # runtime (icu-libs). docker-php-ext-install needs $PHPIZE_DEPS.
+#
+# NOTE: opcache is deliberately NOT in the ext-install list. As of PHP 8.5 the
+# upstream base image compiles opcache STATICALLY into the PHP binary
+# (`php -m` shows "Zend OPcache"; there is no opcache.so in the extension dir),
+# and ext/opcache/config.m4 now declares it as a non-shared module. Running
+# `docker-php-ext-install opcache` against 8.5 therefore builds nothing and
+# fails at `make install` with "cp: can't stat 'modules/*'". The php.ini
+# overrides below (opcache.enable, memory_consumption, max_accelerated_files)
+# still apply to the static build.
 RUN apk add --no-cache \
         icu-dev \
         libzip-dev \
@@ -23,7 +32,6 @@ RUN apk add --no-cache \
         pdo_mysql \
         mbstring \
         intl \
-        opcache \
         zip \
     && apk del icu-dev \
     && rm -rf /tmp/* /var/cache/apk/*

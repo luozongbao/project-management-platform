@@ -304,7 +304,7 @@ $csrf_token = getCsrfToken();
                 <div class="install-panel">
                     <div class="install-panel__title"><i class="fas fa-list-check"></i> Requirements</div>
                     <ul class="install-list install-list--compact">
-                        <li><i class="fas fa-circle-check"></i> PHP 8.3 or higher</li>
+                        <li><i class="fas fa-circle-check"></i> PHP 8.5 or higher</li>
                         <li><i class="fas fa-circle-check"></i> MySQL/MariaDB database</li>
                         <li><i class="fas fa-circle-check"></i> SMTP server for email notifications</li>
                         <li><i class="fas fa-circle-check"></i> Write permissions on the application directory</li>

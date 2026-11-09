@@ -26,6 +26,7 @@ The tests in this directory fall into two camps:
 | `task_inherit_subtask_hours_test.php` | DB + CLI proxy render | Verifies the issue-011 "sum of sub-task hours" inherit mode. |
 | `task_parent_status_derived_test.php` | DB | Verifies the issue-012 parent-status derivation rule. |
 | `task_layout_issue013_test.php` | source-grep + lint | Pure CSS / markup regression — no DB. |
+| `apache_nginx_parity_test.php` | config-parse | Extracts the deny patterns from `.htaccess` and `docker/nginx.conf` and asserts they agree — no DB. |
 
 To run all DB-backed tests:
 
